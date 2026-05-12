@@ -1,0 +1,21 @@
+* text=auto
+
+*.dart text
+*.py text
+*.md text
+*.yaml text
+*.yml text
+*.json text
+*.txt text
+*.xml text
+*.kts text
+*.gradle text
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.jar binary
+*.apk binary
+*.sqlite3 binary
