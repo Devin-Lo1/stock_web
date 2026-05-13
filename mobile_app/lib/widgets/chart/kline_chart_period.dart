@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../../utils/theme_helpers.dart';
 
 enum KLineChartPeriod {
-  intraday('分时', '60m', 120),
-  day('日K', 'day', 240),
+  intraday('分时', '1m', 240),
+  day('日K', 'day', 360),
   week('周K', 'week', 240),
   month('月K', 'month', 180);
 

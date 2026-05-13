@@ -188,7 +188,7 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
               selectedPeriod: _selectedPeriod,
               onPeriodChanged: _changeChartPeriod,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             _InteractiveKLinePreview(
               position: _position,
               candles: _candles,
@@ -651,16 +651,27 @@ class _InteractiveKLinePreview extends StatefulWidget {
 }
 
 class _InteractiveKLinePreviewState extends State<_InteractiveKLinePreview> {
-  static const _visibleCount = 64;
+  static const _defaultVisibleCount = 64;
+  static const _minVisibleCount = 12;
+  static const _maxVisibleCount = 240;
+  int _visibleCount = _defaultVisibleCount;
   int _rightOffset = 0;
   int? _selectedVisibleIndex;
+  int _scaleStartVisibleCount = _defaultVisibleCount;
 
-  int get _maxOffset => math.max(0, widget.candles.length - _visibleCount);
+  int get _effectiveVisibleCount {
+    if (widget.candles.isEmpty) return _visibleCount;
+    return math.min(_visibleCount, widget.candles.length);
+  }
+
+  int get _maxOffset =>
+      math.max(0, widget.candles.length - _effectiveVisibleCount);
 
   @override
   void didUpdateWidget(covariant _InteractiveKLinePreview oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.period != widget.period) {
+      _visibleCount = _defaultVisibleCount;
       _rightOffset = 0;
       _selectedVisibleIndex = null;
     }
@@ -675,7 +686,7 @@ class _InteractiveKLinePreviewState extends State<_InteractiveKLinePreview> {
       0,
       widget.candles.length,
     );
-    final start = math.max(0, end - _visibleCount);
+    final start = math.max(0, end - _effectiveVisibleCount);
     return widget.candles.sublist(start, end);
   }
 
@@ -685,16 +696,46 @@ class _InteractiveKLinePreviewState extends State<_InteractiveKLinePreview> {
       0,
       widget.candles.length,
     );
-    return math.max(0, end - _visibleCount);
+    return math.max(0, end - _effectiveVisibleCount);
   }
 
-  void _handleHorizontalDrag(DragUpdateDetails details) {
-    if (_maxOffset == 0) return;
-    final delta = (details.primaryDelta ?? 0) / 7;
-    final nextOffset = (_rightOffset + delta.round()).clamp(0, _maxOffset);
-    if (nextOffset != _rightOffset) {
-      setState(() => _rightOffset = nextOffset);
+  void _handleScaleStart(ScaleStartDetails details) {
+    _scaleStartVisibleCount = _visibleCount;
+  }
+
+  void _handleScaleUpdate(ScaleUpdateDetails details, double width) {
+    if (widget.candles.isEmpty || width <= 0) return;
+    if (details.pointerCount >= 2) {
+      final rawCount = (_scaleStartVisibleCount / details.scale).round();
+      final nextVisibleCount = rawCount
+          .clamp(
+            _minVisibleCount,
+            math.min(_maxVisibleCount, widget.candles.length),
+          )
+          .toInt();
+      if (nextVisibleCount != _visibleCount) {
+        setState(() {
+          _visibleCount = nextVisibleCount;
+          _rightOffset = _rightOffset.clamp(0, _maxOffset);
+          if (_selectedVisibleIndex != null &&
+              _selectedVisibleIndex! >= _effectiveVisibleCount) {
+            _selectedVisibleIndex = _effectiveVisibleCount - 1;
+          }
+        });
+      }
+      _selectCandle(details.localFocalPoint, width);
+      return;
     }
+
+    if (_maxOffset > 0) {
+      final slotWidth = width / math.max(1, _effectiveVisibleCount);
+      final delta = details.focalPointDelta.dx / slotWidth;
+      final nextOffset = (_rightOffset - delta.round()).clamp(0, _maxOffset);
+      if (nextOffset != _rightOffset) {
+        setState(() => _rightOffset = nextOffset);
+      }
+    }
+    _selectCandle(details.localFocalPoint, width);
   }
 
   void _selectCandle(Offset localPosition, double width) {
@@ -744,8 +785,24 @@ class _InteractiveKLinePreviewState extends State<_InteractiveKLinePreview> {
       ),
       child: Stack(
         children: [
+          if (selectedCandle != null)
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: _SelectedCandleInfoPanel(
+                candle: selectedCandle,
+                previousClose: _previousCloseForSelected(visibleCandles),
+              ),
+            ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: selectedCandle == null ? 0 : 62,
+            child: _KLineMaStrip(maValues: maValues),
+          ),
           Positioned.fill(
-            top: selectedCandle == null ? 42 : 94,
+            top: selectedCandle == null ? 28 : 90,
             child: LayoutBuilder(
               builder: (context, constraints) {
                 return GestureDetector(
@@ -759,14 +816,9 @@ class _InteractiveKLinePreviewState extends State<_InteractiveKLinePreview> {
                     constraints.maxWidth,
                   ),
                   onDoubleTap: widget.onOpenFullScreen,
-                  onHorizontalDragDown: (details) => _selectCandle(
-                    details.localPosition,
-                    constraints.maxWidth,
-                  ),
-                  onHorizontalDragUpdate: (details) {
-                    _handleHorizontalDrag(details);
-                    _selectCandle(details.localPosition, constraints.maxWidth);
-                  },
+                  onScaleStart: _handleScaleStart,
+                  onScaleUpdate: (details) =>
+                      _handleScaleUpdate(details, constraints.maxWidth),
                   child: ClipRect(
                     child: CustomPaint(
                       painter: _InteractiveKLinePainter(
@@ -798,42 +850,6 @@ class _InteractiveKLinePreviewState extends State<_InteractiveKLinePreview> {
                   ),
                 );
               },
-            ),
-          ),
-          if (selectedCandle != null)
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 32,
-              child: _SelectedCandleInfoPanel(
-                candle: selectedCandle,
-                previousClose: _previousCloseForSelected(visibleCandles),
-              ),
-            ),
-          Align(
-            alignment: Alignment.topLeft,
-            child: Wrap(
-              spacing: 7,
-              runSpacing: 2,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                _MaLabel(
-                  text: 'MA5:${_formatMa(maValues[5])}',
-                  color: const Color(0xFFE0A84C),
-                ),
-                _MaLabel(
-                  text: '10:${_formatMa(maValues[10])}',
-                  color: const Color(0xFF5BA7D7),
-                ),
-                _MaLabel(
-                  text: '20:${_formatMa(maValues[20])}',
-                  color: const Color(0xFFC65BB8),
-                ),
-                _MaLabel(
-                  text: '60:${_formatMa(maValues[60])}',
-                  color: const Color(0xFF5CC9C7),
-                ),
-              ],
             ),
           ),
           Positioned(
@@ -881,6 +897,42 @@ class _InteractiveKLinePreviewState extends State<_InteractiveKLinePreview> {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _KLineMaStrip extends StatelessWidget {
+  const _KLineMaStrip({required this.maValues});
+
+  final Map<int, double?> maValues;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 2,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          _MaLabel(
+            text: 'MA5:${_formatMa(maValues[5])}',
+            color: const Color(0xFFE0A84C),
+          ),
+          _MaLabel(
+            text: 'MA10:${_formatMa(maValues[10])}',
+            color: const Color(0xFF5BA7D7),
+          ),
+          _MaLabel(
+            text: 'MA20:${_formatMa(maValues[20])}',
+            color: const Color(0xFFC65BB8),
+          ),
+          _MaLabel(
+            text: 'MA60:${_formatMa(maValues[60])}',
+            color: const Color(0xFF5CC9C7),
+          ),
         ],
       ),
     );
@@ -1653,9 +1705,13 @@ class _FullScreenKLineScreen extends StatefulWidget {
 }
 
 class _FullScreenKLineScreenState extends State<_FullScreenKLineScreen> {
-  static const _visibleCount = 96;
+  static const _defaultVisibleCount = 96;
+  static const _minVisibleCount = 16;
+  static const _maxVisibleCount = 320;
+  int _visibleCount = _defaultVisibleCount;
   int _rightOffset = 0;
   int? _selectedVisibleIndex;
+  int _scaleStartVisibleCount = _defaultVisibleCount;
 
   @override
   void initState() {
@@ -1677,7 +1733,13 @@ class _FullScreenKLineScreenState extends State<_FullScreenKLineScreen> {
     super.dispose();
   }
 
-  int get _maxOffset => math.max(0, widget.candles.length - _visibleCount);
+  int get _effectiveVisibleCount {
+    if (widget.candles.isEmpty) return _visibleCount;
+    return math.min(_visibleCount, widget.candles.length);
+  }
+
+  int get _maxOffset =>
+      math.max(0, widget.candles.length - _effectiveVisibleCount);
 
   List<Candle> get _visibleCandles {
     if (widget.candles.isEmpty) return const [];
@@ -1685,7 +1747,7 @@ class _FullScreenKLineScreenState extends State<_FullScreenKLineScreen> {
       0,
       widget.candles.length,
     );
-    final start = math.max(0, end - _visibleCount);
+    final start = math.max(0, end - _effectiveVisibleCount);
     return widget.candles.sublist(start, end);
   }
 
@@ -1695,16 +1757,46 @@ class _FullScreenKLineScreenState extends State<_FullScreenKLineScreen> {
       0,
       widget.candles.length,
     );
-    return math.max(0, end - _visibleCount);
+    return math.max(0, end - _effectiveVisibleCount);
   }
 
-  void _handleDrag(DragUpdateDetails details) {
-    if (_maxOffset == 0) return;
-    final delta = (details.primaryDelta ?? 0) / 7;
-    final nextOffset = (_rightOffset + delta.round()).clamp(0, _maxOffset);
-    if (nextOffset != _rightOffset) {
-      setState(() => _rightOffset = nextOffset);
+  void _handleScaleStart(ScaleStartDetails details) {
+    _scaleStartVisibleCount = _visibleCount;
+  }
+
+  void _handleScaleUpdate(ScaleUpdateDetails details, double width) {
+    if (widget.candles.isEmpty || width <= 0) return;
+    if (details.pointerCount >= 2) {
+      final rawCount = (_scaleStartVisibleCount / details.scale).round();
+      final nextVisibleCount = rawCount
+          .clamp(
+            _minVisibleCount,
+            math.min(_maxVisibleCount, widget.candles.length),
+          )
+          .toInt();
+      if (nextVisibleCount != _visibleCount) {
+        setState(() {
+          _visibleCount = nextVisibleCount;
+          _rightOffset = _rightOffset.clamp(0, _maxOffset);
+          if (_selectedVisibleIndex != null &&
+              _selectedVisibleIndex! >= _effectiveVisibleCount) {
+            _selectedVisibleIndex = _effectiveVisibleCount - 1;
+          }
+        });
+      }
+      _selectCandle(details.localFocalPoint, width);
+      return;
     }
+
+    if (_maxOffset > 0) {
+      final slotWidth = width / math.max(1, _effectiveVisibleCount);
+      final delta = details.focalPointDelta.dx / slotWidth;
+      final nextOffset = (_rightOffset - delta.round()).clamp(0, _maxOffset);
+      if (nextOffset != _rightOffset) {
+        setState(() => _rightOffset = nextOffset);
+      }
+    }
+    _selectCandle(details.localFocalPoint, width);
   }
 
   void _selectCandle(Offset localPosition, double width) {
@@ -1750,7 +1842,7 @@ class _FullScreenKLineScreenState extends State<_FullScreenKLineScreen> {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final headerHeight = selectedCandle == null ? 92.0 : 148.0;
+            const headerHeight = 96.0;
             return Stack(
               children: [
                 Positioned(
@@ -1901,109 +1993,91 @@ class _FullScreenKLineScreenState extends State<_FullScreenKLineScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Text(
-                            widget.period.label,
-                            style: TextStyle(
-                              color: primaryTextColor(context),
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          const SizedBox(width: 18),
-                          _MaLabel(
-                            text: 'MA5:${_formatMa(maValues[5])}',
-                            color: const Color(0xFFE0A84C),
-                          ),
-                          const SizedBox(width: 10),
-                          _MaLabel(
-                            text: 'MA10:${_formatMa(maValues[10])}',
-                            color: const Color(0xFF5BA7D7),
-                          ),
-                          const SizedBox(width: 10),
-                          _MaLabel(
-                            text: 'MA20:${_formatMa(maValues[20])}',
-                            color: const Color(0xFFC65BB8),
-                          ),
-                          const SizedBox(width: 10),
-                          _MaLabel(
-                            text: 'MA60:${_formatMa(maValues[60])}',
-                            color: const Color(0xFF5CC9C7),
-                          ),
-                        ],
-                      ),
-                      if (selectedCandle != null) ...[
-                        const SizedBox(height: 6),
-                        _SelectedCandleInfoPanel(
-                          candle: selectedCandle,
-                          previousClose: _previousCloseForSelected(
-                            visibleCandles,
-                          ),
-                        ),
-                      ],
+                      const SizedBox(height: 2),
+                      _FullPeriodTabs(selectedPeriod: widget.period),
                     ],
                   ),
                 ),
                 Positioned(
                   left: 14,
                   right: 14,
-                  top: headerHeight + 12,
+                  top: headerHeight + 6,
                   bottom: 10,
                   child: LayoutBuilder(
                     builder: (context, constraints) {
-                      return GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTapDown: (details) => _selectCandle(
-                          details.localPosition,
-                          constraints.maxWidth,
-                        ),
-                        onHorizontalDragDown: (details) => _selectCandle(
-                          details.localPosition,
-                          constraints.maxWidth,
-                        ),
-                        onHorizontalDragUpdate: (details) {
-                          _handleDrag(details);
-                          _selectCandle(
-                            details.localPosition,
-                            constraints.maxWidth,
-                          );
-                        },
-                        child: ClipRect(
-                          child: CustomPaint(
-                            painter: _InteractiveKLinePainter(
-                              candles: visibleCandles,
-                              allCandles: widget.candles,
-                              startIndex: _visibleStartIndex,
-                              selectedIndex: _selectedVisibleIndex,
-                              gridColor: borderColor(context),
-                              extremeLabelBackgroundColor: isDarkMode(context)
-                                  ? const Color(
-                                      0xFF0A141F,
-                                    ).withValues(alpha: 0.78)
-                                  : const Color(
-                                      0xFFFFFFFF,
-                                    ).withValues(alpha: 0.88),
-                              extremeLabelBorderColor: isDarkMode(context)
-                                  ? secondaryTextColor(
+                      final chartTop = selectedCandle == null ? 22.0 : 80.0;
+                      return Stack(
+                        children: [
+                          if (selectedCandle != null)
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              top: 0,
+                              child: _SelectedCandleInfoPanel(
+                                candle: selectedCandle,
+                                previousClose: _previousCloseForSelected(
+                                  visibleCandles,
+                                ),
+                              ),
+                            ),
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            top: selectedCandle == null ? 0 : 58,
+                            child: _KLineMaStrip(maValues: maValues),
+                          ),
+                          Positioned.fill(
+                            top: chartTop,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTapDown: (details) => _selectCandle(
+                                details.localPosition,
+                                constraints.maxWidth,
+                              ),
+                              onScaleStart: _handleScaleStart,
+                              onScaleUpdate: (details) => _handleScaleUpdate(
+                                details,
+                                constraints.maxWidth,
+                              ),
+                              child: ClipRect(
+                                child: CustomPaint(
+                                  painter: _InteractiveKLinePainter(
+                                    candles: visibleCandles,
+                                    allCandles: widget.candles,
+                                    startIndex: _visibleStartIndex,
+                                    selectedIndex: _selectedVisibleIndex,
+                                    gridColor: borderColor(context),
+                                    extremeLabelBackgroundColor:
+                                        isDarkMode(context)
+                                        ? const Color(
+                                            0xFF0A141F,
+                                          ).withValues(alpha: 0.78)
+                                        : const Color(
+                                            0xFFFFFFFF,
+                                          ).withValues(alpha: 0.88),
+                                    extremeLabelBorderColor: isDarkMode(context)
+                                        ? secondaryTextColor(
+                                            context,
+                                          ).withValues(alpha: 0.72)
+                                        : const Color(
+                                            0xFF6B7A88,
+                                          ).withValues(alpha: 0.65),
+                                    upColor: const Color(0xFF12B886),
+                                    downColor: const Color(0xFFFF3B45),
+                                    ma5Color: const Color(0xFFE0A84C),
+                                    ma10Color: const Color(0xFF5BA7D7),
+                                    ma20Color: const Color(0xFFC65BB8),
+                                    ma60Color: const Color(0xFF5CC9C7),
+                                    crosshairColor: secondaryTextColor(
                                       context,
-                                    ).withValues(alpha: 0.72)
-                                  : const Color(
-                                      0xFF6B7A88,
-                                    ).withValues(alpha: 0.65),
-                              upColor: const Color(0xFF12B886),
-                              downColor: const Color(0xFFFF3B45),
-                              ma5Color: const Color(0xFFE0A84C),
-                              ma10Color: const Color(0xFF5BA7D7),
-                              ma20Color: const Color(0xFFC65BB8),
-                              ma60Color: const Color(0xFF5CC9C7),
-                              crosshairColor: secondaryTextColor(
-                                context,
-                              ).withValues(alpha: 0.5),
-                              axisLabelColor: secondaryTextColor(context),
+                                    ).withValues(alpha: 0.5),
+                                    axisLabelColor: secondaryTextColor(context),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       );
                     },
                   ),
@@ -2013,6 +2087,63 @@ class _FullScreenKLineScreenState extends State<_FullScreenKLineScreen> {
           },
         ),
       ),
+    );
+  }
+}
+
+class _FullPeriodTabs extends StatelessWidget {
+  const _FullPeriodTabs({required this.selectedPeriod});
+
+  final KLineChartPeriod selectedPeriod;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (final period in KLineChartPeriod.values) ...[
+          _FullPeriodTab(
+            label: period.label,
+            isSelected: period == selectedPeriod,
+          ),
+          if (period != KLineChartPeriod.values.last) const SizedBox(width: 24),
+        ],
+      ],
+    );
+  }
+}
+
+class _FullPeriodTab extends StatelessWidget {
+  const _FullPeriodTab({required this.label, required this.isSelected});
+
+  final String label;
+  final bool isSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isSelected
+        ? primaryTextColor(context)
+        : secondaryTextColor(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 17,
+            fontWeight: isSelected ? FontWeight.w900 : FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          width: 28,
+          height: 3,
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF38BDF8) : Colors.transparent,
+            borderRadius: BorderRadius.circular(99),
+          ),
+        ),
+      ],
     );
   }
 }

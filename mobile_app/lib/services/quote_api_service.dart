@@ -44,10 +44,15 @@ class QuoteApiService {
     String code, {
     String period = 'day',
     int limit = 120,
+    bool includeMock = true,
   }) async {
     final decoded = await _apiClient.get(
       '/api/v1/klines/$code',
-      query: {'period': period, 'limit': limit.toString()},
+      query: {
+        'period': period,
+        'limit': limit.toString(),
+        'include_mock': includeMock.toString(),
+      },
     );
     if (decoded is! List) return const [];
 
@@ -62,23 +67,29 @@ class QuoteApiService {
     String period = 'day',
     int limit = 240,
   }) async {
-    final cached = await fetchCandles(code, period: period, limit: limit);
-    if (cached.isNotEmpty) return cached;
-
-    final decoded = await _apiClient.post(
-      '/api/v1/klines/refresh',
-      const {},
-      query: {'codes': code, 'period': period, 'max_count': limit.toString()},
-    );
-    if (decoded is! List) {
-      return fetchCandles(code, period: period, limit: limit);
+    try {
+      final decoded = await _apiClient.post(
+        '/api/v1/klines/refresh',
+        const {},
+        query: {'codes': code, 'period': period, 'max_count': limit.toString()},
+      );
+      if (decoded is List) {
+        final candles = decoded
+            .whereType<Map<String, dynamic>>()
+            .map(Candle.fromJson)
+            .toList();
+        if (candles.isNotEmpty) return candles;
+      }
+    } catch (_) {
+      final cached = await fetchCandles(
+        code,
+        period: period,
+        limit: limit,
+        includeMock: false,
+      );
+      if (cached.isNotEmpty) return cached;
     }
 
-    final candles = decoded
-        .whereType<Map<String, dynamic>>()
-        .map(Candle.fromJson)
-        .toList();
-    if (candles.isNotEmpty) return candles;
     return fetchCandles(code, period: period, limit: limit);
   }
 }

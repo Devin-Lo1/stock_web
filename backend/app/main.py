@@ -99,10 +99,13 @@ def api_get_klines(
     stock_code: str,
     period: str = Query(default="day"),
     limit: int = Query(default=120, ge=1, le=1000),
+    include_mock: bool = Query(default=True),
 ) -> list[Candle]:
     cached_candles = list_candles(stock_code, period, limit)
     if cached_candles:
         return cached_candles
+    if not include_mock:
+        return []
     return get_candles(stock_code, period, min(limit, 240))
 
 

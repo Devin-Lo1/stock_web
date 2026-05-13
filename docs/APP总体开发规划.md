@@ -465,9 +465,13 @@ Android 12
 device id: PQY0221B24008957
 ```
 
-### 8.2 后端
+### 8.2 后端连接方式
 
-本机后端默认：
+本项目 App 连接后端有三种主要方式：USB ADB reverse、局域网 Wi-Fi、远程服务器。每次切换连接方式，都要确认 `API_BASE_URL`、后端监听地址、防火墙和手机网络状态。
+
+#### 8.2.1 本机后端默认地址
+
+电脑本机访问后端默认使用：
 
 ```text
 http://127.0.0.1:8000
@@ -479,13 +483,153 @@ http://127.0.0.1:8000
 curl http://127.0.0.1:8000/health
 ```
 
-真机访问电脑本机后端：
+如果电脑访问该地址失败，先处理后端启动问题，不要直接怀疑 Flutter。
+
+#### 8.2.2 USB ADB reverse 方式
+
+适用场景：
+
+- 手机通过 USB 连接电脑。
+- 本地开发速度优先。
+- 不想调整 Windows 防火墙或局域网配置。
+
+连接方式：
+
+```text
+手机 App -> 手机 127.0.0.1:8000 -> USB/ADB reverse -> 电脑 127.0.0.1:8000 后端
+```
+
+命令：
 
 ```powershell
 D:\Android\Sdk\platform-tools\adb.exe -s PQY0221B24008957 reverse tcp:8000 tcp:8000
+D:\Android\Sdk\platform-tools\adb.exe reverse --list
 ```
 
-如果不用 USB reverse，必须使用电脑局域网 IP。
+此方式下 App 可以继续使用默认地址：
+
+```text
+http://127.0.0.1:8000
+```
+
+注意：
+
+- `127.0.0.1` 在手机上本来代表手机自己。
+- `adb reverse` 会把手机的 `127.0.0.1:8000` 转发到电脑的 `127.0.0.1:8000`。
+- 拔插 USB、手机变成 `offline`、重启 ADB、重启电脑后，reverse 可能失效。
+- 如果 App 显示“后端连接失败”，优先检查：
+
+```powershell
+D:\Android\Sdk\platform-tools\adb.exe devices -l
+D:\Android\Sdk\platform-tools\adb.exe reverse --list
+curl http://127.0.0.1:8000/health
+```
+
+#### 8.2.3 局域网 Wi-Fi 方式
+
+适用场景：
+
+- 手机和电脑连接同一个 Wi-Fi。
+- 希望脱离 USB reverse。
+- 想提前模拟未来服务器访问方式。
+
+连接方式：
+
+```text
+手机 App -> Wi-Fi 局域网 -> 电脑局域网 IP:8000 后端
+```
+
+当前电脑 WLAN IP 示例：
+
+```text
+192.168.1.4
+```
+
+电脑后端必须监听 `0.0.0.0:8000`，不能只监听 `127.0.0.1:8000`。检查命令：
+
+```powershell
+netstat -ano | findstr ":8000"
+```
+
+应看到类似：
+
+```text
+0.0.0.0:8000 LISTENING
+```
+
+构建局域网版本 App：
+
+```powershell
+cd C:\Users\58229\Desktop\stock_web\mobile_app
+D:\flutter\bin\flutter.bat build apk --debug --dart-define=API_BASE_URL=http://192.168.1.4:8000
+D:\Android\Sdk\platform-tools\adb.exe install -r build\app\outputs\flutter-apk\app-debug.apk
+```
+
+为了确认 App 不再依赖 USB reverse，安装后可以清空 reverse：
+
+```powershell
+D:\Android\Sdk\platform-tools\adb.exe reverse --remove-all
+D:\Android\Sdk\platform-tools\adb.exe reverse --list
+```
+
+局域网方式常见故障：
+
+- Windows 防火墙未放行 TCP 8000。
+- 手机和电脑不在同一个 Wi-Fi 或同一个网段。
+- 路由器开启了 AP 隔离/无线隔离。
+- 电脑 IP 变化后，App 仍然使用旧 IP。
+- 后端只监听 `127.0.0.1`，没有监听 `0.0.0.0`。
+
+Windows 防火墙放行命令需要管理员 PowerShell：
+
+```powershell
+netsh advfirewall firewall add rule name="Stock Web Backend 8000" dir=in action=allow protocol=TCP localport=8000
+```
+
+验证顺序：
+
+```powershell
+curl http://192.168.1.4:8000/health
+D:\Android\Sdk\platform-tools\adb.exe devices -l
+D:\Android\Sdk\platform-tools\adb.exe shell ip route
+```
+
+如果手机 `ping` 不通电脑，不一定代表 HTTP 不通，因为 ICMP 可能被防火墙拦截。最终以 App 是否能访问 `http://电脑局域网IP:8000/health` 对应服务为准。
+
+#### 8.2.4 远程服务器方式
+
+适用场景：
+
+- 后端部署到云服务器。
+- 手机不再依赖开发电脑。
+- 准备多人或长期使用。
+
+连接方式：
+
+```text
+手机 App -> 公网 HTTPS -> 云服务器 FastAPI 后端
+```
+
+推荐要求：
+
+- 使用 HTTPS 域名，不长期使用裸 IP。
+- 后端通过 Nginx/Caddy 等反向代理暴露。
+- 云服务器安全组放行 80/443。
+- App 构建时通过 `--dart-define=API_BASE_URL=...` 指向服务器。
+
+示例：
+
+```powershell
+cd C:\Users\58229\Desktop\stock_web\mobile_app
+D:\flutter\bin\flutter.bat build apk --release --dart-define=API_BASE_URL=https://api.example.com
+```
+
+远程方式注意：
+
+- 不要把富途、聚宽密钥写入 Flutter。
+- API 鉴权、日志、限流、错误码必须在后端统一处理。
+- 生产环境不要依赖 `usesCleartextTraffic=true` 的 HTTP 明文访问。
+- App 应展示明确的后端连接状态和错误说明。
 
 ### 8.3 Java / Flutter JDK
 

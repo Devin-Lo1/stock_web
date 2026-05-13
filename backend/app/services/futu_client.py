@@ -167,9 +167,14 @@ def _normalize_period(period: str) -> str:
         "w": "week",
         "weekly": "week",
         "k_mon": "month",
-        "1m": "month",
+        "1mo": "month",
         "mon": "month",
         "monthly": "month",
+        "k_1m": "1m",
+        "1": "1m",
+        "min": "1m",
+        "minute": "1m",
+        "intraday": "1m",
         "k_60m": "60m",
         "60": "60m",
         "1h": "60m",
@@ -181,7 +186,9 @@ def _normalize_period(period: str) -> str:
 def _default_kline_start(period: str, max_count: int, end: str) -> str:
     end_date = datetime.fromisoformat(end).date()
     bounded_count = max(1, min(max_count, 1000))
-    if period == "60m":
+    if period == "1m":
+        days = max(3, bounded_count // 120 + 2)
+    elif period == "60m":
         days = max(10, bounded_count // 4 + 10)
     elif period == "week":
         days = bounded_count * 10
@@ -197,6 +204,7 @@ def _futu_ktype(sdk: Any, period: str) -> str:
         "day": sdk.KLType.K_DAY,
         "week": sdk.KLType.K_WEEK,
         "month": sdk.KLType.K_MON,
+        "1m": sdk.KLType.K_1M,
         "60m": sdk.KLType.K_60M,
     }
     if period not in mapping:

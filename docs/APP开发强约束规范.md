@@ -231,17 +231,39 @@ mutedIconColor(context)
 - 请求必须有超时保护，避免手机端无限转圈。
 - 后端不可用时应保留本地缓存或 fallback，而不是让 App 崩溃。
 - 真机调试访问本机后端时必须处理地址问题。
+- 每次切换后端连接方式后，必须重新构建或重新运行 App，确认 `API_BASE_URL` 已经生效。
+- 每次重新插拔手机、重启 ADB、重启电脑后，若使用 USB reverse，必须重新检查端口转发。
 
 真机 USB 调试推荐：
 
 ```powershell
 D:\Android\Sdk\platform-tools\adb.exe -s PQY0221B24008957 reverse tcp:8000 tcp:8000
+D:\Android\Sdk\platform-tools\adb.exe reverse --list
 ```
 
 如果不用 USB reverse，应使用局域网 IP 构建：
 
 ```powershell
 D:\flutter\bin\flutter.bat build apk --debug --dart-define=API_BASE_URL=http://电脑局域网IP:8000
+```
+
+当前局域网调试示例：
+
+```powershell
+D:\flutter\bin\flutter.bat build apk --debug --dart-define=API_BASE_URL=http://192.168.1.4:8000
+```
+
+切换为局域网后，为确认没有继续依赖 USB reverse，应清空转发：
+
+```powershell
+D:\Android\Sdk\platform-tools\adb.exe reverse --remove-all
+D:\Android\Sdk\platform-tools\adb.exe reverse --list
+```
+
+远程服务器方式必须使用服务器域名或公网 IP，不允许继续写本机 `127.0.0.1`：
+
+```powershell
+D:\flutter\bin\flutter.bat build apk --release --dart-define=API_BASE_URL=https://api.example.com
 ```
 
 ## 7. 富途、聚宽、策略与回测约束
