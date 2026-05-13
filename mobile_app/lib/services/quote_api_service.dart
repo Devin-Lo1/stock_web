@@ -62,6 +62,9 @@ class QuoteApiService {
     String period = 'day',
     int limit = 240,
   }) async {
+    final cached = await fetchCandles(code, period: period, limit: limit);
+    if (cached.isNotEmpty) return cached;
+
     final decoded = await _apiClient.post(
       '/api/v1/klines/refresh',
       const {},

@@ -7,6 +7,8 @@ class ApiClient {
     : _httpClient = httpClient ?? http.Client(),
       baseUrl = baseUrl ?? _defaultBaseUrl;
 
+  static const _requestTimeout = Duration(seconds: 12);
+
   static const _defaultBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: 'http://127.0.0.1:8000',
@@ -16,7 +18,9 @@ class ApiClient {
   final String baseUrl;
 
   Future<Object?> get(String path, {Map<String, String>? query}) async {
-    final response = await _httpClient.get(_uri(path, query));
+    final response = await _httpClient
+        .get(_uri(path, query))
+        .timeout(_requestTimeout);
     return _decode(response);
   }
 
@@ -25,25 +29,23 @@ class ApiClient {
     Map<String, dynamic> body, {
     Map<String, String>? query,
   }) async {
-    final response = await _httpClient.post(
-      _uri(path, query),
-      headers: _jsonHeaders,
-      body: jsonEncode(body),
-    );
+    final response = await _httpClient
+        .post(_uri(path, query), headers: _jsonHeaders, body: jsonEncode(body))
+        .timeout(_requestTimeout);
     return _decode(response);
   }
 
   Future<Object?> put(String path, Map<String, dynamic> body) async {
-    final response = await _httpClient.put(
-      _uri(path),
-      headers: _jsonHeaders,
-      body: jsonEncode(body),
-    );
+    final response = await _httpClient
+        .put(_uri(path), headers: _jsonHeaders, body: jsonEncode(body))
+        .timeout(_requestTimeout);
     return _decode(response);
   }
 
   Future<void> delete(String path) async {
-    final response = await _httpClient.delete(_uri(path));
+    final response = await _httpClient
+        .delete(_uri(path))
+        .timeout(_requestTimeout);
     _decode(response);
   }
 

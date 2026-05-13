@@ -6,8 +6,12 @@ import 'package:flutter/services.dart';
 import '../models/candle.dart';
 import '../models/stock_position.dart';
 import '../utils/formatters.dart';
+import '../utils/market_data_formatters.dart';
 import '../utils/theme_helpers.dart';
 import '../widgets/common/app_tag.dart';
+import '../widgets/chart/kline_chart_period.dart';
+import '../widgets/position/position_detail_metric.dart';
+import '../widgets/quote/quote_overview_grid.dart';
 
 class PositionDetailScreen extends StatefulWidget {
   const PositionDetailScreen({
@@ -35,7 +39,7 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
   List<Candle> _candles = const [];
   bool _isLoadingCandles = true;
   Object? _candleError;
-  _ChartPeriod _selectedPeriod = _ChartPeriod.day;
+  KLineChartPeriod _selectedPeriod = KLineChartPeriod.day;
 
   @override
   void initState() {
@@ -112,7 +116,7 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
     }
   }
 
-  Future<void> _changeChartPeriod(_ChartPeriod period) async {
+  Future<void> _changeChartPeriod(KLineChartPeriod period) async {
     if (_selectedPeriod == period) return;
     setState(() {
       _selectedPeriod = period;
@@ -178,9 +182,9 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
               ),
             ),
             const SizedBox(height: 18),
-            _QuoteOverviewGrid(position: _position),
+            QuoteOverviewGrid(position: _position),
             const SizedBox(height: 14),
-            _ChartTabs(
+            KLineChartTabs(
               selectedPeriod: _selectedPeriod,
               onPeriodChanged: _changeChartPeriod,
             ),
@@ -208,7 +212,7 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
             Row(
               children: [
                 Expanded(
-                  child: _DetailMetric(
+                  child: PositionDetailMetric(
                     label: '当日收益',
                     value: formatHkd(_position.dailyProfit),
                     subValue: formatPercent(_position.dailyProfitRate),
@@ -217,7 +221,7 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: _DetailMetric(
+                  child: PositionDetailMetric(
                     label: '持有收益',
                     value: _position.pnl,
                     subValue: formatPercent(_position.profitRate),
@@ -230,7 +234,7 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
             Row(
               children: [
                 Expanded(
-                  child: _DetailMetric(
+                  child: PositionDetailMetric(
                     label: '成本价',
                     value: formatHkd(
                       _position.costPrice,
@@ -244,7 +248,7 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: _DetailMetric(
+                  child: PositionDetailMetric(
                     label: '昨收',
                     value: formatHkd(
                       _position.previousClose,
@@ -297,224 +301,6 @@ StockPosition? _findLatestPosition(
     }
   }
   return null;
-}
-
-class _DetailMetric extends StatelessWidget {
-  const _DetailMetric({
-    required this.label,
-    required this.value,
-    required this.subValue,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final String subValue;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: cardColor(context),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: TextStyle(color: secondaryTextColor(context))),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              color: color,
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            subValue,
-            style: TextStyle(
-              color: secondaryTextColor(context),
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuoteOverviewGrid extends StatelessWidget {
-  const _QuoteOverviewGrid({required this.position});
-
-  final StockPosition position;
-
-  @override
-  Widget build(BuildContext context) {
-    final previousClose = position.previousClose;
-    final items = [
-      _QuoteOverviewItem(
-        label: '今开',
-        value: _formatQuotePrice(position.openPrice, previousClose),
-        color: _quoteColor(position.openPrice, previousClose, context),
-      ),
-      _QuoteOverviewItem(
-        label: '最高',
-        value: _formatQuotePrice(position.highPrice, previousClose),
-        color: _quoteColor(position.highPrice, previousClose, context),
-      ),
-      _QuoteOverviewItem(
-        label: '成交额',
-        value: _formatMarketAmount(position.turnover),
-      ),
-      _QuoteOverviewItem(
-        label: '昨收',
-        value: _formatQuotePrice(position.previousClose, previousClose),
-      ),
-      _QuoteOverviewItem(
-        label: '最低',
-        value: _formatQuotePrice(position.lowPrice, previousClose),
-        color: _quoteColor(position.lowPrice, previousClose, context),
-      ),
-      _QuoteOverviewItem(
-        label: '成交量',
-        value: _formatMarketVolume(position.volume),
-      ),
-      _QuoteOverviewItem(
-        label: '市盈率',
-        value: _formatOptionalRatio(position.peRatio),
-      ),
-      _QuoteOverviewItem(label: '每手', value: _formatLotSize(position.lotSize)),
-      _QuoteOverviewItem(
-        label: '换手率',
-        value: _formatOptionalPercent(position.turnoverRate),
-      ),
-    ];
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        mainAxisExtent: 30,
-        crossAxisSpacing: 6,
-        mainAxisSpacing: 5,
-      ),
-      itemCount: items.length,
-      itemBuilder: (context, index) => items[index],
-    );
-  }
-}
-
-class _QuoteOverviewItem extends StatelessWidget {
-  const _QuoteOverviewItem({
-    required this.label,
-    required this.value,
-    this.color,
-  });
-
-  final String label;
-  final String value;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 40,
-          child: Text(
-            label,
-            style: TextStyle(
-              color: secondaryTextColor(context),
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              color: color ?? primaryTextColor(context),
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-enum _ChartPeriod {
-  intraday('分时', '60m', 120),
-  day('日K', 'day', 240),
-  week('周K', 'week', 240),
-  month('月K', 'month', 180);
-
-  const _ChartPeriod(this.label, this.apiPeriod, this.limit);
-
-  final String label;
-  final String apiPeriod;
-  final int limit;
-}
-
-class _ChartTabs extends StatelessWidget {
-  const _ChartTabs({
-    required this.selectedPeriod,
-    required this.onPeriodChanged,
-  });
-
-  final _ChartPeriod selectedPeriod;
-  final ValueChanged<_ChartPeriod> onPeriodChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (final period in _ChartPeriod.values)
-          Expanded(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () => onPeriodChanged(period),
-              child: Column(
-                children: [
-                  Text(
-                    period.label,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: period == selectedPeriod
-                          ? primaryTextColor(context)
-                          : secondaryTextColor(context),
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    width: 22,
-                    height: 3,
-                    decoration: BoxDecoration(
-                      color: period == selectedPeriod
-                          ? const Color(0xFF38BDF8)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-  }
 }
 
 // ignore: unused_element
@@ -853,7 +639,7 @@ class _InteractiveKLinePreview extends StatefulWidget {
 
   final StockPosition position;
   final List<Candle> candles;
-  final _ChartPeriod period;
+  final KLineChartPeriod period;
   final bool isLoading;
   final bool hasError;
   final Future<List<Candle>> Function() onRetry;
@@ -1860,7 +1646,7 @@ class _FullScreenKLineScreen extends StatefulWidget {
 
   final StockPosition position;
   final List<Candle> candles;
-  final _ChartPeriod period;
+  final KLineChartPeriod period;
 
   @override
   State<_FullScreenKLineScreen> createState() => _FullScreenKLineScreenState();
@@ -2036,7 +1822,7 @@ class _FullScreenKLineScreenState extends State<_FullScreenKLineScreen> {
                               children: [
                                 _FullMetric(
                                   label: '今开',
-                                  value: _formatQuotePrice(
+                                  value: formatQuotePrice(
                                     widget.position.openPrice,
                                     widget.position.previousClose,
                                   ),
@@ -2048,7 +1834,7 @@ class _FullScreenKLineScreenState extends State<_FullScreenKLineScreen> {
                                 ),
                                 _FullMetric(
                                   label: '昨收',
-                                  value: _formatQuotePrice(
+                                  value: formatQuotePrice(
                                     widget.position.previousClose,
                                     widget.position.previousClose,
                                   ),
@@ -2063,7 +1849,7 @@ class _FullScreenKLineScreenState extends State<_FullScreenKLineScreen> {
                               children: [
                                 _FullMetric(
                                   label: '最高',
-                                  value: _formatQuotePrice(
+                                  value: formatQuotePrice(
                                     widget.position.highPrice,
                                     widget.position.previousClose,
                                   ),
@@ -2075,7 +1861,7 @@ class _FullScreenKLineScreenState extends State<_FullScreenKLineScreen> {
                                 ),
                                 _FullMetric(
                                   label: '最低',
-                                  value: _formatQuotePrice(
+                                  value: formatQuotePrice(
                                     widget.position.lowPrice,
                                     widget.position.previousClose,
                                   ),
@@ -2095,13 +1881,13 @@ class _FullScreenKLineScreenState extends State<_FullScreenKLineScreen> {
                               children: [
                                 _FullMetric(
                                   label: '成交量',
-                                  value: _formatMarketVolume(
+                                  value: formatMarketVolume(
                                     widget.position.volume,
                                   ),
                                 ),
                                 _FullMetric(
                                   label: '成交额',
-                                  value: _formatMarketAmount(
+                                  value: formatMarketAmount(
                                     widget.position.turnover,
                                   ),
                                 ),
@@ -2295,49 +2081,6 @@ String _formatMa(double? value) {
 
 String _formatPrice(double value) {
   return value.toStringAsFixed(2);
-}
-
-String _formatQuotePrice(double value, double fallback) {
-  final effectiveValue = value == 0 ? fallback : value;
-  if (effectiveValue == 0) return '--';
-  return effectiveValue.toStringAsFixed(2);
-}
-
-String _formatMarketVolume(double value) {
-  if (value <= 0) return '--';
-  if (value >= 100000000) {
-    return '${(value / 100000000).toStringAsFixed(2)}亿';
-  }
-  if (value >= 10000) {
-    return '${(value / 10000).toStringAsFixed(1)}万';
-  }
-  return value.toStringAsFixed(0);
-}
-
-String _formatMarketAmount(double value) {
-  if (value <= 0) return '--';
-  if (value >= 100000000) {
-    return '${(value / 100000000).toStringAsFixed(2)}亿';
-  }
-  if (value >= 10000) {
-    return '${(value / 10000).toStringAsFixed(2)}万';
-  }
-  return value.toStringAsFixed(0);
-}
-
-String _formatOptionalRatio(double value) {
-  if (value <= 0) return '--';
-  return value.toStringAsFixed(2);
-}
-
-String _formatOptionalPercent(double value) {
-  if (value <= 0) return '--';
-  return '${value.toStringAsFixed(2)}%';
-}
-
-String _formatLotSize(double value) {
-  if (value <= 0) return '--';
-  return '${value.toStringAsFixed(0)}股';
 }
 
 String _formatCandleDate(DateTime? value) {

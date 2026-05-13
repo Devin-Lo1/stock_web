@@ -2,12 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../data/sample_positions.dart';
 import '../models/app_enums.dart';
 import '../models/stock_position.dart';
+import '../models/stock_suggestion.dart';
 import '../services/api_client.dart';
 import '../services/stock_search_api_service.dart';
 import '../utils/formatters.dart';
+import '../utils/stock_suggestion_search.dart';
 import '../utils/theme_helpers.dart';
 import '../widgets/common/page_title.dart';
 
@@ -36,7 +37,7 @@ class _AddPositionSheetState extends State<AddPositionSheet> {
   late final StockSearchApiService _stockSearchService;
   Timer? _searchDebounce;
   int _searchRequestId = 0;
-  List<_StockSuggestion> _suggestions = const [];
+  List<StockSuggestion> _suggestions = const [];
   bool _isSearching = false;
   bool _isApplyingSuggestion = false;
 
@@ -211,7 +212,7 @@ class _AddPositionSheetState extends State<AddPositionSheet> {
       return;
     }
 
-    final localSuggestions = _searchStockSuggestions(query);
+    final localSuggestions = searchStockSuggestions(query);
     if (_hasExactCurrentSuggestion(localSuggestions)) {
       _searchDebounce?.cancel();
       setState(() {
@@ -220,12 +221,12 @@ class _AddPositionSheetState extends State<AddPositionSheet> {
       });
       return;
     }
-    if (!_sameSuggestions(_suggestions, localSuggestions)) {
+    if (!sameStockSuggestions(_suggestions, localSuggestions)) {
       setState(() => _suggestions = localSuggestions);
     }
 
     _searchDebounce?.cancel();
-    if (_normalizedSearchQuery(query).isEmpty) {
+    if (normalizedStockSearchQuery(query).isEmpty) {
       setState(() => _isSearching = false);
       return;
     }
@@ -240,13 +241,13 @@ class _AddPositionSheetState extends State<AddPositionSheet> {
     setState(() => _isSearching = true);
     try {
       final results = await _stockSearchService.search(
-        _normalizedSearchQuery(query),
-        includeDerivatives: _shouldIncludeDerivatives(query),
+        normalizedStockSearchQuery(query),
+        includeDerivatives: shouldIncludeStockDerivatives(query),
       );
       if (!mounted || requestId != _searchRequestId) return;
       final suggestions = results
           .map(
-            (result) => _StockSuggestion(
+            (result) => StockSuggestion(
               code: result.code,
               name: result.name,
               market: result.market,
@@ -260,7 +261,7 @@ class _AddPositionSheetState extends State<AddPositionSheet> {
           _suggestions = const [];
         } else {
           _suggestions = suggestions.isEmpty
-              ? _searchStockSuggestions(query)
+              ? searchStockSuggestions(query)
               : suggestions;
         }
         _isSearching = false;
@@ -271,7 +272,7 @@ class _AddPositionSheetState extends State<AddPositionSheet> {
     }
   }
 
-  void _applySuggestion(_StockSuggestion suggestion) {
+  void _applySuggestion(StockSuggestion suggestion) {
     _isApplyingSuggestion = true;
     _codeController.text = suggestion.code;
     _nameController.text = suggestion.name;
@@ -285,7 +286,7 @@ class _AddPositionSheetState extends State<AddPositionSheet> {
     });
   }
 
-  bool _hasExactCurrentSuggestion(List<_StockSuggestion> suggestions) {
+  bool _hasExactCurrentSuggestion(List<StockSuggestion> suggestions) {
     final code = _codeController.text.trim().toUpperCase();
     final name = _nameController.text.trim();
     if (code.isEmpty || name.isEmpty) return false;
@@ -409,9 +410,9 @@ class _StockSuggestionList extends StatelessWidget {
     required this.onSelected,
   });
 
-  final List<_StockSuggestion> suggestions;
+  final List<StockSuggestion> suggestions;
   final bool isSearching;
-  final ValueChanged<_StockSuggestion> onSelected;
+  final ValueChanged<StockSuggestion> onSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -518,121 +519,11 @@ class _PositionInput extends StatelessWidget {
   }
 }
 
-class _StockSuggestion {
-  const _StockSuggestion({
-    required this.code,
-    required this.name,
-    this.market = '',
-    this.stockType = '',
-    this.lotSize = 0,
-  });
-
-  final String code;
-  final String name;
-  final String market;
-  final String stockType;
-  final double lotSize;
-
-  String get subtitle {
-    final details = <String>[code];
-    if (stockType.isNotEmpty) details.add(stockType);
-    if (lotSize > 0) details.add('${lotSize.toStringAsFixed(0)}股/手');
-    return details.join(' · ');
-  }
-}
-
-final List<_StockSuggestion> _stockSuggestionCatalog = [
-  for (final position in samplePositions)
-    _StockSuggestion(
-      code: position.code,
-      name: position.name,
-      market: _marketFromCode(position.code),
-      stockType: 'STOCK',
-    ),
-  const _StockSuggestion(code: 'HK.00700', name: '腾讯控股', market: 'HK'),
-  const _StockSuggestion(code: 'HK.02318', name: '中国平安', market: 'HK'),
-  const _StockSuggestion(code: 'HK.02628', name: '中国人寿', market: 'HK'),
-  const _StockSuggestion(code: 'HK.01398', name: '工商银行', market: 'HK'),
-  const _StockSuggestion(code: 'HK.00939', name: '建设银行', market: 'HK'),
-  const _StockSuggestion(code: 'HK.03988', name: '中国银行', market: 'HK'),
-  const _StockSuggestion(code: 'HK.01288', name: '农业银行', market: 'HK'),
-  const _StockSuggestion(code: 'HK.09988', name: '阿里巴巴-W', market: 'HK'),
-  const _StockSuggestion(code: 'HK.03690', name: '美团-W', market: 'HK'),
-  const _StockSuggestion(code: 'HK.09618', name: '京东集团-SW', market: 'HK'),
-  const _StockSuggestion(code: 'HK.09868', name: '小鹏汽车-W', market: 'HK'),
-  const _StockSuggestion(code: 'HK.02015', name: '理想汽车-W', market: 'HK'),
-  const _StockSuggestion(code: 'HK.01211', name: '比亚迪股份', market: 'HK'),
-  const _StockSuggestion(code: 'US.AAPL', name: 'Apple', market: 'US'),
-  const _StockSuggestion(code: 'US.MSFT', name: 'Microsoft', market: 'US'),
-  const _StockSuggestion(code: 'US.NVDA', name: 'NVIDIA', market: 'US'),
-  const _StockSuggestion(code: 'US.TSLA', name: 'Tesla', market: 'US'),
-  const _StockSuggestion(code: 'US.BABA', name: 'Alibaba', market: 'US'),
-];
-
-List<_StockSuggestion> _searchStockSuggestions(String query) {
-  final normalizedQuery = query.trim().toUpperCase();
-  if (normalizedQuery.isEmpty) return const [];
-  final tokens = normalizedQuery
-      .split(RegExp(r'\s+'))
-      .where((token) => token.isNotEmpty && token != 'HK.' && token != 'US.')
-      .toList();
-  if (tokens.isEmpty) return const [];
-  final seenCodes = <String>{};
-  final matches = <_StockSuggestion>[];
-
-  for (final suggestion in _stockSuggestionCatalog) {
-    final code = suggestion.code.toUpperCase();
-    final name = suggestion.name.toUpperCase();
-    final codeDigits = code.replaceAll(RegExp(r'[^0-9]'), '');
-    final isMatch = tokens.any((token) {
-      final digitToken = token.replaceAll(RegExp(r'[^0-9]'), '');
-      return code.contains(token) ||
-          name.contains(token) ||
-          (digitToken.isNotEmpty && codeDigits.contains(digitToken));
-    });
-    if (!isMatch || !seenCodes.add(code)) continue;
-    matches.add(suggestion);
-    if (matches.length >= 6) break;
-  }
-
-  return matches;
-}
-
-String _normalizedSearchQuery(String query) {
-  return query
-      .trim()
-      .split(RegExp(r'\s+'))
-      .where((token) => token.isNotEmpty && token != 'HK.' && token != 'US.')
-      .join(' ');
-}
-
-bool _shouldIncludeDerivatives(String query) {
-  final normalizedQuery = query.trim().toUpperCase();
-  final digitQuery = normalizedQuery.replaceAll(RegExp(r'[^0-9]'), '');
-  if (digitQuery.length >= 5) return true;
-  if (normalizedQuery.startsWith('HK.') && digitQuery.length >= 4) {
-    return true;
-  }
-  return normalizedQuery.contains('购') ||
-      normalizedQuery.contains('沽') ||
-      normalizedQuery.contains('牛') ||
-      normalizedQuery.contains('熊') ||
-      normalizedQuery.contains('轮') ||
-      normalizedQuery.contains('WARRANT') ||
-      normalizedQuery.contains('CBBC');
-}
-
 String _defaultCodePrefix(MarketFilter market) {
   return switch (market) {
     MarketFilter.us => 'US.',
     MarketFilter.hk => 'HK.',
   };
-}
-
-String _marketFromCode(String code) {
-  final upperCode = code.toUpperCase();
-  if (upperCode.contains('.')) return upperCode.split('.').first;
-  return '';
 }
 
 Color _marketBadgeColor(String market) {
@@ -643,15 +534,4 @@ Color _marketBadgeColor(String market) {
     'SZ' => const Color(0xFFE05A5A),
     _ => const Color(0xFF64748B),
   };
-}
-
-bool _sameSuggestions(
-  List<_StockSuggestion> current,
-  List<_StockSuggestion> next,
-) {
-  if (current.length != next.length) return false;
-  for (var index = 0; index < current.length; index++) {
-    if (current[index].code != next[index].code) return false;
-  }
-  return true;
 }
