@@ -178,6 +178,7 @@ GET /api/v1/stocks/search
 - 协调行情 API。
 - 协调本地缓存。
 - 后端失败时 fallback。
+- 持仓接口成功但 Futu 刷新失败时保留后端连接状态，并使用缓存行情。
 - 创建、编辑、删除持仓后同步本地缓存。
 
 开发持仓数据流时优先改这里，不要直接在页面里组合多个 service。
@@ -194,7 +195,10 @@ GET /api/v1/stocks/search
 - GET/POST/PUT/DELETE。
 - JSON 编解码。
 - 请求超时。
-- API 异常。
+- 结构化 API 异常。
+- 兼容旧版后端错误。
+- 将网络超时归一为 `NETWORK_TIMEOUT`。
+- 将网络不可达归一为 `NETWORK_UNAVAILABLE`。
 
 所有后端请求都应经过它。
 
@@ -223,7 +227,10 @@ GET /api/v1/stocks/search
 
 注意：
 
-- 当前 K 线刷新会优先读缓存，缓存为空才请求刷新接口。
+- 当前 K 线刷新会优先请求后端 refresh 接口。
+- refresh 成功时直接使用富途返回并写入后端缓存的真实 K 线。
+- refresh 失败时才读取真实缓存，且读取真实缓存时会使用 `include_mock=false` 避免误把 mock 数据当成真实 K 线。
+- 真实缓存也不可用时，才允许走后端 mock fallback，保证开发和离线场景仍可展示。
 
 ### `lib/services/position_storage_service.dart`
 
@@ -304,13 +311,18 @@ App 主壳。
 
 - 当前股票价格。
 - 报价概览。
-- K 线图。
-- MA 指标。
-- 横屏全图。
+- 维护当前持仓详情状态。
+- 维护 K 线周期、加载状态、刷新状态。
+- 调用 `PositionKLineChart` 展示竖屏 K 线。
+- 调用 `FullScreenKLineScreen` 展示横屏 K 线。
 - 收益指标。
 - 编辑/删除持仓。
 
-当前仍较大，后续开发 K 线或图表相关功能时，应优先继续拆到 `widgets/chart/`。
+约束：
+
+- 不在此文件继续堆叠 K 线绘制、指标计算、横屏布局。
+- 新增 K 线指标、成交量图、十字光标、缩放逻辑时，优先放到 `widgets/chart/`。
+- 此文件只负责页面状态编排和持仓详情业务动作。
 
 ### `lib/screens/signals_screen.dart`
 
@@ -454,9 +466,87 @@ widgets/quote/quote_read_only_card.dart
 
 图表组件：
 
+- `fullscreen_kline_screen.dart`
 - `kline_chart_period.dart`
+- `kline_chart_values.dart`
+- `kline_info_panel.dart`
+- `kline_painter.dart`
+- `position_kline_chart.dart`
 
-后续 K 线交互、Painter、指标图层、横屏图表应放这里。
+#### `position_kline_chart.dart`
+
+竖屏持仓详情 K 线组件。
+
+职责：
+
+- 竖屏 K 线卡片布局。
+- 加载、错误、空状态展示。
+- 点选 K 线。
+- 双指缩放。
+- 单指横向浏览历史 K 线。
+- 双击进入横屏全图。
+
+#### `fullscreen_kline_screen.dart`
+
+横屏 K 线全图页。
+
+职责：
+
+- 进入时锁定横屏并隐藏系统 UI。
+- 退出时恢复竖屏和系统 UI。
+- 展示横屏行情头部。
+- 展示横屏周期栏。
+- 复用 K 线信息面板、MA 条和 Painter。
+
+#### `kline_painter.dart`
+
+K 线画布绘制。
+
+职责：
+
+- K 线蜡烛图绘制。
+- MA5、MA10、MA20、MA60 绘制。
+- 高低点标签绘制。
+- 十字光标绘制。
+- 日期坐标轴绘制。
+
+后续成交量柱、MACD、RSI、BOLL 图层优先在这里或新的同级 Painter 文件扩展。
+
+#### `kline_info_panel.dart`
+
+K 线信息展示组件。
+
+职责：
+
+- `KLineMaStrip` 展示 MA 数值。
+- `SelectedCandleInfoPanel` 展示选中 K 线的日期、开高低收、成交量、成交额、涨跌幅。
+
+#### `kline_chart_values.dart`
+
+K 线计算和格式化工具。
+
+职责：
+
+- MA 数值计算。
+- K 线价格格式化。
+- K 线日期格式化。
+- K 线成交量/成交额大数格式化。
+- K 线涨跌颜色计算。
+
+#### `kline_chart_period.dart`
+
+定义分时、日 K、周 K、月 K 的周期参数和周期切换标签。
+
+当前周期配置：
+
+```text
+分时 -> 1m，默认 240 根
+日K  -> day，默认 360 根
+周K  -> week，默认 240 根
+月K  -> month，默认 180 根
+```
+
+后续 K 线相关开发优先在本目录扩展，不要回填到 `position_detail_screen.dart`。
 
 ### `lib/widgets/signal/`
 
@@ -492,6 +582,7 @@ widgets/quote/quote_read_only_card.dart
 ```text
 backend/app/
   __init__.py
+  errors.py
   main.py
   database.py
   mock_store.py
@@ -509,6 +600,7 @@ FastAPI 入口。
 
 当前包含：
 
+- UTF-8 JSON 响应头配置。
 - 系统健康检查。
 - 持仓 API。
 - 行情 API。
@@ -520,6 +612,7 @@ FastAPI 入口。
 - 富途 K 线额度。
 - 刷新行情。
 - 刷新 K 线。
+- 统一抛出结构化 API 错误。
 
 后续建议拆分 routers：
 
@@ -533,9 +626,41 @@ backend/app/routers/strategies.py
 backend/app/routers/backtests.py
 ```
 
+### `backend/app/errors.py`
+
+后端结构化错误定义。
+
+当前错误响应统一为：
+
+```json
+{
+  "detail": {
+    "code": "FUTU_UNAVAILABLE",
+    "message": "FutuOpenD 不可用或富途接口调用失败",
+    "detail": {}
+  }
+}
+```
+
+当前错误码：
+
+- `POSITION_NOT_FOUND`
+- `FUTU_DEPENDENCY_MISSING`
+- `FUTU_UNAVAILABLE`
+- `FUTU_NO_DATA`
+
+新增后端错误时优先在这里补错误码和 helper，不要在路由里散落裸 `HTTPException` 字符串。
+
 ### `backend/app/database.py`
 
 数据库和缓存操作。
+
+当前包含：
+
+- SQLite 表初始化。
+- 缺失字段补齐。
+- 初始持仓/行情种子数据。
+- 历史持仓名称乱码保护性修复。
 
 后续数据库正式化时优先改这里或拆出 repositories。
 
@@ -668,7 +793,8 @@ backend/app/routers/notifications.py
 
 ## 15. 当前最需要关注的结构问题
 
-- `position_detail_screen.dart` 仍大，应继续拆图表。
+- K 线图表已从 `position_detail_screen.dart` 拆到 `widgets/chart/`。
+- 后续应继续关注 `fullscreen_kline_screen.dart` 和 `position_kline_chart.dart` 的内部复用，避免横屏/竖屏手势逻辑重复扩大。
 - `add_position_sheet.dart` 可继续拆 UI 子组件。
 - `backend/app/main.py` 后续应拆 routers。
 - `backend/app/schemas.py` 后续应按领域拆。

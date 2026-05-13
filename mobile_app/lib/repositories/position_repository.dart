@@ -23,10 +23,18 @@ class PositionRepository {
       try {
         final remotePositions = await _apiService.fetchPositions();
         if (remotePositions.isNotEmpty) {
-          await _refreshQuotes(remotePositions);
+          Object? refreshError;
+          try {
+            await _refreshQuotes(remotePositions);
+          } catch (error) {
+            refreshError = error;
+          }
           final enrichedPositions = await _attachQuotes(remotePositions);
           await _storageService.savePositions(enrichedPositions);
-          return PositionLoadResult.remote(enrichedPositions);
+          return PositionLoadResult.remote(
+            enrichedPositions,
+            warning: refreshError,
+          );
         }
       } catch (error) {
         // Keep the app usable while the mock backend is offline.
@@ -130,10 +138,14 @@ class PositionLoadResult {
     this.error,
   });
 
-  factory PositionLoadResult.remote(List<StockPosition> positions) {
+  factory PositionLoadResult.remote(
+    List<StockPosition> positions, {
+    Object? warning,
+  }) {
     return PositionLoadResult(
       positions: positions,
       source: PositionLoadSource.remote,
+      error: warning,
     );
   }
 

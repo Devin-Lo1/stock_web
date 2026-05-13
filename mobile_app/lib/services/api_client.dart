@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -18,10 +20,7 @@ class ApiClient {
   final String baseUrl;
 
   Future<Object?> get(String path, {Map<String, String>? query}) async {
-    final response = await _httpClient
-        .get(_uri(path, query))
-        .timeout(_requestTimeout);
-    return _decode(response);
+    return _send(() => _httpClient.get(_uri(path, query)));
   }
 
   Future<Object?> post(
@@ -29,24 +28,27 @@ class ApiClient {
     Map<String, dynamic> body, {
     Map<String, String>? query,
   }) async {
-    final response = await _httpClient
-        .post(_uri(path, query), headers: _jsonHeaders, body: jsonEncode(body))
-        .timeout(_requestTimeout);
-    return _decode(response);
+    return _send(
+      () => _httpClient.post(
+        _uri(path, query),
+        headers: _jsonHeaders,
+        body: jsonEncode(body),
+      ),
+    );
   }
 
   Future<Object?> put(String path, Map<String, dynamic> body) async {
-    final response = await _httpClient
-        .put(_uri(path), headers: _jsonHeaders, body: jsonEncode(body))
-        .timeout(_requestTimeout);
-    return _decode(response);
+    return _send(
+      () => _httpClient.put(
+        _uri(path),
+        headers: _jsonHeaders,
+        body: jsonEncode(body),
+      ),
+    );
   }
 
   Future<void> delete(String path) async {
-    final response = await _httpClient
-        .delete(_uri(path))
-        .timeout(_requestTimeout);
-    _decode(response);
+    await _send(() => _httpClient.delete(_uri(path)));
   }
 
   Uri _uri(String path, [Map<String, String>? query]) {
@@ -59,12 +61,30 @@ class ApiClient {
     ).replace(queryParameters: query);
   }
 
+  Future<Object?> _send(Future<http.Response> Function() request) async {
+    try {
+      final response = await request().timeout(_requestTimeout);
+      return _decode(response);
+    } on TimeoutException catch (error) {
+      throw ApiException(
+        statusCode: 0,
+        code: 'NETWORK_TIMEOUT',
+        message: '请求后端超时',
+        detail: {'reason': error.message ?? 'timeout'},
+      );
+    } on SocketException catch (error) {
+      throw ApiException(
+        statusCode: 0,
+        code: 'NETWORK_UNAVAILABLE',
+        message: '无法连接后端',
+        detail: {'reason': error.message},
+      );
+    }
+  }
+
   Object? _decode(http.Response response) {
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException(
-        statusCode: response.statusCode,
-        message: response.body.isEmpty ? response.reasonPhrase : response.body,
-      );
+      throw _decodeError(response);
     }
 
     if (response.statusCode == 204 || response.body.isEmpty) return null;
@@ -75,14 +95,75 @@ class ApiClient {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   };
+
+  ApiException _decodeError(http.Response response) {
+    if (response.body.isEmpty) {
+      return ApiException(
+        statusCode: response.statusCode,
+        code: 'HTTP_${response.statusCode}',
+        message: response.reasonPhrase ?? '请求失败',
+      );
+    }
+
+    try {
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      final envelope = decoded is Map<String, dynamic>
+          ? decoded['detail']
+          : null;
+      if (envelope is Map<String, dynamic>) {
+        return ApiException(
+          statusCode: response.statusCode,
+          code: _readString(envelope['code']) ?? 'HTTP_${response.statusCode}',
+          message:
+              _readString(envelope['message']) ??
+              response.reasonPhrase ??
+              '请求失败',
+          detail: _readMap(envelope['detail']),
+        );
+      }
+      return ApiException(
+        statusCode: response.statusCode,
+        code: 'HTTP_${response.statusCode}',
+        message: decoded is Map<String, dynamic>
+            ? _readString(decoded['detail']) ?? decoded.toString()
+            : decoded.toString(),
+      );
+    } on FormatException {
+      return ApiException(
+        statusCode: response.statusCode,
+        code: 'HTTP_${response.statusCode}',
+        message: response.body,
+      );
+    }
+  }
+
+  static String? _readString(Object? value) {
+    if (value is String && value.isNotEmpty) return value;
+    return null;
+  }
+
+  static Map<String, Object?> _readMap(Object? value) {
+    if (value is Map<String, dynamic>) return value.cast<String, Object?>();
+    return const {};
+  }
 }
 
 class ApiException implements Exception {
-  const ApiException({required this.statusCode, required this.message});
+  const ApiException({
+    required this.statusCode,
+    required this.code,
+    required this.message,
+    this.detail = const {},
+  });
 
   final int statusCode;
-  final String? message;
+  final String code;
+  final String message;
+  final Map<String, Object?> detail;
+
+  bool get isNetworkError =>
+      code == 'NETWORK_TIMEOUT' || code == 'NETWORK_UNAVAILABLE';
 
   @override
-  String toString() => 'ApiException($statusCode): $message';
+  String toString() => 'ApiException($statusCode, $code): $message';
 }

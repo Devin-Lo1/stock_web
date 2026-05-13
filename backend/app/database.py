@@ -11,6 +11,14 @@ from .schemas import Candle, Position, PositionCreate, PositionUpdate, QuoteSnap
 DATABASE_PATH = Path(__file__).resolve().parents[1] / "data" / "stock_mvp.sqlite3"
 UTC = timezone.utc
 
+KNOWN_STOCK_NAMES = {
+    "HK.00700": "腾讯控股",
+    "HK.02318": "中国平安",
+    "HK.02628": "中国人寿",
+    "HK.03988": "中国银行",
+    "US.AAPL": "Apple",
+}
+
 
 def init_database() -> None:
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -83,6 +91,7 @@ def init_database() -> None:
         count = connection.execute("SELECT COUNT(*) FROM positions").fetchone()[0]
         if count == 0:
             _seed_positions(connection)
+        _repair_position_names(connection)
         quote_count = connection.execute(
             "SELECT COUNT(*) FROM quote_snapshots",
         ).fetchone()[0]
@@ -355,6 +364,47 @@ def _seed_positions(connection: sqlite3.Connection) -> None:
             """,
             _position_values(position),
         )
+
+
+def _repair_position_names(connection: sqlite3.Connection) -> None:
+    rows = connection.execute(
+        """
+        SELECT id, code, name
+        FROM positions
+        """,
+    ).fetchall()
+    for row in rows:
+        code = str(row["code"]).strip().upper()
+        expected_name = KNOWN_STOCK_NAMES.get(code)
+        if expected_name is None:
+            continue
+        current_name = str(row["name"] or "").strip()
+        if not _looks_corrupted_text(current_name):
+            continue
+        connection.execute(
+            """
+            UPDATE positions
+            SET name = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (expected_name, _datetime_to_text(_now()), row["id"]),
+        )
+
+
+def _looks_corrupted_text(value: str) -> bool:
+    if not value:
+        return True
+    if "\ufffd" in value:
+        return True
+    if "?" in value:
+        return True
+
+    latin_extended_count = 0
+    for character in value:
+        code_point = ord(character)
+        if 0x00C0 <= code_point <= 0x024F:
+            latin_extended_count += 1
+    return latin_extended_count >= 2
 
 
 def _seed_quotes(connection: sqlite3.Connection) -> None:

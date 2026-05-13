@@ -14,6 +14,11 @@
 - FastAPI 持仓 API。
 - 行情快照与 K 线模型。
 - 详情页交互 K 线。
+- K 线真实刷新逻辑：先请求后端 refresh，失败才读真实缓存，最后才允许 mock fallback。
+- 分时 K 线已改为富途 `1m`。
+- 日 K 默认拉取数量已改为 360 根，减少 MA60 左侧断裂。
+- K 线支持双指缩放、单指横向浏览、点选查看详情。
+- 竖屏和横屏 K 线区域已调整为“选中 K 线详情 -> MA 指标 -> K 线图”的内部层级。
 - 本地缓存与后端 fallback。
 - 股票搜索建议。
 - 部分代码拆分。
@@ -33,93 +38,89 @@ adb install -r build\app\outputs\flutter-apk\app-debug.apk
 
 推荐按以下顺序推进：
 
-1. 修复后端历史中文乱码数据。
-2. 继续拆分 `position_detail_screen.dart` 的 K 线相关代码。
-3. 完善后端错误处理和 API 响应结构。
-4. 完善持仓持久化与数据库迁移。
-5. 增加信号历史和策略信号落库。
-6. 新增量化入口和第一版回测框架。
-7. 增加推送与提醒设置。
-8. 生产化部署与监控。
+1. 完善持仓持久化与数据库迁移。
+2. 增加信号历史和策略信号落库。
+3. 新增量化入口和第一版回测框架。
+4. 增加推送与提醒设置。
+5. 生产化部署与监控。
 
-## 3. 任务一：后端中文乱码修复
+## 3. 已完成：后端中文乱码修复
 
 ### 背景
 
 后端历史持仓名称中存在乱码，例如中文名称被错误编码为连续拉丁扩展字符形态。此问题属于历史数据污染，不是 Flutter 渲染问题。
 
-### 目标
+### 当前结论
 
-- 修复后端存储中的股票名称。
-- 确保 FastAPI 返回 UTF-8 JSON。
-- 确保 Flutter 展示中文正常。
+- 当前 SQLite 持仓名称已确认正常。
+- 已备份数据库到 `backend/data/stock_mvp.sqlite3.bak_20260513_encoding_fix`。
+- 已在 `backend/app/database.py` 增加历史名称修复保护。
+- 已在 `backend/app/main.py` 明确 JSON 响应头为 `application/json; charset=utf-8`。
+- 已重启本机后端服务。
 
-### 建议步骤
+### 修复保护
 
-1. 定位后端持仓数据来源。
-2. 备份当前数据文件或数据库。
-3. 明确每条乱码记录的正确中文。
-4. 用显式 UTF-8 方式修复数据。
-5. 调用 `/api/v1/positions` 验证返回正常中文。
-6. 真机刷新 App 验证。
+后端启动时会对已知股票代码的异常名称做保护性修复：
 
-### 验收标准
+- 空名称。
+- 含问号。
+- 含 Unicode replacement character。
+- 含典型拉丁扩展乱码。
 
-- 后端 `/api/v1/positions` 返回中文正常。
-- App 首页、持仓页、详情页中文正常。
-- 乱码扫描无新增污染。
+正常中文名称不会被覆盖。
 
-## 4. 任务二：继续拆分持仓详情页
+### 已验证
+
+- `.\.venv\Scripts\python.exe -m compileall app` 通过。
+- `/api/v1/positions` 响应头为 `application/json; charset=utf-8`。
+- Python 按 UTF-8 解码接口内容，中文正常。
+
+## 4. 已完成：持仓详情页 K 线模块拆分
 
 ### 背景
 
-`mobile_app/lib/screens/position_detail_screen.dart` 仍然较大，主要因为 K 线交互、画布、横屏全图和信息面板仍在同一文件。
+此前 `mobile_app/lib/screens/position_detail_screen.dart` 同时包含 K 线交互、画布、横屏全图和信息面板，后续扩展成交量图、指标图层和量化入口会导致维护成本升高。
 
-### 目标结构
+### 当前结构
 
 ```text
-mobile_app/lib/widgets/chart/interactive_kline_preview.dart
-mobile_app/lib/widgets/chart/interactive_kline_painter.dart
-mobile_app/lib/widgets/chart/selected_candle_info_panel.dart
-mobile_app/lib/screens/full_screen_kline_screen.dart
-mobile_app/lib/utils/kline_indicators.dart
+mobile_app/lib/screens/position_detail_screen.dart
+mobile_app/lib/widgets/chart/position_kline_chart.dart
+mobile_app/lib/widgets/chart/fullscreen_kline_screen.dart
+mobile_app/lib/widgets/chart/kline_painter.dart
+mobile_app/lib/widgets/chart/kline_info_panel.dart
+mobile_app/lib/widgets/chart/kline_chart_values.dart
+mobile_app/lib/widgets/chart/kline_chart_period.dart
 ```
 
-### 建议拆分顺序
+### 当前分工
 
-1. 抽 `utils/kline_indicators.dart`
-   - MA 计算。
-   - MA 格式化。
-2. 抽 `selected_candle_info_panel.dart`
-   - 选中 K 线信息面板。
-   - 信息单元格。
-3. 抽 `interactive_kline_painter.dart`
-   - K 线绘制。
-   - MA 绘制。
-   - 十字光标。
-   - 高低点标签。
-4. 抽 `interactive_kline_preview.dart`
-   - 手势、可见区间、加载/错误/空状态。
-5. 抽 `full_screen_kline_screen.dart`
-   - 横屏锁定。
-   - 全图展示。
-   - 退出恢复竖屏。
+- `position_detail_screen.dart`：持仓详情状态、周期切换、K 线加载和页面编排。
+- `position_kline_chart.dart`：竖屏 K 线卡片、手势、可见区间、加载/错误/空状态。
+- `fullscreen_kline_screen.dart`：横屏全图、横屏锁定、顶部行情、横屏手势。
+- `kline_painter.dart`：蜡烛图、MA、高低点标签、十字线、日期轴绘制。
+- `kline_info_panel.dart`：MA 条和选中 K 线详情面板。
+- `kline_chart_values.dart`：MA 计算、K 线价格/日期/大数格式化、涨跌颜色。
+- `kline_chart_period.dart`：周期参数。
 
-### 约束
+### 后续约束
 
-- 每次只拆一个文件或一组强相关小组件。
-- 拆分时不改 UI 行为。
-- 拆分后立刻运行 format / analyze / test。
+- 新增 K 线指标时，优先扩展 `kline_chart_values.dart` 和 `kline_painter.dart`。
+- 新增图表交互时，先判断竖屏和横屏是否都需要，避免两处逻辑长期分叉。
+- 新增横屏布局内容时，只改 `fullscreen_kline_screen.dart`。
+- 不把 K 线绘制代码重新写回 `position_detail_screen.dart`。
 
-### 验收标准
+### 已验证
 
-- 详情页显示与拆分前一致。
-- 横屏全图可打开和退出。
-- K 线可拖动、点选、显示 MA。
-- `flutter analyze` 无问题。
+- `position_detail_screen.dart` 不再包含 K 线 Painter。
+- `position_detail_screen.dart` 只负责页面编排、持仓状态、调用图表组件。
+- 竖屏 K 线图功能不变。
+- 横屏 K 线图功能不变。
+- `dart format lib test` 通过。
+- `flutter analyze` 通过。
 - `flutter test` 通过。
 
-## 5. 任务三：后端 API 结构与错误处理
+## 5. 已完成：后端 API 结构与错误处理
 
 ### 目标
 
@@ -127,31 +128,39 @@ mobile_app/lib/utils/kline_indicators.dart
 - 明确富途不可用、权限不足、网络超时、无数据等状态。
 - Flutter 能展示明确状态，而不是只显示“连接失败”。
 
-### 建议后端错误格式
+### 当前后端错误格式
 
 ```json
 {
-  "code": "FUTU_UNAVAILABLE",
-  "message": "FutuOpenD 未连接",
-  "detail": {}
+  "detail": {
+    "code": "FUTU_UNAVAILABLE",
+    "message": "FutuOpenD 不可用或富途接口调用失败",
+    "detail": {}
+  }
 }
 ```
 
-### Flutter 对应处理
+### 已落地
 
-- `ApiException` 增加错误码解析。
-- 设置页展示后端/Futu 状态。
-- 首页区分：
-  - 后端已连接。
-  - 后端离线。
-  - 富途不可用。
-  - 使用缓存数据。
+- 后端新增 `backend/app/errors.py`。
+- 后端持仓不存在、Futu 依赖缺失、Futu 不可用、K 线无数据统一返回结构化错误。
+- Flutter `ApiException` 增加 `code/message/detail`。
+- Flutter 兼容旧版 `{"detail":"..."}` 错误。
+- Flutter 将超时和网络不可达归一为 `NETWORK_TIMEOUT`、`NETWORK_UNAVAILABLE`。
+- 持仓接口成功但 Futu 刷新失败时，App 不再误判为后端离线。
 
-### 验收标准
+### 已验证
 
-- 关闭 FutuOpenD 时 App 不崩溃。
-- 后端离线时 App 仍显示本地缓存。
-- 请求超时时不会无限转圈。
+- `python -m compileall app` 通过。
+- `D:\flutter\bin\dart.bat format lib test` 通过。
+- `D:\flutter\bin\flutter.bat analyze` 通过。
+- `D:\flutter\bin\flutter.bat test` 通过。
+
+### 后续优化
+
+- 设置页增加独立 Futu 状态。
+- K 线错误区根据错误码展示更具体提示。
+- 后端继续拆分富途权限不足、订阅不足、行情无权限等细分错误码。
 
 ## 6. 任务四：持仓持久化和数据库演进
 

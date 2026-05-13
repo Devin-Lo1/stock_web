@@ -274,6 +274,15 @@ class _AppShellState extends State<AppShell> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('后端连接失败，已保留本地数据')));
+    } else if (notifyOnLocalFallback && result.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('后端已连接，行情刷新失败：${_errorMessage(result.error)}')),
+      );
     }
+  }
+
+  String _errorMessage(Object? error) {
+    if (error is ApiException) return error.message;
+    return '请检查 FutuOpenD 或行情权限';
   }
 }

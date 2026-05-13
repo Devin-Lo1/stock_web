@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException, Query, status
+from fastapi import FastAPI, Query, status
+from fastapi.responses import JSONResponse
 
 from .database import (
     init_database,
@@ -6,6 +7,12 @@ from .database import (
     list_positions,
     upsert_candles,
     upsert_quote,
+)
+from .errors import (
+    futu_dependency_error,
+    futu_no_data_error,
+    futu_unavailable_error,
+    not_found_error,
 )
 from .mock_store import (
     create_position,
@@ -34,10 +41,15 @@ from .services.futu_client import (
 )
 from .services.stock_search import search_stocks
 
+class UTF8JSONResponse(JSONResponse):
+    media_type = "application/json; charset=utf-8"
+
+
 app = FastAPI(
     title="Stock Web Android MVP API",
     description="Backend API for the Android stock signal MVP.",
     version="0.1.0",
+    default_response_class=UTF8JSONResponse,
 )
 
 
@@ -75,7 +87,7 @@ def api_create_position(payload: PositionCreate) -> Position:
 def api_update_position(position_id: str, payload: PositionUpdate) -> Position:
     position = update_position(position_id, payload)
     if position is None:
-        raise HTTPException(status_code=404, detail="Position not found")
+        raise not_found_error("持仓不存在", position_id=position_id)
     return position
 
 
@@ -86,7 +98,7 @@ def api_update_position(position_id: str, payload: PositionUpdate) -> Position:
 )
 def api_delete_position(position_id: str) -> None:
     if not delete_position(position_id):
-        raise HTTPException(status_code=404, detail="Position not found")
+        raise not_found_error("持仓不存在", position_id=position_id)
 
 
 @app.get("/api/v1/quotes", response_model=list[QuoteSnapshot], tags=["quotes"])
@@ -123,9 +135,9 @@ def api_search_stocks(
     try:
         return search_stocks(q, limit, include_derivatives=include_derivatives)
     except FutuDependencyError as error:
-        raise HTTPException(status_code=503, detail=str(error)) from error
+        raise futu_dependency_error(str(error)) from error
     except FutuOpenDError as error:
-        raise HTTPException(status_code=502, detail=str(error)) from error
+        raise futu_unavailable_error(str(error)) from error
 
 
 @app.get("/api/v1/futu/health", tags=["futu"])
@@ -133,9 +145,9 @@ def api_futu_health() -> dict[str, object]:
     try:
         return {"status": "ok", **check_futu_health()}
     except FutuDependencyError as error:
-        raise HTTPException(status_code=503, detail=str(error)) from error
+        raise futu_dependency_error(str(error)) from error
     except FutuOpenDError as error:
-        raise HTTPException(status_code=502, detail=str(error)) from error
+        raise futu_unavailable_error(str(error)) from error
 
 
 @app.get("/api/v1/futu/quote", response_model=QuoteSnapshot, tags=["futu"])
@@ -143,9 +155,9 @@ def api_futu_quote(code: str = Query(default="HK.00700")) -> QuoteSnapshot:
     try:
         return get_futu_quote(code)
     except FutuDependencyError as error:
-        raise HTTPException(status_code=503, detail=str(error)) from error
+        raise futu_dependency_error(str(error)) from error
     except FutuOpenDError as error:
-        raise HTTPException(status_code=502, detail=str(error)) from error
+        raise futu_unavailable_error(str(error)) from error
 
 
 @app.get("/api/v1/futu/kline-quota", tags=["futu"])
@@ -153,9 +165,9 @@ def api_futu_kline_quota() -> dict[str, object]:
     try:
         return {"status": "ok", "quota": get_history_kline_quota()}
     except FutuDependencyError as error:
-        raise HTTPException(status_code=503, detail=str(error)) from error
+        raise futu_dependency_error(str(error)) from error
     except FutuOpenDError as error:
-        raise HTTPException(status_code=502, detail=str(error)) from error
+        raise futu_unavailable_error(str(error)) from error
 
 
 @app.post("/api/v1/quotes/refresh", response_model=list[QuoteSnapshot], tags=["quotes"])
@@ -165,14 +177,18 @@ def api_refresh_quotes(codes: str = Query(default="")) -> list[QuoteSnapshot]:
         requested_codes = [position.code for position in list_positions()]
 
     refreshed_quotes: list[QuoteSnapshot] = []
+    failed_codes: dict[str, str] = {}
     for code in requested_codes:
         try:
             quote = get_futu_quote(code)
         except FutuDependencyError as error:
-            raise HTTPException(status_code=503, detail=str(error)) from error
-        except FutuOpenDError:
+            raise futu_dependency_error(str(error)) from error
+        except FutuOpenDError as error:
+            failed_codes[code] = str(error)
             continue
         refreshed_quotes.append(upsert_quote(quote))
+    if not refreshed_quotes and failed_codes:
+        raise futu_unavailable_error(str(failed_codes))
     return refreshed_quotes
 
 
@@ -189,6 +205,7 @@ def api_refresh_klines(
         requested_codes = [position.code for position in list_positions()]
 
     refreshed_candles: list[Candle] = []
+    failed_codes: dict[str, str] = {}
     for code in requested_codes:
         try:
             candles = request_history_klines(
@@ -199,8 +216,18 @@ def api_refresh_klines(
                 end=end,
             )
         except FutuDependencyError as error:
-            raise HTTPException(status_code=503, detail=str(error)) from error
-        except FutuOpenDError:
+            raise futu_dependency_error(str(error)) from error
+        except FutuOpenDError as error:
+            failed_codes[code] = str(error)
             continue
         refreshed_candles.extend(upsert_candles(candles))
+    if not refreshed_candles:
+        if failed_codes:
+            raise futu_unavailable_error(str(failed_codes))
+        raise futu_no_data_error(
+            "富途未返回 K 线数据",
+            codes=requested_codes,
+            period=period,
+            max_count=max_count,
+        )
     return refreshed_candles
