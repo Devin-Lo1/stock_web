@@ -381,13 +381,22 @@ rg -n "\x{FFFD}" docs mobile_app\docs
 
 ### 马上继续做
 
-1. 补充后端数据库访问测试，覆盖 PostgreSQL 连接、持仓 CRUD、K 线读写。
-2. 继续拆 `backend/app/main.py`，把持仓、行情、K 线接口拆到 routers。
-3. 为回测准备数据库表结构：策略定义、回测任务、净值曲线、交易记录、策略信号。
-4. 回测模块先做最小闭环：双均线策略、单股票、日 K、固定手续费和滑点。
+1. 继续拆 `backend/app/main.py`，把持仓、行情、K 线接口拆到 routers。
+2. 为回测准备数据库表结构：策略定义、回测任务、净值曲线、交易记录、策略信号。
+3. 回测模块先做最小闭环：双均线策略、单股票、日 K、固定手续费和滑点。
 
 ### 注意事项
 
 - 以后本地开发后端默认使用 `backend/.env` 中的 `DATABASE_URL`。
 - `backend/.env` 不提交 Git；提交的是 `backend/.env.example`。
 - PostgreSQL 迁云时优先使用 `pg_dump` / `pg_restore` 或云厂商 DMS 工具，不要手动复制数据目录。
+
+### 2026-05-14 数据库测试补充
+
+- 已创建独立测试库 `stock_web_test`。
+- 已新增后端数据库测试：
+  - 持仓 CRUD。
+  - 行情快照 upsert 和查询。
+  - K 线 upsert 和按时间查询。
+- 已验证测试库运行后会清空，真实库 `stock_web` 未被污染。
+- 后续每次修改数据库层必须运行 `python -m pytest`。

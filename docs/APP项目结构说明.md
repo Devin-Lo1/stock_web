@@ -806,6 +806,8 @@ backend/app/routers/notifications.py
 backend/.env.example
 backend/app/database.py
 backend/scripts/migrate_sqlite_to_postgres.py
+backend/tests/conftest.py
+backend/tests/test_database.py
 backend/data/stock_mvp.sqlite3
 ```
 
@@ -835,6 +837,22 @@ backend/data/stock_mvp.sqlite3
 - 本地从 SQLite 升级到 PostgreSQL。
 - 云服务器初始化前先在本机验证迁移结果。
 - 后续如需重复迁移，先确认目标库是否已有业务数据，避免覆盖用户真实数据。
+
+### `backend/tests/conftest.py`
+
+后端数据库测试配置文件。当前负责：
+
+- 指定测试库 `stock_web_test`。
+- 初始化测试表结构。
+- 每个测试前后清空测试表。
+
+### `backend/tests/test_database.py`
+
+后端数据库基础测试。当前覆盖：
+
+- 持仓新增、查询、修改、删除。
+- 行情快照写入和更新。
+- K 线批量写入、更新和按时间查询。
 
 ### `backend/data/stock_mvp.sqlite3`
 

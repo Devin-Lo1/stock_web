@@ -344,6 +344,16 @@ python -m compileall app
 python -m pytest
 ```
 
+当前后端已经新增 PostgreSQL 数据库测试。每次修改 `backend/app/database.py`、数据库表结构、迁移脚本或后端持仓/行情/K 线读写逻辑后，必须运行：
+
+```powershell
+cd C:\Users\58229\Desktop\stock_web\backend
+.venv\Scripts\python.exe -m compileall app scripts tests
+.venv\Scripts\python.exe -m pytest
+```
+
+测试必须使用独立测试库 `stock_web_test`，不得在真实开发库 `stock_web` 上执行会清空表的自动化测试。
+
 如果后端服务需要真机联调，应确认：
 
 ```powershell

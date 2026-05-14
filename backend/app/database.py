@@ -333,10 +333,11 @@ class _DatabaseConnection:
         )
 
     def executemany(self, query: str, parameters: Any) -> Any:
-        return self._connection.executemany(
-            _sql_for_backend(query, self.is_postgres),
-            parameters,
-        )
+        sql = _sql_for_backend(query, self.is_postgres)
+        if not self.is_postgres:
+            return self._connection.executemany(sql, parameters)
+        with self._connection.cursor() as cursor:
+            return cursor.executemany(sql, parameters)
 
     def commit(self) -> None:
         self._connection.commit()
