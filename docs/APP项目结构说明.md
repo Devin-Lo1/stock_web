@@ -791,16 +791,98 @@ backend/app/services/push_service.py
 backend/app/routers/notifications.py
 ```
 
-## 15. 当前最需要关注的结构问题
+## 15. 后端路由结构
+
+```text
+backend/app/main.py
+backend/app/routers/__init__.py
+backend/app/routers/health.py
+backend/app/routers/positions.py
+backend/app/routers/quotes.py
+backend/app/routers/klines.py
+backend/app/routers/signals.py
+backend/app/routers/stocks.py
+backend/app/routers/futu.py
+```
+
+### `backend/app/main.py`
+
+后端应用入口。当前只负责：
+
+- 创建 FastAPI app。
+- 设置 UTF-8 JSON response。
+- 启动时初始化数据库。
+- 注册 routers。
+
+不应继续把具体业务接口写进 `main.py`。
+
+### `backend/app/routers/health.py`
+
+系统健康检查和根路径：
+
+- `GET /health`
+- `GET /`
+
+### `backend/app/routers/positions.py`
+
+持仓接口：
+
+- `GET /api/v1/positions`
+- `POST /api/v1/positions`
+- `PUT /api/v1/positions/{position_id}`
+- `DELETE /api/v1/positions/{position_id}`
+
+### `backend/app/routers/quotes.py`
+
+行情快照接口：
+
+- `GET /api/v1/quotes`
+- `POST /api/v1/quotes/refresh`
+
+### `backend/app/routers/klines.py`
+
+K 线接口：
+
+- `GET /api/v1/klines/{stock_code}`
+- `POST /api/v1/klines/refresh`
+
+### `backend/app/routers/signals.py`
+
+信号接口：
+
+- `GET /api/v1/signals`
+
+### `backend/app/routers/stocks.py`
+
+股票搜索接口：
+
+- `GET /api/v1/stocks/search`
+
+### `backend/app/routers/futu.py`
+
+富途直连检查和辅助接口：
+
+- `GET /api/v1/futu/health`
+- `GET /api/v1/futu/quote`
+- `GET /api/v1/futu/kline-quota`
+
+后续新增策略和回测时，应继续按领域新增：
+
+```text
+backend/app/routers/strategies.py
+backend/app/routers/backtests.py
+```
+
+## 16. 当前最需要关注的结构问题
 
 - K 线图表已从 `position_detail_screen.dart` 拆到 `widgets/chart/`。
 - 后续应继续关注 `fullscreen_kline_screen.dart` 和 `position_kline_chart.dart` 的内部复用，避免横屏/竖屏手势逻辑重复扩大。
 - `add_position_sheet.dart` 可继续拆 UI 子组件。
-- `backend/app/main.py` 后续应拆 routers。
+- `backend/app/main.py` 已拆 routers，后续不要重新塞入具体业务接口。
 - `backend/app/schemas.py` 后续应按领域拆。
 - 策略和回测必须独立建目录，不要挤进现有信号服务。
 
-## 16. 后端数据库相关结构
+## 17. 后端数据库相关结构
 
 ```text
 backend/.env.example

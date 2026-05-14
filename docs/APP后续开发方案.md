@@ -353,7 +353,7 @@ FCM 在国内设备上可能不稳定，后续可能需要华为、小米、OPPO
 
 ### 下一步优先级
 
-1. 后端 routers 拆分。
+1. 拆 `backend/app/schemas.py`。
 2. 策略和回测表结构设计。
 3. 回测引擎最小版本。
 4. App 量化入口和回测结果展示。
@@ -378,3 +378,9 @@ FCM 在国内设备上可能不稳定，后续可能需要华为、小米、OPPO
 - `backend/tests/test_database.py` 已覆盖 PostgreSQL 下持仓、行情快照、K 线基础读写。
 - 测试库为 `stock_web_test`。
 - 真实开发库为 `stock_web`，不得用自动化测试清空真实库。
+
+### 已完成的后端接口拆分
+
+- `backend/app/main.py` 已拆出 routers。
+- 当前路由按健康检查、持仓、行情、K 线、信号、股票搜索、富途分组。
+- 后续新增策略和回测时，直接增加 `routers/strategies.py` 和 `routers/backtests.py`。

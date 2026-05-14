@@ -381,7 +381,7 @@ rg -n "\x{FFFD}" docs mobile_app\docs
 
 ### 马上继续做
 
-1. 继续拆 `backend/app/main.py`，把持仓、行情、K 线接口拆到 routers。
+1. 拆 `backend/app/schemas.py`，按持仓、行情、K 线、信号、股票搜索拆 model。
 2. 为回测准备数据库表结构：策略定义、回测任务、净值曲线、交易记录、策略信号。
 3. 回测模块先做最小闭环：双均线策略、单股票、日 K、固定手续费和滑点。
 
@@ -400,3 +400,15 @@ rg -n "\x{FFFD}" docs mobile_app\docs
   - K 线 upsert 和按时间查询。
 - 已验证测试库运行后会清空，真实库 `stock_web` 未被污染。
 - 后续每次修改数据库层必须运行 `python -m pytest`。
+
+### 2026-05-14 后端 routers 拆分补充
+
+- 已将 `backend/app/main.py` 中的接口按业务领域拆到 `backend/app/routers/`。
+- `main.py` 当前只负责 FastAPI 初始化、数据库启动初始化和 router 注册。
+- 已验证核心接口路径保持不变：
+  - `/health`
+  - `/api/v1/positions`
+  - `/api/v1/quotes`
+  - `/api/v1/klines/{stock_code}`
+  - `/api/v1/signals`
+- 下一步建议拆 `backend/app/schemas.py`，避免策略和回测模型继续挤进单个大文件。
