@@ -873,16 +873,79 @@ backend/app/routers/strategies.py
 backend/app/routers/backtests.py
 ```
 
-## 16. 当前最需要关注的结构问题
+## 16. 后端数据模型结构
+
+```text
+backend/app/schemas/__init__.py
+backend/app/schemas/common.py
+backend/app/schemas/positions.py
+backend/app/schemas/quotes.py
+backend/app/schemas/klines.py
+backend/app/schemas/signals.py
+backend/app/schemas/stocks.py
+```
+
+### `backend/app/schemas/__init__.py`
+
+统一导出旧接口，保证现有代码仍可使用：
+
+```python
+from app.schemas import Position, Candle
+```
+
+### `backend/app/schemas/common.py`
+
+公共类型定义，目前包含市场类型 `Market`。
+
+### `backend/app/schemas/positions.py`
+
+持仓相关数据模型：
+
+- `PositionCreate`
+- `PositionUpdate`
+- `Position`
+
+### `backend/app/schemas/quotes.py`
+
+行情快照模型：
+
+- `QuoteSnapshot`
+
+### `backend/app/schemas/klines.py`
+
+K 线模型：
+
+- `Candle`
+
+### `backend/app/schemas/signals.py`
+
+信号模型：
+
+- `Signal`
+
+### `backend/app/schemas/stocks.py`
+
+股票搜索模型：
+
+- `StockSearchResult`
+
+后续新增策略和回测时，应继续按领域新增：
+
+```text
+backend/app/schemas/strategies.py
+backend/app/schemas/backtests.py
+```
+
+## 17. 当前最需要关注的结构问题
 
 - K 线图表已从 `position_detail_screen.dart` 拆到 `widgets/chart/`。
 - 后续应继续关注 `fullscreen_kline_screen.dart` 和 `position_kline_chart.dart` 的内部复用，避免横屏/竖屏手势逻辑重复扩大。
 - `add_position_sheet.dart` 可继续拆 UI 子组件。
 - `backend/app/main.py` 已拆 routers，后续不要重新塞入具体业务接口。
-- `backend/app/schemas.py` 后续应按领域拆。
+- `backend/app/schemas.py` 已拆为 `backend/app/schemas/` 包，后续策略和回测模型继续按领域新增文件。
 - 策略和回测必须独立建目录，不要挤进现有信号服务。
 
-## 17. 后端数据库相关结构
+## 18. 后端数据库相关结构
 
 ```text
 backend/.env.example

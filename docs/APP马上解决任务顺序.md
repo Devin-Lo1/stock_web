@@ -381,9 +381,8 @@ rg -n "\x{FFFD}" docs mobile_app\docs
 
 ### 马上继续做
 
-1. 拆 `backend/app/schemas.py`，按持仓、行情、K 线、信号、股票搜索拆 model。
-2. 为回测准备数据库表结构：策略定义、回测任务、净值曲线、交易记录、策略信号。
-3. 回测模块先做最小闭环：双均线策略、单股票、日 K、固定手续费和滑点。
+1. 为回测准备数据库表结构：策略定义、回测任务、净值曲线、交易记录、策略信号。
+2. 回测模块先做最小闭环：双均线策略、单股票、日 K、固定手续费和滑点。
 
 ### 注意事项
 
@@ -412,3 +411,10 @@ rg -n "\x{FFFD}" docs mobile_app\docs
   - `/api/v1/klines/{stock_code}`
   - `/api/v1/signals`
 - 下一步建议拆 `backend/app/schemas.py`，避免策略和回测模型继续挤进单个大文件。
+
+### 2026-05-14 后端 schemas 拆分补充
+
+- 已将 `backend/app/schemas.py` 拆为 `backend/app/schemas/` 包。
+- 已按持仓、行情、K 线、信号、股票搜索拆分数据模型。
+- `backend/app/schemas/__init__.py` 保留统一导出，现有导入方式不需要改。
+- 下一步可以开始设计策略和回测数据库表结构。

@@ -353,10 +353,9 @@ FCM 在国内设备上可能不稳定，后续可能需要华为、小米、OPPO
 
 ### 下一步优先级
 
-1. 拆 `backend/app/schemas.py`。
-2. 策略和回测表结构设计。
-3. 回测引擎最小版本。
-4. App 量化入口和回测结果展示。
+1. 策略和回测表结构设计。
+2. 回测引擎最小版本。
+3. App 量化入口和回测结果展示。
 
 ### 数据库相关约束
 
@@ -384,3 +383,9 @@ FCM 在国内设备上可能不稳定，后续可能需要华为、小米、OPPO
 - `backend/app/main.py` 已拆出 routers。
 - 当前路由按健康检查、持仓、行情、K 线、信号、股票搜索、富途分组。
 - 后续新增策略和回测时，直接增加 `routers/strategies.py` 和 `routers/backtests.py`。
+
+### 已完成的后端模型拆分
+
+- `backend/app/schemas.py` 已拆为 `backend/app/schemas/` 包。
+- 当前按持仓、行情、K 线、信号、股票搜索分文件。
+- 后续新增策略和回测模型时，直接增加 `schemas/strategies.py` 和 `schemas/backtests.py`。
