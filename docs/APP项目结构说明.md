@@ -799,3 +799,43 @@ backend/app/routers/notifications.py
 - `backend/app/main.py` 后续应拆 routers。
 - `backend/app/schemas.py` 后续应按领域拆。
 - 策略和回测必须独立建目录，不要挤进现有信号服务。
+
+## 16. 后端数据库相关结构
+
+```text
+backend/.env.example
+backend/app/database.py
+backend/scripts/migrate_sqlite_to_postgres.py
+backend/data/stock_mvp.sqlite3
+```
+
+### `backend/.env.example`
+
+提供本地开发环境变量模板。当前包含 `DATABASE_URL` 示例，用于连接本地 PostgreSQL。
+
+### `backend/app/database.py`
+
+后端数据库访问层。当前职责：
+
+- 初始化数据表。
+- 根据 `DATABASE_URL` 判断使用 PostgreSQL 或 SQLite。
+- 持仓 CRUD。
+- 行情快照读写。
+- K 线读写。
+- 修复历史持仓名称乱码。
+
+后续建议把表结构初始化、持仓仓储、行情仓储、K 线仓储继续拆开，避免回测表加入后变成大文件。
+
+### `backend/scripts/migrate_sqlite_to_postgres.py`
+
+一次性迁移脚本，用于把 `backend/data/stock_mvp.sqlite3` 中的数据导入 PostgreSQL。
+
+使用场景：
+
+- 本地从 SQLite 升级到 PostgreSQL。
+- 云服务器初始化前先在本机验证迁移结果。
+- 后续如需重复迁移，先确认目标库是否已有业务数据，避免覆盖用户真实数据。
+
+### `backend/data/stock_mvp.sqlite3`
+
+历史 SQLite 数据库文件，当前已经不是后续量化主库。该目录被 Git 忽略。

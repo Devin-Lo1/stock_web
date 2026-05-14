@@ -712,3 +712,37 @@ D:\flutter\bin\flutter.bat config --jdk-dir="D:\java\jdk-17.0.19+10"
 - `docs/安卓App一周MVP开发计划.md`
 - `docs/完整技术方案文档.md`
 - `docs/Flutter安卓环境准备.md`
+
+## 11. 数据库路线更新
+
+项目已经从纯 SQLite 本地存储推进到 PostgreSQL 本地主库。这样更适合后续多人使用、云服务器部署、策略回测和历史数据沉淀。
+
+### 当前阶段
+
+- 本地 PostgreSQL 已可用。
+- 后端通过 `DATABASE_URL` 连接数据库。
+- 旧 SQLite 数据已经迁移到 PostgreSQL。
+- App 仍通过 FastAPI 访问数据，不直接连接数据库。
+
+### 后续云端迁移
+
+如果采用云服务器自建 PostgreSQL：
+
+- 本机使用 `pg_dump` 导出。
+- 云服务器安装 PostgreSQL。
+- 上传备份文件。
+- 使用 `pg_restore` 或 `psql` 导入。
+- 修改后端服务器 `.env` 中的 `DATABASE_URL`。
+
+如果采用云数据库 RDS：
+
+- 本机使用 `pg_dump` 导出。
+- 在云厂商创建 PostgreSQL 实例和数据库账号。
+- 使用云厂商迁移工具或 `pg_restore` 导入。
+- 修改后端服务器 `.env` 中的 `DATABASE_URL`。
+
+### 规划原则
+
+- 回测和策略数据以后全部进入 PostgreSQL。
+- Flutter 不直连 PostgreSQL。
+- 数据库密码只放 `.env` 或云服务器环境变量，不写入 Git。

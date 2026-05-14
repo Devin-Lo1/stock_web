@@ -2,13 +2,23 @@ import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timezone
+import os
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
+
+import psycopg
+from dotenv import load_dotenv
+from psycopg.rows import dict_row
 
 from .schemas import Candle, Position, PositionCreate, PositionUpdate, QuoteSnapshot
 
 
-DATABASE_PATH = Path(__file__).resolve().parents[1] / "data" / "stock_mvp.sqlite3"
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(BACKEND_ROOT / ".env")
+
+DATABASE_PATH = BACKEND_ROOT / "data" / "stock_mvp.sqlite3"
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 UTC = timezone.utc
 
 KNOWN_STOCK_NAMES = {
@@ -20,8 +30,9 @@ KNOWN_STOCK_NAMES = {
 }
 
 
-def init_database() -> None:
-    DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
+def init_database(*, seed_defaults: bool = True) -> None:
+    if not _uses_postgres():
+        DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
     with _connect() as connection:
         connection.execute(
             """
@@ -88,14 +99,15 @@ def init_database() -> None:
             ON klines (code, period, time DESC)
             """,
         )
-        count = connection.execute("SELECT COUNT(*) FROM positions").fetchone()[0]
-        if count == 0:
+        count = _first_column(connection.execute("SELECT COUNT(*) FROM positions").fetchone())
+        if count == 0 and seed_defaults:
             _seed_positions(connection)
         _repair_position_names(connection)
         quote_count = connection.execute(
             "SELECT COUNT(*) FROM quote_snapshots",
-        ).fetchone()[0]
-        if quote_count == 0:
+        ).fetchone()
+        quote_count = _first_column(quote_count)
+        if quote_count == 0 and seed_defaults:
             _seed_quotes(connection)
 
 
@@ -309,18 +321,63 @@ def upsert_candles(candles: list[Candle]) -> list[Candle]:
     return candles
 
 
+class _DatabaseConnection:
+    def __init__(self, connection: Any, *, is_postgres: bool) -> None:
+        self._connection = connection
+        self.is_postgres = is_postgres
+
+    def execute(self, query: str, parameters: Any = ()) -> Any:
+        return self._connection.execute(
+            _sql_for_backend(query, self.is_postgres),
+            parameters,
+        )
+
+    def executemany(self, query: str, parameters: Any) -> Any:
+        return self._connection.executemany(
+            _sql_for_backend(query, self.is_postgres),
+            parameters,
+        )
+
+    def commit(self) -> None:
+        self._connection.commit()
+
+    def close(self) -> None:
+        self._connection.close()
+
+
 @contextmanager
-def _connect() -> Iterator[sqlite3.Connection]:
-    connection = sqlite3.connect(DATABASE_PATH)
-    connection.row_factory = sqlite3.Row
+def _connect() -> Iterator[_DatabaseConnection]:
+    if _uses_postgres():
+        connection = psycopg.connect(DATABASE_URL, row_factory=dict_row)
+        wrapped = _DatabaseConnection(connection, is_postgres=True)
+    else:
+        connection = sqlite3.connect(DATABASE_PATH)
+        connection.row_factory = sqlite3.Row
+        wrapped = _DatabaseConnection(connection, is_postgres=False)
     try:
-        yield connection
-        connection.commit()
+        yield wrapped
+        wrapped.commit()
     finally:
-        connection.close()
+        wrapped.close()
 
 
-def _seed_positions(connection: sqlite3.Connection) -> None:
+def _uses_postgres() -> bool:
+    return DATABASE_URL.startswith(("postgresql://", "postgres://"))
+
+
+def _sql_for_backend(query: str, is_postgres: bool) -> str:
+    if not is_postgres:
+        return query
+    return query.replace("?", "%s")
+
+
+def _first_column(row: Any) -> Any:
+    if isinstance(row, dict):
+        return next(iter(row.values()))
+    return row[0]
+
+
+def _seed_positions(connection: _DatabaseConnection) -> None:
     for payload in [
         PositionCreate(
             market="HK",
@@ -366,7 +423,7 @@ def _seed_positions(connection: sqlite3.Connection) -> None:
         )
 
 
-def _repair_position_names(connection: sqlite3.Connection) -> None:
+def _repair_position_names(connection: _DatabaseConnection) -> None:
     rows = connection.execute(
         """
         SELECT id, code, name
@@ -407,7 +464,7 @@ def _looks_corrupted_text(value: str) -> bool:
     return latin_extended_count >= 2
 
 
-def _seed_quotes(connection: sqlite3.Connection) -> None:
+def _seed_quotes(connection: _DatabaseConnection) -> None:
     for quote in [
         QuoteSnapshot(
             code="HK.00700",
@@ -529,7 +586,7 @@ def _candle_values(candle: Candle, now_text: str) -> tuple[object, ...]:
     )
 
 
-def _row_to_position(row: sqlite3.Row) -> Position:
+def _row_to_position(row: sqlite3.Row | dict[str, Any]) -> Position:
     return Position(
         id=row["id"],
         market=row["market"],
@@ -543,7 +600,7 @@ def _row_to_position(row: sqlite3.Row) -> Position:
     )
 
 
-def _row_to_quote(row: sqlite3.Row) -> QuoteSnapshot:
+def _row_to_quote(row: sqlite3.Row | dict[str, Any]) -> QuoteSnapshot:
     return QuoteSnapshot(
         code=row["code"],
         market=row["market"],
@@ -564,7 +621,7 @@ def _row_to_quote(row: sqlite3.Row) -> QuoteSnapshot:
     )
 
 
-def _row_to_candle(row: sqlite3.Row) -> Candle:
+def _row_to_candle(row: sqlite3.Row | dict[str, Any]) -> Candle:
     return Candle(
         code=row["code"],
         market=row["market"],
@@ -580,15 +637,29 @@ def _row_to_candle(row: sqlite3.Row) -> Candle:
 
 
 def _ensure_column(
-    connection: sqlite3.Connection,
+    connection: _DatabaseConnection,
     table_name: str,
     column_name: str,
     column_definition: str,
 ) -> None:
-    columns = {
-        row["name"]
-        for row in connection.execute(f"PRAGMA table_info({table_name})").fetchall()
-    }
+    if connection.is_postgres:
+        columns = {
+            row["column_name"]
+            for row in connection.execute(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = ?
+                """,
+                (table_name,),
+            ).fetchall()
+        }
+    else:
+        columns = {
+            row["name"]
+            for row in connection.execute(f"PRAGMA table_info({table_name})").fetchall()
+        }
     if column_name in columns:
         return
     connection.execute(
@@ -604,5 +675,9 @@ def _datetime_to_text(value: datetime) -> str:
     return value.astimezone(UTC).isoformat()
 
 
-def _text_to_datetime(value: str) -> datetime:
+def _text_to_datetime(value: str | datetime) -> datetime:
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
     return datetime.fromisoformat(value)

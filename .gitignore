@@ -40,3 +40,5 @@ ppt_preview/
 # Local environment
 .env
 .env.*
+!.env.example
+!backend/.env.example

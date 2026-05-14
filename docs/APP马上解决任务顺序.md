@@ -364,3 +364,30 @@ rg -n "\x{FFFD}" docs mobile_app\docs
   -> 做信号历史落库
   -> 再开始量化和回测
 ```
+
+## 9. 2026-05-14 当前状态更新
+
+### 已完成
+
+- 本地 PostgreSQL 17 已安装到 `D:\PostgreSQL\17`。
+- 已创建项目数据库 `stock_web` 和项目用户 `stock_web`。
+- 后端已支持通过 `DATABASE_URL` 切换 PostgreSQL；未配置时仍可回退 SQLite。
+- 已新增迁移脚本 `backend/scripts/migrate_sqlite_to_postgres.py`。
+- 已将 SQLite 当前数据迁移到 PostgreSQL：
+  - `positions`：6 条。
+  - `quote_snapshots`：9 条。
+  - `klines`：4368 条。
+- 已重启后端，并验证 `/health` 与 `/api/v1/positions` 可用。
+
+### 马上继续做
+
+1. 补充后端数据库访问测试，覆盖 PostgreSQL 连接、持仓 CRUD、K 线读写。
+2. 继续拆 `backend/app/main.py`，把持仓、行情、K 线接口拆到 routers。
+3. 为回测准备数据库表结构：策略定义、回测任务、净值曲线、交易记录、策略信号。
+4. 回测模块先做最小闭环：双均线策略、单股票、日 K、固定手续费和滑点。
+
+### 注意事项
+
+- 以后本地开发后端默认使用 `backend/.env` 中的 `DATABASE_URL`。
+- `backend/.env` 不提交 Git；提交的是 `backend/.env.example`。
+- PostgreSQL 迁云时优先使用 `pg_dump` / `pg_restore` 或云厂商 DMS 工具，不要手动复制数据目录。
