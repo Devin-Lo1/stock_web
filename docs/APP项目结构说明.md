@@ -1019,6 +1019,8 @@ mobile_app/lib/models/backtest_models.dart
 mobile_app/lib/services/backtest_api_service.dart
 mobile_app/lib/repositories/backtest_repository.dart
 mobile_app/lib/screens/quant_screen.dart
+mobile_app/lib/widgets/quant/quant_panels.dart
+mobile_app/lib/widgets/quant/quant_common_widgets.dart
 mobile_app/lib/widgets/backtest/backtest_equity_chart.dart
 mobile_app/lib/widgets/backtest/backtest_kline_trade_chart.dart
 ```
@@ -1052,14 +1054,32 @@ App 端回测模型：
 
 量化页面。当前职责：
 
-- 展示策略列表。
-- 配置股票、日期、资金、手续费、滑点和均线参数。
-- 股票代码输入支持本地候选和后端搜索，识别到完整代码后在输入框下方显示股票名称。
-- 参数区不再显示固定持仓快捷标签，选股统一通过输入框和搜索候选完成。
+- 维护量化页状态。
+- 加载策略列表。
+- 处理股票搜索状态。
 - 调用后端启动回测。
-- 展示回测摘要和交易记录。
-- 展示收益曲线。
 - 加载回测图表 K 线时优先读取后端真实缓存，缓存为空才刷新，避免富途 refresh 返回旧区间导致回测买卖点图被日期过滤为空。
+
+页面展示组件已经拆到 `mobile_app/lib/widgets/quant/`，不要再把策略面板、参数面板、结果面板继续堆回 `quant_screen.dart`。
+
+### `mobile_app/lib/widgets/quant/quant_panels.dart`
+
+量化页主要 UI 面板：
+
+- `QuantStrategyPanel`：策略下拉和刷新。
+- `QuantConfigPanel`：股票代码、日期、资金、手续费、滑点和均线参数。
+- `QuantResultPanel`：回测摘要、收益曲线、K 线买卖点和交易记录。
+- `QuantErrorPanel`：接口错误展示。
+
+### `mobile_app/lib/widgets/quant/quant_common_widgets.dart`
+
+量化页通用 UI 小组件：
+
+- `QuantPanel`
+- `QuantPanelHeader`
+- `QuantNumberField`
+- `QuantDateButton`
+- `QuantMetric`
 
 股票搜索相关实现：
 
