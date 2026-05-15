@@ -613,6 +613,12 @@ K 线计算和格式化工具。
 
 - `quant_common_widgets.dart`
 - `quant_panels.dart`
+- `quant_strategy_panel.dart`
+- `quant_config_panel.dart`
+- `quant_stock_suggestion_list.dart`
+- `quant_result_panel.dart`
+- `quant_trade_list.dart`
+- `quant_error_panel.dart`
 
 #### `quant_common_widgets.dart`
 
@@ -627,19 +633,79 @@ K 线计算和格式化工具。
 
 #### `quant_panels.dart`
 
-量化页主要面板。
+量化页组件导出入口。
 
-当前包含：
+职责：
+
+- 统一导出策略、参数、结果、错误等量化组件。
+- 保持 `quant_screen.dart` 的 import 简洁。
+- 不再承载具体 UI 实现。
+
+#### `quant_strategy_panel.dart`
+
+策略选择面板。
+
+职责：
 
 - 策略选择面板。
+- 策略列表加载态。
+- 策略列表为空态。
+- 刷新策略按钮。
+
+#### `quant_config_panel.dart`
+
+回测参数面板。
+
+职责：
+
 - 参数输入面板。
-- 回测操作按钮。
+- 股票代码输入。
+- 股票名称展示。
+- 日期区间选择。
+- 初始资金、手续费率、滑点率、短均线、长均线输入。
+- 调用 `QuantStockSuggestionList` 展示股票搜索候选。
+
+#### `quant_stock_suggestion_list.dart`
+
+量化页股票搜索候选列表。
+
+职责：
+
+- 展示搜索加载态。
+- 展示候选股票名称、代码、副标题和市场标签。
+- 点击候选后回填量化参数。
+
+#### `quant_result_panel.dart`
+
+回测结果面板。
+
+职责：
+
 - 回测结果摘要。
 - 收益曲线。
 - 买卖点图入口。
 - 交易记录列表。
 
-后续如果策略参数继续增多，应继续拆成 `quant_parameter_panel.dart`、`quant_result_panel.dart` 等文件。
+#### `quant_trade_list.dart`
+
+交易记录列表。
+
+职责：
+
+- 展示买入/卖出标签。
+- 展示交易日期、数量和价格。
+- 当前默认展示前 8 条交易记录。
+
+#### `quant_error_panel.dart`
+
+量化页错误面板。
+
+职责：
+
+- 展示 `ApiException` 的结构化错误消息。
+- 兼容普通异常文本。
+
+后续如果策略参数继续增多，应优先新增独立参数组件，不要把实现堆回 `quant_panels.dart`。
 
 ### `lib/widgets/backtest/`
 
