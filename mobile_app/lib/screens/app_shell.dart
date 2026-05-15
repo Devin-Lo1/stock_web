@@ -6,8 +6,10 @@ import '../models/backend_connection_state.dart';
 import '../models/candle.dart';
 import '../models/strategy_settings.dart';
 import '../models/stock_position.dart';
+import '../repositories/backtest_repository.dart';
 import '../repositories/position_repository.dart';
 import '../services/api_client.dart';
+import '../services/backtest_api_service.dart';
 import '../services/local_signal_service.dart';
 import '../services/position_api_service.dart';
 import '../services/position_storage_service.dart';
@@ -17,6 +19,7 @@ import '../utils/theme_helpers.dart';
 import 'account_screen.dart';
 import 'dashboard_screen.dart';
 import 'positions_screen.dart';
+import 'quant_screen.dart';
 import 'settings_screen.dart';
 import 'signals_screen.dart';
 
@@ -39,6 +42,7 @@ class _AppShellState extends State<AppShell> {
   MarketFilter _marketFilter = MarketFilter.hk;
   late final PositionRepository _positionRepository;
   late final QuoteApiService _quoteApiService;
+  late final BacktestRepository _backtestRepository;
   List<StockPosition> _positions = List.of(samplePositions);
   StrategySettings _settings = StrategySettings.defaults;
   bool _isRefreshing = false;
@@ -52,6 +56,7 @@ class _AppShellState extends State<AppShell> {
     final apiClient = ApiClient();
     _apiBaseUrl = apiClient.baseUrl;
     _quoteApiService = QuoteApiService(apiClient);
+    _backtestRepository = BacktestRepository(BacktestApiService(apiClient));
     _positionRepository = PositionRepository(
       storageService: PositionStorageService(),
       apiService: PositionApiService(apiClient),
@@ -92,6 +97,11 @@ class _AppShellState extends State<AppShell> {
         onRefresh: _refreshPositions,
         onLoadCandles: _loadCandles,
       ),
+      QuantScreen(
+        positions: visible,
+        repository: _backtestRepository,
+        onLoadBacktestCandles: _loadBacktestCandles,
+      ),
       SignalsScreen(signals: signals, onRefresh: _refreshPositions),
       SettingsScreen(
         settings: _settings,
@@ -128,6 +138,11 @@ class _AppShellState extends State<AppShell> {
             icon: Icon(Icons.pie_chart_outline_rounded),
             selectedIcon: Icon(Icons.pie_chart_rounded),
             label: '持仓',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.science_outlined),
+            selectedIcon: Icon(Icons.science_rounded),
+            label: '量化',
           ),
           NavigationDestination(
             icon: Icon(Icons.notifications_none_rounded),
@@ -250,6 +265,21 @@ class _AppShellState extends State<AppShell> {
     String period = 'day',
     int limit = 240,
   }) {
+    return _quoteApiService.refreshCandles(code, period: period, limit: limit);
+  }
+
+  Future<List<Candle>> _loadBacktestCandles(
+    String code, {
+    String period = 'day',
+    int limit = 1000,
+  }) async {
+    final cached = await _quoteApiService.fetchCandles(
+      code,
+      period: period,
+      limit: limit,
+      includeMock: false,
+    );
+    if (cached.isNotEmpty) return cached;
     return _quoteApiService.refreshCandles(code, period: period, limit: limit);
   }
 

@@ -1011,7 +1011,99 @@ backend/app/backtest/engine.py
 
 当前 `POST /api/v1/backtests` 会同步执行回测并返回 `BacktestResult`。
 
-## 19. 当前最需要关注的结构问题
+## 19. App 量化入口结构
+
+```text
+mobile_app/lib/models/strategy_definition.dart
+mobile_app/lib/models/backtest_models.dart
+mobile_app/lib/services/backtest_api_service.dart
+mobile_app/lib/repositories/backtest_repository.dart
+mobile_app/lib/screens/quant_screen.dart
+mobile_app/lib/widgets/backtest/backtest_equity_chart.dart
+mobile_app/lib/widgets/backtest/backtest_kline_trade_chart.dart
+```
+
+### `mobile_app/lib/models/strategy_definition.dart`
+
+后端策略定义模型，对应 `GET /api/v1/strategies` 返回的数据。
+
+### `mobile_app/lib/models/backtest_models.dart`
+
+App 端回测模型：
+
+- `BacktestRequest`
+- `BacktestRun`
+- `BacktestEquityPoint`
+- `BacktestTrade`
+- `BacktestResult`
+
+### `mobile_app/lib/services/backtest_api_service.dart`
+
+回测 API 调用层：
+
+- `fetchStrategies()`
+- `runBacktest()`
+
+### `mobile_app/lib/repositories/backtest_repository.dart`
+
+回测仓储层，负责隔离页面和 API service。
+
+### `mobile_app/lib/screens/quant_screen.dart`
+
+量化页面。当前职责：
+
+- 展示策略列表。
+- 配置股票、日期、资金、手续费、滑点和均线参数。
+- 股票代码输入支持本地候选和后端搜索，识别到完整代码后在输入框下方显示股票名称。
+- 参数区不再显示固定持仓快捷标签，选股统一通过输入框和搜索候选完成。
+- 调用后端启动回测。
+- 展示回测摘要和交易记录。
+- 展示收益曲线。
+- 加载回测图表 K 线时优先读取后端真实缓存，缓存为空才刷新，避免富途 refresh 返回旧区间导致回测买卖点图被日期过滤为空。
+
+股票搜索相关实现：
+
+- 复用 `StockSearchApiService` 调用 `/api/v1/stocks/search`。
+- 复用 `stock_suggestion_search.dart` 的本地候选和查询标准化逻辑。
+- 输入未完整匹配时展示候选列表，点击候选后自动填入股票代码。
+- 输入完整代码时显示股票名称并隐藏候选，避免参数区过度拥挤。
+
+均线参数说明：
+
+- `short_window` 和 `long_window` 默认值为 5 和 20。
+- 默认值不代表固定限制，用户可在量化页输入其他正整数。
+- 后端要求短均线必须小于长均线，否则回测会返回参数错误。
+
+### `mobile_app/lib/widgets/backtest/backtest_equity_chart.dart`
+
+回测净值曲线组件。当前使用 `BacktestEquityPoint.equity` 绘制折线图，展示回测期间账户权益变化。
+
+### `mobile_app/lib/widgets/backtest/backtest_kline_trade_chart.dart`
+
+量化页专用 K 线买卖点图组件。当前使用回测股票的日 K 绘制蜡烛图、MA5、MA20，并使用 `BacktestTrade` 在交易日期附近标记 B / S。
+
+该组件是回测专用图，不复用也不改动 `mobile_app/lib/widgets/chart/` 下的持仓详情 K 线模块，避免影响现有详情页缩放和横屏逻辑。
+
+当前交互能力：
+
+- 双指缩放可见 K 线数量。
+- 单指横向拖动浏览历史 K 线。
+- 点击 K 线后显示日期、开高低收、涨跌幅和当日买卖信号。
+- 默认信息栏显示当前可见区间最后一根 K 线。
+
+数据来源要求：
+
+- 使用 `AppShell._loadBacktestCandles()` 读取后端缓存 K 线。
+- 不直接复用详情页的 `_loadCandles()` refresh 流程。
+- 回测图和回测引擎应尽量使用同源历史数据，避免图表区间与回测区间不一致。
+
+当前量化入口已加入 `mobile_app/lib/screens/app_shell.dart` 底部导航，顺序为：
+
+```text
+首页 / 持仓 / 量化 / 信号 / 设置
+```
+
+## 20. 当前最需要关注的结构问题
 
 - K 线图表已从 `position_detail_screen.dart` 拆到 `widgets/chart/`。
 - 后续应继续关注 `fullscreen_kline_screen.dart` 和 `position_kline_chart.dart` 的内部复用，避免横屏/竖屏手势逻辑重复扩大。
@@ -1020,7 +1112,7 @@ backend/app/backtest/engine.py
 - `backend/app/schemas.py` 已拆为 `backend/app/schemas/` 包，后续策略和回测模型继续按领域新增文件。
 - 策略和回测必须独立建目录，不要挤进现有信号服务。
 
-## 20. 后端数据库相关结构
+## 21. 后端数据库相关结构
 
 ```text
 backend/.env.example

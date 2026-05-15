@@ -609,3 +609,100 @@ POST /api/v1/backtests: completed
   -> 启动回测
   -> 展示收益曲线、最大回撤、交易记录
 ```
+
+### 2026-05-15 App 量化入口补充
+
+已开始新增 App 端量化入口，当前实现范围：
+
+```text
+底部导航新增“量化”
+  -> 读取策略列表
+  -> 配置股票、日期区间、初始资金、手续费、滑点、均线参数
+  -> 调用 POST /api/v1/backtests
+  -> 展示总收益、最大回撤、期末权益、交易次数、交易记录
+```
+
+新增移动端文件：
+
+```text
+mobile_app/lib/models/strategy_definition.dart
+mobile_app/lib/models/backtest_models.dart
+mobile_app/lib/services/backtest_api_service.dart
+mobile_app/lib/repositories/backtest_repository.dart
+mobile_app/lib/screens/quant_screen.dart
+```
+
+已修改：
+
+```text
+mobile_app/lib/screens/app_shell.dart
+```
+
+当前量化页面只负责配置和展示结果，不在 Flutter 端计算回测。
+
+### 2026-05-15 回测净值曲线补充
+
+量化结果页已新增收益曲线：
+
+```text
+结果指标
+  -> 收益曲线
+  -> 交易记录
+```
+
+新增文件：
+
+```text
+mobile_app/lib/widgets/backtest/backtest_equity_chart.dart
+```
+
+该组件使用后端返回的 `equity_curve` 绘制净值曲线，不在 Flutter 端重新计算回测。
+
+### 2026-05-15 回测 K 线买卖点图补充
+
+量化结果页已新增第一版 K 线买卖点图：
+
+```text
+收益曲线
+  -> K 线买卖点
+  -> 交易记录
+```
+
+新增文件：
+
+```text
+mobile_app/lib/widgets/backtest/backtest_kline_trade_chart.dart
+```
+
+当前实现为回测专用 K 线图：
+
+- 使用回测股票的日 K 数据绘制蜡烛图。
+- 叠加 MA5 和 MA20。
+- 使用回测交易记录标记 B / S。
+- 支持双指缩放、单指横向拖动和点击查看日期/开高低收/涨跌幅/当日信号。
+- 不复用持仓详情 K 线模块，避免影响现有 K 线缩放和横屏逻辑。
+- 当前不支持横屏、成交量和点击交易明细弹层，后续可升级。
+
+已修复一个关键数据源问题：
+
+- 量化页不能直接复用详情页的 K 线 refresh 流程。
+- refresh 接口在部分股票上可能返回旧区间 K 线，导致回测日期过滤后图表为空。
+- 量化页现在通过 `AppShell._loadBacktestCandles()` 优先读取后端真实缓存，缓存为空才刷新。
+
+### 2026-05-15 量化页股票搜索补充
+
+量化页参数区已经支持股票代码自动识别和搜索：
+
+- 输入完整代码后，在股票代码输入框下方显示股票名称。
+- 输入部分代码或名称时，展示候选列表。
+- 点击候选后自动填入股票代码。
+- 当前复用新增持仓使用的本地候选库和后端股票搜索接口。
+- 固定持仓快捷标签已移除，避免参数区重复和拥挤。
+
+均线参数当前不是固定 5/20：
+
+- 5 和 20 只是默认值。
+- 用户可在“短均线”和“长均线”输入框中配置其他正整数。
+- 后端要求短均线小于长均线。
+
+后续如果增加多市场策略或股票池配置，优先把搜索组件抽成通用 widget，避免量化页、添加持仓页各自维护重复 UI。
