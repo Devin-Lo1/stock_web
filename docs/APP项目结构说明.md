@@ -1,6 +1,6 @@
 # App 项目结构说明
 
-最后更新：2026-05-13
+最后更新：2026-05-15
 
 本文档用于说明当前项目每个主要代码文件的职责。新接手者看完后，应能判断某个功能应该在哪个目录、哪个文件下开发。
 
@@ -152,6 +152,29 @@ POST /api/v1/klines/refresh
 
 当前用于 `SignalsScreen` 和首页最新信号。
 
+### `lib/models/strategy_definition.dart`
+
+量化策略定义模型。
+
+用于：
+
+- 解析后端策略列表。
+- 支撑量化页策略下拉选择。
+- 描述策略编号、名称、说明和参数定义。
+
+### `lib/models/backtest_models.dart`
+
+回测输入和结果模型。
+
+包含：
+
+- `BacktestRequest`：回测请求参数。
+- `BacktestResult`：回测汇总结果。
+- `BacktestTrade`：买卖交易记录。
+- `BacktestEquityPoint`：收益曲线点。
+
+量化页、回测结果图、买卖点图都应复用这里的模型，不要在 UI 文件里重复定义结构。
+
 ### `lib/models/stock_search_result.dart`
 
 后端股票搜索结果模型。
@@ -231,6 +254,19 @@ GET /api/v1/stocks/search
 - refresh 成功时直接使用富途返回并写入后端缓存的真实 K 线。
 - refresh 失败时才读取真实缓存，且读取真实缓存时会使用 `include_mock=false` 避免误把 mock 数据当成真实 K 线。
 - 真实缓存也不可用时，才允许走后端 mock fallback，保证开发和离线场景仍可展示。
+
+### `lib/services/backtest_api_service.dart`
+
+回测 API service。
+
+职责：
+
+- 获取策略列表。
+- 提交回测请求。
+- 解析回测结果。
+- 将后端结构化错误交给 `ApiClient` 统一处理。
+
+量化页不直接拼 HTTP 请求；新增回测接口时优先扩展这里。
 
 ### `lib/services/position_storage_service.dart`
 
@@ -335,6 +371,23 @@ App 主壳。
 - 刷新。
 
 后续信号历史、已读未读、推送记录可从这里扩展，但复杂信号组件应放 `widgets/signal/`。
+
+### `lib/screens/quant_screen.dart`
+
+量化页。
+
+职责：
+
+- 维护当前策略、股票代码、日期区间和策略参数状态。
+- 调用 `BacktestApiService` 获取策略列表和运行回测。
+- 组织量化页各面板展示。
+- 展示加载、错误和回测结果。
+
+约束：
+
+- 不在此文件继续堆叠复杂卡片、图表 painter、格式化函数。
+- 参数区、结果区、图表区优先放到 `widgets/quant/` 和 `widgets/backtest/`。
+- 后续新增策略配置 UI 时，先拆成独立 widget，再由本页编排。
 
 ### `lib/screens/settings_screen.dart`
 
@@ -553,6 +606,86 @@ K 线计算和格式化工具。
 信号组件：
 
 - `signal_tile.dart`
+
+### `lib/widgets/quant/`
+
+量化页表单和面板组件：
+
+- `quant_common_widgets.dart`
+- `quant_panels.dart`
+
+#### `quant_common_widgets.dart`
+
+量化页通用小组件。
+
+当前包含：
+
+- 卡片容器。
+- 图标标题。
+- 数值指标块。
+- 股票代码快捷选择按钮。
+
+#### `quant_panels.dart`
+
+量化页主要面板。
+
+当前包含：
+
+- 策略选择面板。
+- 参数输入面板。
+- 回测操作按钮。
+- 回测结果摘要。
+- 收益曲线。
+- 买卖点图入口。
+- 交易记录列表。
+
+后续如果策略参数继续增多，应继续拆成 `quant_parameter_panel.dart`、`quant_result_panel.dart` 等文件。
+
+### `lib/widgets/backtest/`
+
+回测结果图表组件：
+
+- `backtest_equity_chart.dart`
+- `backtest_kline_trade_chart.dart`
+- `backtest_chart_values.dart`
+
+#### `backtest_equity_chart.dart`
+
+收益曲线图。
+
+职责：
+
+- 根据 `BacktestEquityPoint` 绘制资金/收益变化。
+- 展示首尾日期和收益刻度。
+- 只负责结果展示，不处理回测请求。
+
+#### `backtest_kline_trade_chart.dart`
+
+回测买卖点 K 线图。
+
+职责：
+
+- 绘制量化页专用 K 线。
+- 绘制 MA5、MA20。
+- 在 K 线上标记买入、卖出点。
+- 支持点选查看日期、开高低收、成交量、成交额。
+- 支持横向拖动和双指缩放。
+
+注意：它是量化页专用图表，不要影响持仓详情页的 `widgets/chart/` K 线。
+
+#### `backtest_chart_values.dart`
+
+回测 K 线图的纯计算和格式化工具。
+
+职责：
+
+- `BacktestViewWindow`：根据缩放/拖动状态计算可视窗口。
+- `BacktestPriceRange`：根据 K 线、均线、交易点计算绘图区价格范围。
+- `calculateMovingAverage`：计算均线。
+- `visibleBacktestTrades`：筛选当前可视区间内的交易记录。
+- `formatBacktestAxisDate`、`formatBacktestFullDate`、`formatBacktestCompactNumber`：图表日期和数值格式化。
+
+后续拆图表 painter 时应继续复用本文件，不要把这些计算逻辑搬回 UI 或 painter。
 
 ## 12. Flutter 测试目录
 

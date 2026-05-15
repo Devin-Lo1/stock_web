@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../models/backtest_models.dart';
 import '../../models/candle.dart';
 import '../../utils/theme_helpers.dart';
+import 'backtest_chart_values.dart';
 
 class BacktestKlineTradeChart extends StatefulWidget {
   const BacktestKlineTradeChart({
@@ -44,14 +45,14 @@ class _BacktestKlineTradeChartState extends State<BacktestKlineTradeChart> {
   @override
   Widget build(BuildContext context) {
     final candles = _sortedCandles;
-    final view = _ViewWindow.fromState(
+    final view = BacktestViewWindow.fromState(
       totalCount: candles.length,
       visibleCount: _visibleCount,
       visibleEndIndex: _visibleEndIndex,
     );
     final visibleCandles = candles.sublist(view.start, view.end);
-    final fullMa5 = _movingAverage(candles, 5);
-    final fullMa20 = _movingAverage(candles, 20);
+    final fullMa5 = calculateMovingAverage(candles, 5);
+    final fullMa20 = calculateMovingAverage(candles, 20);
     final visibleMa5 = fullMa5.sublist(view.start, view.end);
     final visibleMa20 = fullMa20.sublist(view.start, view.end);
     final selectedIndex = _normalizedSelectedIndex(visibleCandles.length);
@@ -129,7 +130,7 @@ class _BacktestKlineTradeChartState extends State<BacktestKlineTradeChart> {
     ScaleUpdateDetails details,
     double width,
     int totalCount,
-    _ViewWindow view,
+    BacktestViewWindow view,
   ) {
     if (totalCount <= 1 || width <= 0) return;
     if ((details.scale - 1).abs() > 0.02) {
@@ -156,17 +157,6 @@ class _BacktestKlineTradeChartState extends State<BacktestKlineTradeChart> {
       _visibleEndIndex = nextEnd;
       _selectedVisibleIndex = null;
     });
-  }
-
-  List<double?> _movingAverage(List<Candle> values, int window) {
-    final result = List<double?>.filled(values.length, null);
-    var sum = 0.0;
-    for (var index = 0; index < values.length; index++) {
-      sum += values[index].close;
-      if (index >= window) sum -= values[index - window].close;
-      if (index >= window - 1) result[index] = sum / window;
-    }
-    return result;
   }
 }
 
@@ -217,10 +207,10 @@ class _BacktestKlineTradePainter extends CustomPainter {
       return;
     }
 
-    final range = _PriceRange.fromCandles(
+    final range = BacktestPriceRange.fromCandles(
       candles: candles,
       maValues: [...ma5.whereType<double>(), ...ma20.whereType<double>()],
-      trades: _visibleTrades(candles, trades),
+      trades: visibleBacktestTrades(candles, trades),
     );
 
     _drawMaLine(canvas, area, ma20, range, ma20Color);
@@ -232,7 +222,7 @@ class _BacktestKlineTradePainter extends CustomPainter {
     _drawInfoPanel(canvas, size, selectedIndex);
   }
 
-  void _drawCandles(Canvas canvas, Rect area, _PriceRange range) {
+  void _drawCandles(Canvas canvas, Rect area, BacktestPriceRange range) {
     final count = candles.length;
     final spacing = area.width / count;
     final candleWidth = (spacing * 0.58).clamp(2.0, 9.0);
@@ -264,7 +254,7 @@ class _BacktestKlineTradePainter extends CustomPainter {
     }
   }
 
-  void _drawTradeMarkers(Canvas canvas, Rect area, _PriceRange range) {
+  void _drawTradeMarkers(Canvas canvas, Rect area, BacktestPriceRange range) {
     for (final trade in trades) {
       final tradeTime = trade.time;
       if (tradeTime == null) continue;
@@ -313,7 +303,7 @@ class _BacktestKlineTradePainter extends CustomPainter {
     }
   }
 
-  void _drawSelection(Canvas canvas, Rect area, _PriceRange range) {
+  void _drawSelection(Canvas canvas, Rect area, BacktestPriceRange range) {
     final index = selectedIndex;
     if (index == null || index < 0 || index >= candles.length) return;
     final candle = candles[index];
@@ -336,7 +326,7 @@ class _BacktestKlineTradePainter extends CustomPainter {
     Canvas canvas,
     Rect area,
     List<double?> values,
-    _PriceRange range,
+    BacktestPriceRange range,
     Color color,
   ) {
     final path = Path();
@@ -389,7 +379,7 @@ class _BacktestKlineTradePainter extends CustomPainter {
     return area.left + area.width * index / (count - 1);
   }
 
-  double _yFor(double value, Rect area, _PriceRange range) {
+  double _yFor(double value, Rect area, BacktestPriceRange range) {
     return area.bottom - (value - range.min) / range.size * area.height;
   }
 
@@ -414,7 +404,7 @@ class _BacktestKlineTradePainter extends CustomPainter {
     );
   }
 
-  void _drawLabels(Canvas canvas, Rect area, _PriceRange range) {
+  void _drawLabels(Canvas canvas, Rect area, BacktestPriceRange range) {
     _drawText(
       canvas,
       range.max.toStringAsFixed(2),
@@ -427,12 +417,12 @@ class _BacktestKlineTradePainter extends CustomPainter {
     );
     _drawText(
       canvas,
-      _dateText(candles.first.time),
+      formatBacktestAxisDate(candles.first.time),
       Offset(area.left + 2, area.bottom + 8),
     );
     _drawText(
       canvas,
-      _dateText(candles.last.time),
+      formatBacktestAxisDate(candles.last.time),
       Offset(area.right - 2, area.bottom + 8),
       align: TextAlign.right,
     );
@@ -481,7 +471,7 @@ class _BacktestKlineTradePainter extends CustomPainter {
     _drawMetricText(
       canvas,
       label: '日',
-      value: _fullDateText(selected.time),
+      value: formatBacktestFullDate(selected.time),
       offset: Offset(columnXs[0], 6),
       maxWidth: columnWidths[0] - 6,
       valueColor: primaryTextColor,
@@ -513,7 +503,7 @@ class _BacktestKlineTradePainter extends CustomPainter {
     _drawMetricText(
       canvas,
       label: '量',
-      value: _compactNumber(selected.volume),
+      value: formatBacktestCompactNumber(selected.volume),
       offset: Offset(columnXs[0], 27),
       maxWidth: columnWidths[0] - 6,
       valueColor: primaryTextColor,
@@ -537,7 +527,7 @@ class _BacktestKlineTradePainter extends CustomPainter {
     _drawMetricText(
       canvas,
       label: tradeText == null ? '额' : '信号',
-      value: tradeText ?? _compactNumber(selected.turnover),
+      value: tradeText ?? formatBacktestCompactNumber(selected.turnover),
       offset: Offset(columnXs[3], 27),
       maxWidth: columnWidths[3] - 6,
       valueColor: tradeText == null ? primaryTextColor : changeColor,
@@ -550,7 +540,7 @@ class _BacktestKlineTradePainter extends CustomPainter {
     return trades.where((trade) {
       final tradeTime = trade.time;
       if (tradeTime == null) return false;
-      return _dateKey(tradeTime) == _dateKey(time);
+      return backtestDateKey(tradeTime) == backtestDateKey(time);
     }).toList();
   }
 
@@ -647,115 +637,4 @@ class _BacktestKlineTradePainter extends CustomPainter {
         oldDelegate.buyColor != buyColor ||
         oldDelegate.sellColor != sellColor;
   }
-}
-
-class _ViewWindow {
-  const _ViewWindow({
-    required this.start,
-    required this.end,
-    required this.count,
-  });
-
-  factory _ViewWindow.fromState({
-    required int totalCount,
-    required int visibleCount,
-    required int visibleEndIndex,
-  }) {
-    if (totalCount <= 0) {
-      return const _ViewWindow(start: 0, end: 0, count: 0);
-    }
-    final count = visibleCount.clamp(1, totalCount);
-    final end = (visibleEndIndex <= 0 ? totalCount : visibleEndIndex).clamp(
-      count,
-      totalCount,
-    );
-    return _ViewWindow(start: end - count, end: end, count: count);
-  }
-
-  final int start;
-  final int end;
-  final int count;
-}
-
-class _PriceRange {
-  const _PriceRange({required this.min, required this.max});
-
-  factory _PriceRange.fromCandles({
-    required List<Candle> candles,
-    required List<double> maValues,
-    required List<BacktestTrade> trades,
-  }) {
-    var minValue = candles.map((candle) => candle.low).reduce(math.min);
-    var maxValue = candles.map((candle) => candle.high).reduce(math.max);
-    for (final value in maValues) {
-      minValue = math.min(minValue, value);
-      maxValue = math.max(maxValue, value);
-    }
-    for (final trade in trades) {
-      minValue = math.min(minValue, trade.price);
-      maxValue = math.max(maxValue, trade.price);
-    }
-    final padding = math.max((maxValue - minValue) * 0.08, 0.01);
-    return _PriceRange(min: minValue - padding, max: maxValue + padding);
-  }
-
-  final double min;
-  final double max;
-
-  double get size {
-    final value = max - min;
-    return value.abs() < 0.0001 ? 1 : value;
-  }
-}
-
-List<BacktestTrade> _visibleTrades(
-  List<Candle> candles,
-  List<BacktestTrade> trades,
-) {
-  if (candles.isEmpty) return const [];
-  final firstTime = candles.first.time;
-  final lastTime = candles.last.time;
-  if (firstTime == null || lastTime == null) return const [];
-  final firstKey = _dateKey(firstTime);
-  final lastKey = _dateKey(lastTime);
-  return trades.where((trade) {
-    final tradeTime = trade.time;
-    if (tradeTime == null) return false;
-    final key = _dateKey(tradeTime);
-    return key >= firstKey && key <= lastKey;
-  }).toList();
-}
-
-int _dateKey(DateTime value) {
-  return value.year * 10000 + value.month * 100 + value.day;
-}
-
-String _dateText(DateTime? value) {
-  if (value == null) return '--';
-  return '${value.month.toString().padLeft(2, '0')}/'
-      '${value.day.toString().padLeft(2, '0')}';
-}
-
-String _fullDateText(DateTime? value) {
-  if (value == null) return '--';
-  return '${value.year.toString().padLeft(4, '0')}/'
-      '${value.month.toString().padLeft(2, '0')}/'
-      '${value.day.toString().padLeft(2, '0')}';
-}
-
-String _compactNumber(double value) {
-  final absValue = value.abs();
-  if (absValue >= 100000000) {
-    return '${(value / 100000000).toStringAsFixed(2)}\u4ebf';
-  }
-  if (absValue >= 10000) {
-    return '${(value / 10000).toStringAsFixed(2)}\u4e07';
-  }
-  if (absValue >= 100) {
-    return value.toStringAsFixed(0);
-  }
-  if (absValue >= 1) {
-    return value.toStringAsFixed(2);
-  }
-  return value.toStringAsFixed(0);
 }
