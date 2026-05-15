@@ -1,6 +1,7 @@
 from .backtests import (
     BacktestCreate,
     BacktestEquityPoint,
+    BacktestRename,
     BacktestResult,
     BacktestRun,
     BacktestTrade,
@@ -15,6 +16,7 @@ from .stocks import StockSearchResult
 __all__ = [
     "BacktestCreate",
     "BacktestEquityPoint",
+    "BacktestRename",
     "BacktestResult",
     "BacktestRun",
     "BacktestTrade",

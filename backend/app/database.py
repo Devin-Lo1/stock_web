@@ -2,7 +2,11 @@ from .db.core import _connect
 from .db.init import init_database
 from .repositories.backtests import (
     create_backtest_run,
+    delete_all_backtest_runs,
+    delete_backtest_run,
     get_backtest_result,
+    list_backtest_runs,
+    rename_backtest_run,
     save_backtest_result,
 )
 from .repositories.market_data import (
@@ -40,6 +44,10 @@ __all__ = [
     "list_strategy_definitions",
     "create_strategy_definition",
     "create_backtest_run",
+    "list_backtest_runs",
     "get_backtest_result",
+    "delete_all_backtest_runs",
+    "delete_backtest_run",
+    "rename_backtest_run",
     "save_backtest_result",
 ]

@@ -38,6 +38,7 @@ class _QuantScreenState extends State<QuantScreen> {
   final _slippageRateController = TextEditingController(text: '0.0005');
   final _shortWindowController = TextEditingController(text: '5');
   final _longWindowController = TextEditingController(text: '20');
+  final _historyStockCodeController = TextEditingController();
   late final StockSearchApiService _stockSearchService;
   Timer? _stockSearchDebounce;
   int _stockSearchRequestId = 0;
@@ -45,12 +46,16 @@ class _QuantScreenState extends State<QuantScreen> {
   DateTime _endDate = DateTime(2026, 5, 14);
   List<StrategyDefinition> _strategies = const [];
   List<StockSuggestion> _stockSuggestions = const [];
+  List<BacktestRun> _recentRuns = const [];
   StrategyDefinition? _selectedStrategy;
+  String? _historyStrategyFilter;
+  String? _historyStatusFilter;
   BacktestResult? _result;
   List<Candle> _resultCandles = const [];
   String _selectedStockName = '';
   Object? _error;
   bool _isLoadingStrategies = true;
+  bool _isLoadingHistory = true;
   bool _isSearchingStocks = false;
   bool _isRunning = false;
   bool _isApplyingStockSuggestion = false;
@@ -61,6 +66,7 @@ class _QuantScreenState extends State<QuantScreen> {
     _stockSearchService = StockSearchApiService(ApiClient());
     _stockCodeController.addListener(_updateStockSuggestions);
     _loadStrategies();
+    _loadHistory();
     _updateStockSuggestions();
   }
 
@@ -74,6 +80,7 @@ class _QuantScreenState extends State<QuantScreen> {
     _slippageRateController.dispose();
     _shortWindowController.dispose();
     _longWindowController.dispose();
+    _historyStockCodeController.dispose();
     super.dispose();
   }
 
@@ -90,6 +97,24 @@ class _QuantScreenState extends State<QuantScreen> {
           isLoading: _isLoadingStrategies,
           onChanged: (strategy) => setState(() => _selectedStrategy = strategy),
           onReload: _loadStrategies,
+        ),
+        const SizedBox(height: 12),
+        QuantHistoryPanel(
+          runs: _recentRuns,
+          strategies: _strategies,
+          stockCodeController: _historyStockCodeController,
+          strategyFilter: _historyStrategyFilter,
+          statusFilter: _historyStatusFilter,
+          isLoading: _isLoadingHistory,
+          onReload: _loadHistory,
+          onApplyFilters: _loadHistory,
+          onClearFilters: _clearHistoryFilters,
+          onStrategyFilterChanged: _setHistoryStrategyFilter,
+          onStatusFilterChanged: _setHistoryStatusFilter,
+          onSelected: _loadHistoryResult,
+          onDelete: _confirmDeleteHistory,
+          onRename: _confirmRenameHistory,
+          onDeleteAll: _confirmDeleteAllHistory,
         ),
         const SizedBox(height: 12),
         QuantConfigPanel(
@@ -148,6 +173,244 @@ class _QuantScreenState extends State<QuantScreen> {
     }
   }
 
+  Future<void> _loadHistory({bool showError = true}) async {
+    setState(() {
+      _isLoadingHistory = true;
+      if (showError) _error = null;
+    });
+    try {
+      final runs = await widget.repository.loadBacktestRuns(
+        stockCode: _historyStockCodeController.text,
+        strategyCode: _historyStrategyFilter,
+        status: _historyStatusFilter,
+        limit: 30,
+      );
+      if (!mounted) return;
+      setState(() => _recentRuns = runs);
+    } catch (error) {
+      if (!mounted) return;
+      if (showError) setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _isLoadingHistory = false);
+    }
+  }
+
+  void _setHistoryStrategyFilter(String? value) {
+    setState(() => _historyStrategyFilter = value);
+    _loadHistory();
+  }
+
+  void _setHistoryStatusFilter(String? value) {
+    setState(() => _historyStatusFilter = value);
+    _loadHistory();
+  }
+
+  void _clearHistoryFilters() {
+    _historyStockCodeController.clear();
+    setState(() {
+      _historyStrategyFilter = null;
+      _historyStatusFilter = null;
+    });
+    _loadHistory();
+  }
+
+  Future<void> _loadHistoryResult(BacktestRun run) async {
+    setState(() {
+      _isRunning = true;
+      _error = null;
+    });
+    try {
+      final result = await widget.repository.loadBacktestResult(run.id);
+      final failedMessage = _backtestFailureMessage(result);
+      if (failedMessage != null) {
+        if (!mounted) return;
+        setState(() {
+          _error = _QuantValidationError(failedMessage);
+          _result = null;
+          _resultCandles = const [];
+        });
+        return;
+      }
+      final candles = await widget.onLoadBacktestCandles(
+        result.run.stockCode,
+        period: result.run.period.isEmpty ? 'day' : result.run.period,
+        limit: 1000,
+      );
+      if (!mounted) return;
+      setState(() {
+        _result = result;
+        _resultCandles = _filterCandles(
+          candles,
+          result.run.startDate,
+          result.run.endDate,
+        );
+        _stockCodeController.text = result.run.stockCode;
+        _startDate = result.run.startDate ?? _startDate;
+        _endDate = result.run.endDate ?? _endDate;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _isRunning = false);
+    }
+  }
+
+  Future<void> _confirmDeleteHistory(BacktestRun run) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('删除历史回测'),
+          content: Text('确定删除 ${run.stockCode} 的这次回测记录吗？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('删除'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true) return;
+    await _deleteHistory(run);
+  }
+
+  Future<void> _deleteHistory(BacktestRun run) async {
+    setState(() {
+      _isLoadingHistory = true;
+      _error = null;
+    });
+    try {
+      await widget.repository.deleteBacktestRun(run.id);
+      if (!mounted) return;
+      setState(() {
+        _recentRuns = _recentRuns
+            .where((candidate) => candidate.id != run.id)
+            .toList();
+        if (_result?.run.id == run.id) {
+          _result = null;
+          _resultCandles = const [];
+        }
+      });
+      await _loadHistory(showError: false);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _isLoadingHistory = false);
+    }
+  }
+
+  Future<void> _confirmRenameHistory(BacktestRun run) async {
+    final controller = TextEditingController(text: run.name);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('编辑历史名称'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            maxLength: 80,
+            decoration: const InputDecoration(labelText: '名称'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(controller.text),
+              child: const Text('保存'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+    if (name == null) return;
+    await _renameHistory(run, name);
+  }
+
+  Future<void> _renameHistory(BacktestRun run, String name) async {
+    setState(() {
+      _isLoadingHistory = true;
+      _error = null;
+    });
+    try {
+      final renamed = await widget.repository.renameBacktestRun(run.id, name);
+      if (!mounted) return;
+      setState(() {
+        _recentRuns = [
+          for (final candidate in _recentRuns)
+            candidate.id == renamed.id ? renamed : candidate,
+        ];
+        if (_result?.run.id == renamed.id) {
+          _result = BacktestResult(
+            run: renamed,
+            equityCurve: _result!.equityCurve,
+            trades: _result!.trades,
+          );
+        }
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _isLoadingHistory = false);
+    }
+  }
+
+  Future<void> _confirmDeleteAllHistory() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('删除全部历史回测'),
+          content: const Text('确定删除全部历史回测记录吗？该操作会同时删除收益曲线和交易记录。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('全部删除'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true) return;
+    await _deleteAllHistory();
+  }
+
+  Future<void> _deleteAllHistory() async {
+    setState(() {
+      _isLoadingHistory = true;
+      _error = null;
+    });
+    try {
+      await widget.repository.deleteAllBacktestRuns();
+      if (!mounted) return;
+      setState(() {
+        _recentRuns = const [];
+        _result = null;
+        _resultCandles = const [];
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _isLoadingHistory = false);
+    }
+  }
+
   Future<void> _run() async {
     final strategy = _selectedStrategy;
     if (strategy == null) return;
@@ -192,6 +455,7 @@ class _QuantScreenState extends State<QuantScreen> {
           result.run.endDate,
         );
       });
+      await _loadHistory(showError: false);
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = error);

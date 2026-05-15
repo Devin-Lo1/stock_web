@@ -805,3 +805,38 @@ pytest: 8 passed
 
 1. 做历史回测列表接口和 App 展示。
 2. 或先补量化页日期/数字输入的更强交互限制，减少用户输入非法字符。
+
+### 2026-05-15 历史回测列表补充
+
+已完成：
+
+- 后端新增 `GET /api/v1/backtests`。
+- 后端 repository 新增 `list_backtest_runs`。
+- 后端 repository 新增 `delete_backtest_run`，按单条 `run_id` 删除回测主记录、净值曲线和交易记录。
+- 后端 repository 新增 `delete_all_backtest_runs`，用于一键删除全部历史回测。
+- 后端回测运行新增 `name` 字段，支持编辑历史回测名称。
+- 支持 `stock_code`、`strategy_code`、`status`、`limit` 过滤。
+- App service/repository 新增历史回测列表、单条详情读取、单条删除、一键删除全部和历史名称编辑。
+- 量化页新增“历史回测”面板。
+- 点击历史回测后加载完整回测结果，并展示收益曲线、买卖点 K 线和交易记录。
+- 历史回测列表从展示最近 5 条调整为最多 30 条。
+- 历史回测面板支持股票代码、策略和状态筛选。
+- 每条历史回测右侧提供删除按钮，删除前必须二次确认；删除当前正在查看的回测时，需要同步清空当前结果区。
+- 历史回测标题右侧提供一键删除全部按钮，删除前必须二次确认；删除全部后需要清空历史列表和当前结果区。
+
+已验证：
+
+```text
+D:\flutter\bin\dart.bat format lib test
+D:\flutter\bin\flutter.bat analyze
+D:\flutter\bin\flutter.bat test
+.venv\Scripts\python.exe -m compileall app scripts tests
+.venv\Scripts\python.exe -m pytest
+pytest: 9 passed
+```
+
+下一步建议：
+
+1. 真机安装验证历史回测面板、点击加载详情、名称编辑、筛选、单条删除和一键删除全部。
+2. 验证通过后再 git 保存。
+3. 之后可以开始做更多策略，优先 MACD 或 RSI。

@@ -86,6 +86,7 @@ def _strategy_definition_values(
 def _backtest_run_values(run: BacktestRun) -> tuple[object, ...]:
     return (
         run.id,
+        run.name,
         run.strategy_code,
         run.stock_code,
         run.period,
@@ -195,6 +196,7 @@ def _row_to_strategy_definition(
 def _row_to_backtest_run(row: sqlite3.Row | dict[str, Any]) -> BacktestRun:
     return BacktestRun(
         id=row["id"],
+        name=row["name"] if "name" in row.keys() else "",
         strategy_code=row["strategy_code"],
         stock_code=row["stock_code"],
         period=row["period"],

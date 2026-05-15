@@ -1,11 +1,33 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Query, status
 
 from ..backtest import run_backtest
 from ..errors import not_found_error
-from ..repositories.backtests import create_backtest_run, get_backtest_result
-from ..schemas import BacktestCreate, BacktestResult
+from ..repositories.backtests import (
+    create_backtest_run,
+    delete_all_backtest_runs,
+    delete_backtest_run,
+    get_backtest_result,
+    list_backtest_runs,
+    rename_backtest_run,
+)
+from ..schemas import BacktestCreate, BacktestRename, BacktestResult, BacktestRun
 
 router = APIRouter(prefix="/api/v1/backtests", tags=["backtests"])
+
+
+@router.get("", response_model=list[BacktestRun])
+def api_list_backtests(
+    stock_code: str | None = Query(default=None),
+    strategy_code: str | None = Query(default=None),
+    status_filter: str | None = Query(default=None, alias="status"),
+    limit: int = Query(default=20, ge=1, le=100),
+) -> list[BacktestRun]:
+    return list_backtest_runs(
+        stock_code=stock_code,
+        strategy_code=strategy_code,
+        status=status_filter,
+        limit=limit,
+    )
 
 
 @router.post(
@@ -18,9 +40,29 @@ def api_create_backtest(payload: BacktestCreate) -> BacktestResult:
     return run_backtest(run)
 
 
+@router.delete("", status_code=status.HTTP_204_NO_CONTENT)
+def api_delete_all_backtests() -> None:
+    delete_all_backtest_runs()
+
+
 @router.get("/{run_id}", response_model=BacktestResult)
 def api_get_backtest(run_id: str) -> BacktestResult:
     result = get_backtest_result(run_id)
     if result is None:
         raise not_found_error("Backtest run not found", run_id=run_id)
     return result
+
+
+@router.put("/{run_id}/name", response_model=BacktestRun)
+def api_rename_backtest(run_id: str, payload: BacktestRename) -> BacktestRun:
+    run = rename_backtest_run(run_id, payload.name)
+    if run is None:
+        raise not_found_error("Backtest run not found", run_id=run_id)
+    return run
+
+
+@router.delete("/{run_id}", status_code=status.HTTP_204_NO_CONTENT)
+def api_delete_backtest(run_id: str) -> None:
+    deleted = delete_backtest_run(run_id)
+    if not deleted:
+        raise not_found_error("Backtest run not found", run_id=run_id)

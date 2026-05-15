@@ -39,6 +39,7 @@ class BacktestRequest {
 class BacktestRun {
   const BacktestRun({
     required this.id,
+    required this.name,
     required this.strategyCode,
     required this.stockCode,
     required this.period,
@@ -52,6 +53,7 @@ class BacktestRun {
   });
 
   final String id;
+  final String name;
   final String strategyCode;
   final String stockCode;
   final String period;
@@ -66,6 +68,7 @@ class BacktestRun {
   factory BacktestRun.fromJson(Map<String, dynamic> json) {
     return BacktestRun(
       id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
       strategyCode: json['strategy_code'] as String? ?? '',
       stockCode: json['stock_code'] as String? ?? '',
       period: json['period'] as String? ?? '',

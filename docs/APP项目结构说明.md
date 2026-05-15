@@ -618,6 +618,7 @@ K 线计算和格式化工具。
 - `quant_stock_suggestion_list.dart`
 - `quant_result_panel.dart`
 - `quant_trade_list.dart`
+- `quant_history_panel.dart`
 - `quant_error_panel.dart`
 
 #### `quant_common_widgets.dart`
@@ -685,6 +686,22 @@ K 线计算和格式化工具。
 - 收益曲线。
 - 买卖点图入口。
 - 交易记录列表。
+
+#### `quant_history_panel.dart`
+
+历史回测面板。
+
+职责：
+
+- 展示最近回测运行摘要。
+- 展示回测状态、股票代码、策略、日期区间和收益率。
+- 点击历史记录后由页面加载完整回测结果。
+- 展示历史回测名称，支持编辑名称。
+- 支持按股票代码、策略、状态筛选历史记录。
+- 当前列表最多加载 30 条记录，后续如果数量继续增多，应改为分页或分页加载。
+- 支持按单条历史记录删除，删除前由页面弹确认框。
+- 支持一键删除全部历史记录，删除前由页面弹确认框。
+- 删除操作必须调用 repository，不在组件内直接拼 HTTP 请求。
 
 #### `quant_trade_list.dart`
 
@@ -984,7 +1001,11 @@ backend/app/routers/backtests.py
 职责：
 
 - `create_backtest_run`
+- `list_backtest_runs`
 - `get_backtest_result`
+- `delete_backtest_run`
+- `delete_all_backtest_runs`
+- `rename_backtest_run`
 - `save_backtest_result`
 
 ### `backend/app/mock_store.py`

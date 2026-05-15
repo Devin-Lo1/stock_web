@@ -104,6 +104,7 @@ def init_database(*, seed_defaults: bool = True) -> None:
             """
             CREATE TABLE IF NOT EXISTS backtest_runs (
                 id TEXT PRIMARY KEY,
+                name TEXT NOT NULL DEFAULT '',
                 strategy_code TEXT NOT NULL,
                 stock_code TEXT NOT NULL,
                 period TEXT NOT NULL,
@@ -120,6 +121,7 @@ def init_database(*, seed_defaults: bool = True) -> None:
             )
             """,
         )
+        _ensure_column(connection, "backtest_runs", "name", "TEXT NOT NULL DEFAULT ''")
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS backtest_equity_curve (

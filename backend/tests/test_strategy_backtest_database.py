@@ -41,6 +41,7 @@ def test_backtest_run_create_and_get_result() -> None:
 
     assert result is not None
     assert result.run.id == run.id
+    assert result.run.name
     assert result.run.status == "created"
     assert result.run.start_date == date(2025, 1, 1)
     assert result.run.end_date == date(2026, 5, 14)
@@ -49,8 +50,123 @@ def test_backtest_run_create_and_get_result() -> None:
     assert result.trades == []
 
 
+def test_list_backtest_runs_returns_recent_summaries() -> None:
+    first = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="ma_cross",
+            stock_code="HK.02628",
+            period="day",
+            start_date=date(2025, 1, 1),
+            end_date=date(2026, 5, 14),
+            initial_cash=100000,
+            fee_rate=0.0003,
+            slippage_rate=0.0005,
+            parameters={"short_window": 5, "long_window": 20},
+        ),
+    )
+    second = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="ma_cross",
+            stock_code="HK.00700",
+            period="day",
+            start_date=date(2025, 1, 1),
+            end_date=date(2026, 5, 14),
+            initial_cash=100000,
+            fee_rate=0.0003,
+            slippage_rate=0.0005,
+            parameters={"short_window": 5, "long_window": 20},
+        ),
+    )
+
+    rows = database.list_backtest_runs(limit=10)
+    filtered = database.list_backtest_runs(stock_code="hk.02628", limit=10)
+
+    assert [row.id for row in rows] == [second.id, first.id]
+    assert [row.id for row in filtered] == [first.id]
+
+
+def test_rename_backtest_run_updates_name() -> None:
+    run = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="ma_cross",
+            stock_code="HK.02628",
+            period="day",
+            start_date=date(2025, 1, 1),
+            end_date=date(2026, 5, 14),
+            initial_cash=100000,
+            fee_rate=0.0003,
+            slippage_rate=0.0005,
+            parameters={"short_window": 5, "long_window": 20},
+        ),
+    )
+
+    renamed = database.rename_backtest_run(run.id, "  中国人寿 MA5/20  ")
+    missing = database.rename_backtest_run("missing", "Noop")
+    result = database.get_backtest_result(run.id)
+
+    assert renamed is not None
+    assert renamed.name == "中国人寿 MA5/20"
+    assert result is not None
+    assert result.run.name == "中国人寿 MA5/20"
+    assert missing is None
+
+
 def test_missing_backtest_result_returns_none() -> None:
     assert database.get_backtest_result("missing") is None
+
+
+def test_delete_backtest_run_removes_result() -> None:
+    run = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="ma_cross",
+            stock_code="HK.02628",
+            period="day",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 20),
+            initial_cash=100000,
+            fee_rate=0.001,
+            slippage_rate=0.001,
+            parameters={"short_window": 3, "long_window": 5},
+        ),
+    )
+
+    assert database.delete_backtest_run(run.id) is True
+    assert database.get_backtest_result(run.id) is None
+    assert database.delete_backtest_run(run.id) is False
+
+
+def test_delete_all_backtest_runs_removes_history() -> None:
+    first = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="ma_cross",
+            stock_code="HK.02628",
+            period="day",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 20),
+            initial_cash=100000,
+            fee_rate=0.001,
+            slippage_rate=0.001,
+            parameters={"short_window": 3, "long_window": 5},
+        ),
+    )
+    second = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="ma_cross",
+            stock_code="HK.00700",
+            period="day",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 20),
+            initial_cash=100000,
+            fee_rate=0.001,
+            slippage_rate=0.001,
+            parameters={"short_window": 3, "long_window": 5},
+        ),
+    )
+
+    assert database.delete_all_backtest_runs() == 2
+    assert database.get_backtest_result(first.id) is None
+    assert database.get_backtest_result(second.id) is None
+    assert database.list_backtest_runs(limit=10) == []
 
 
 def test_ma_cross_backtest_generates_result() -> None:

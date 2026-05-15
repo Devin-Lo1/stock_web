@@ -28,10 +28,15 @@ class BacktestCreate(BaseModel):
 
 class BacktestRun(BacktestCreate):
     id: str
+    name: str = ""
     status: BacktestStatus
     summary: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime
+
+
+class BacktestRename(BaseModel):
+    name: str = Field(default="", max_length=80)
 
 
 class BacktestEquityPoint(BaseModel):
