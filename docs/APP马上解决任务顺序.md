@@ -706,3 +706,40 @@ mobile_app/lib/widgets/backtest/backtest_kline_trade_chart.dart
 - 后端要求短均线小于长均线。
 
 后续如果增加多市场策略或股票池配置，优先把搜索组件抽成通用 widget，避免量化页、添加持仓页各自维护重复 UI。
+
+### 2026-05-15 后端数据库层拆分补充
+
+已完成：
+
+```text
+backend/app/database.py
+backend/app/db/core.py
+backend/app/db/init.py
+backend/app/db/converters.py
+backend/app/db/seed.py
+backend/app/repositories/positions.py
+backend/app/repositories/market_data.py
+backend/app/repositories/strategies.py
+backend/app/repositories/backtests.py
+```
+
+当前状态：
+
+- `database.py` 已变成兼容门面，只保留旧函数名导出。
+- 具体 SQL 和业务读写已经迁入 repositories。
+- 建表、连接、seed、转换已经迁入 db。
+
+已验证：
+
+```text
+.venv\Scripts\python.exe -m compileall app scripts tests
+.venv\Scripts\python.exe -m pytest
+pytest: 7 passed
+```
+
+马上下一步：
+
+1. 把后端 routers 从 `app.database` 兼容门面迁移到对应 repository。
+2. 把 `backend/app/backtest/engine.py` 从 `app.database` 迁移到 `repositories.market_data` 和 `repositories.backtests`。
+3. 每迁移一批都运行后端 compileall 和 pytest。
+4. 迁移完成后再继续做策略扩展、参数校验和历史回测列表。

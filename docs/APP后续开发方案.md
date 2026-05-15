@@ -351,6 +351,42 @@ FCM 在国内设备上可能不稳定，后续可能需要华为、小米、OPPO
 
 当前后端已经具备 PostgreSQL 连接能力，数据库迁移已完成。后续不建议继续把回测、策略、历史行情全部压在 SQLite 上。
 
+### 2026-05-15 已完成：后端数据库层拆分
+
+`backend/app/database.py` 已经从 1000 行以上的混合文件拆为兼容门面和领域 repository：
+
+```text
+backend/app/database.py
+backend/app/db/core.py
+backend/app/db/init.py
+backend/app/db/converters.py
+backend/app/db/seed.py
+backend/app/repositories/positions.py
+backend/app/repositories/market_data.py
+backend/app/repositories/strategies.py
+backend/app/repositories/backtests.py
+```
+
+当前边界：
+
+- `database.py` 只做旧调用兼容导出。
+- `db/` 负责连接、建表、seed、转换和底层数据库工具。
+- `repositories/` 负责具体业务读写。
+
+已验证：
+
+```text
+.venv\Scripts\python.exe -m compileall app scripts tests
+.venv\Scripts\python.exe -m pytest
+pytest: 7 passed
+```
+
+下一步建议：
+
+- 把 routers 从 `app.database` 兼容门面迁移到对应 repository。
+- 把 `backtest/engine.py` 从 `app.database` 兼容门面迁移到 `repositories.market_data` 和 `repositories.backtests`。
+- 新增数据库能力时优先补 repository 和测试，不再扩大 `database.py`。
+
 ### 下一步优先级
 
 1. 策略和回测表结构设计。

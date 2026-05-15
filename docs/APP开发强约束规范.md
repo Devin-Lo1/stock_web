@@ -166,6 +166,24 @@ FastAPI 后端负责：
 - 纯展示组件放 `widgets/`。
 - 格式化、主题、搜索辅助函数放 `utils/`。
 
+### 4.4 后端数据库层强约束
+
+当前 `backend/app/database.py` 已拆成兼容门面。后续严禁继续把具体 SQL、表初始化、seed、row 转换逻辑写回 `database.py`。
+
+必须遵守：
+
+- 业务数据库读写放 `backend/app/repositories/`。
+- 持仓读写放 `backend/app/repositories/positions.py`。
+- 行情和 K 线读写放 `backend/app/repositories/market_data.py`。
+- 策略定义读写放 `backend/app/repositories/strategies.py`。
+- 回测运行和回测结果读写放 `backend/app/repositories/backtests.py`。
+- 数据库连接、SQLite/PostgreSQL 占位符兼容、字段补齐工具放 `backend/app/db/core.py`。
+- 建表和初始化流程放 `backend/app/db/init.py`。
+- 默认 seed 和历史乱码名称修复放 `backend/app/db/seed.py`。
+- row/model/JSON/时间转换放 `backend/app/db/converters.py`。
+
+当前 `backend/app/database.py` 只允许做旧调用兼容导出。新增后端业务代码应逐步直接引用对应 repository，不要继续扩大兼容门面。
+
 ## 5. UI 与交互强约束
 
 ### 5.1 金融工具风格

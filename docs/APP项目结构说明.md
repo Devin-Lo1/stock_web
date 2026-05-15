@@ -801,10 +801,24 @@ K 线计算和格式化工具。
 ```text
 backend/app/
   __init__.py
+  db/
+    __init__.py
+    core.py
+    converters.py
+    init.py
+    seed.py
   errors.py
   main.py
   database.py
   mock_store.py
+  repositories/
+    __init__.py
+    backtests.py
+    market_data.py
+    positions.py
+    strategies.py
+  routers/
+  schemas/
   schemas.py
   services/
     __init__.py
@@ -872,16 +886,106 @@ backend/app/routers/backtests.py
 
 ### `backend/app/database.py`
 
-数据库和缓存操作。
+数据库兼容门面。
 
-当前包含：
+当前职责：
 
-- SQLite 表初始化。
-- 缺失字段补齐。
-- 初始持仓/行情种子数据。
-- 历史持仓名称乱码保护性修复。
+- 继续导出旧调用方依赖的数据库函数。
+- 保留 `init_database`、`list_positions`、`upsert_quote`、`list_candles`、`create_backtest_run` 等原函数名。
+- 保留测试中使用的 `_connect`。
+- 不再承载具体 SQL 实现。
 
-后续数据库正式化时优先改这里或拆出 repositories。
+约束：
+
+- 新增数据库读写不要继续写回 `database.py`。
+- 业务读写应放入 `backend/app/repositories/`。
+- 连接、SQL 方言兼容、初始化、seed 和转换工具应放入 `backend/app/db/`。
+
+### `backend/app/db/core.py`
+
+数据库底层连接和 SQL 适配。
+
+职责：
+
+- 读取 `.env` 中的 `DATABASE_URL`。
+- 管理 SQLite/PostgreSQL 连接。
+- 将 SQLite 风格的 `?` 占位符转换为 PostgreSQL 的 `%s`。
+- 提供 `_connect`、`_uses_postgres`、`_ensure_column` 等底层工具。
+
+### `backend/app/db/init.py`
+
+数据库表结构初始化。
+
+职责：
+
+- 创建 `positions`、`quote_snapshots`、`klines`、`strategy_definitions`、`backtest_runs`、`backtest_equity_curve`、`backtest_trades`、`strategy_signals`。
+- 补齐历史缺失字段。
+- 调用 seed 和历史名称修复。
+
+### `backend/app/db/converters.py`
+
+数据库行转换和序列化工具。
+
+职责：
+
+- Pydantic 模型转 SQL 参数 tuple。
+- SQL row 转 Pydantic 模型。
+- 日期时间格式化和解析。
+- JSON 字段序列化和反序列化。
+
+### `backend/app/db/seed.py`
+
+默认种子数据和历史修复。
+
+职责：
+
+- 初始化默认持仓。
+- 初始化默认行情快照。
+- 初始化默认策略定义。
+- 修复历史持仓名称乱码。
+
+### `backend/app/repositories/positions.py`
+
+持仓数据库读写。
+
+职责：
+
+- `list_positions`
+- `create_position`
+- `update_position`
+- `delete_position`
+- `get_position`
+
+### `backend/app/repositories/market_data.py`
+
+行情和 K 线数据库读写。
+
+职责：
+
+- `get_quotes`
+- `upsert_quote`
+- `list_candles`
+- `list_candles_between`
+- `upsert_candles`
+
+### `backend/app/repositories/strategies.py`
+
+策略定义数据库读写。
+
+职责：
+
+- `list_strategy_definitions`
+- `create_strategy_definition`
+
+### `backend/app/repositories/backtests.py`
+
+回测运行和结果数据库读写。
+
+职责：
+
+- `create_backtest_run`
+- `get_backtest_result`
+- `save_backtest_result`
 
 ### `backend/app/mock_store.py`
 

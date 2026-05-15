@@ -717,6 +717,35 @@ D:\flutter\bin\flutter.bat config --jdk-dir="D:\java\jdk-17.0.19+10"
 
 项目已经从纯 SQLite 本地存储推进到 PostgreSQL 本地主库。这样更适合后续多人使用、云服务器部署、策略回测和历史数据沉淀。
 
+### 2026-05-15 数据库层拆分状态
+
+当前后端数据库层已完成一次结构拆分：
+
+- `backend/app/database.py`：兼容门面，只导出旧函数名。
+- `backend/app/db/core.py`：数据库连接、SQLite/PostgreSQL 占位符兼容、字段补齐工具。
+- `backend/app/db/init.py`：建表和初始化流程。
+- `backend/app/db/converters.py`：row/model/JSON/时间转换。
+- `backend/app/db/seed.py`：默认 seed 和历史中文名称修复。
+- `backend/app/repositories/positions.py`：持仓读写。
+- `backend/app/repositories/market_data.py`：行情和 K 线读写。
+- `backend/app/repositories/strategies.py`：策略定义读写。
+- `backend/app/repositories/backtests.py`：回测运行和结果读写。
+
+本次拆分已通过：
+
+```text
+.venv\Scripts\python.exe -m compileall app scripts tests
+.venv\Scripts\python.exe -m pytest
+pytest: 7 passed
+```
+
+后续开发方向：
+
+- 新增数据库读写必须进入对应 repository。
+- 新增表、字段、初始化逻辑进入 `db/init.py`。
+- 新增模型转换进入 `db/converters.py`。
+- 逐步把 routers 和 backtest engine 从 `app.database` 兼容门面迁移为直接引用 repositories。
+
 ### 当前阶段
 
 - 本地 PostgreSQL 已可用。
