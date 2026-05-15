@@ -775,3 +775,33 @@ pytest: 7 passed
 1. 增加量化参数校验和更清晰的错误提示。
 2. 增加历史回测列表接口和 App 展示。
 3. 再开始扩展 MACD、RSI、BOLL 等策略。
+
+### 2026-05-15 量化参数校验和错误提示补充
+
+已完成：
+
+- App 提交回测前校验股票代码不能为空且格式应类似 `HK.02628`。
+- App 校验开始日期不能晚于结束日期。
+- App 校验初始资金必须是大于 0 的数字。
+- App 校验手续费率和滑点率必须是非负数字。
+- App 校验短均线和长均线必须是正整数。
+- App 校验短均线必须小于长均线。
+- 后端 `BacktestCreate` 校验开始日期不能晚于结束日期。
+- 后端回测失败结果新增 `summary.error_message`。
+- App 收到 `failed` 回测结果时展示错误原因，不再把失败结果当作正常回测结果展示。
+
+已验证：
+
+```text
+D:\flutter\bin\dart.bat format lib test
+D:\flutter\bin\flutter.bat analyze
+D:\flutter\bin\flutter.bat test
+.venv\Scripts\python.exe -m compileall app scripts tests
+.venv\Scripts\python.exe -m pytest
+pytest: 8 passed
+```
+
+下一步建议：
+
+1. 做历史回测列表接口和 App 展示。
+2. 或先补量化页日期/数字输入的更强交互限制，减少用户输入非法字符。

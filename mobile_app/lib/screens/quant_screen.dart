@@ -151,29 +151,35 @@ class _QuantScreenState extends State<QuantScreen> {
   Future<void> _run() async {
     final strategy = _selectedStrategy;
     if (strategy == null) return;
+    final requestOrError = _buildRequest(strategy);
+    if (requestOrError is _QuantValidationError) {
+      setState(() {
+        _error = requestOrError;
+        _result = null;
+        _resultCandles = const [];
+      });
+      return;
+    }
+    final request = requestOrError as BacktestRequest;
+
     setState(() {
       _isRunning = true;
       _error = null;
     });
     try {
-      final result = await widget.repository.runBacktest(
-        BacktestRequest(
-          strategyCode: strategy.code,
-          stockCode: _stockCodeController.text.trim().toUpperCase(),
-          period: 'day',
-          startDate: _startDate,
-          endDate: _endDate,
-          initialCash: _readDouble(_initialCashController.text, 100000),
-          feeRate: _readDouble(_feeRateController.text, 0.0003),
-          slippageRate: _readDouble(_slippageRateController.text, 0.0005),
-          parameters: {
-            'short_window': _readInt(_shortWindowController.text, 5),
-            'long_window': _readInt(_longWindowController.text, 20),
-          },
-        ),
-      );
+      final result = await widget.repository.runBacktest(request);
+      final failedMessage = _backtestFailureMessage(result);
+      if (failedMessage != null) {
+        if (!mounted) return;
+        setState(() {
+          _error = _QuantValidationError(failedMessage);
+          _result = null;
+          _resultCandles = const [];
+        });
+        return;
+      }
       final candles = await widget.onLoadBacktestCandles(
-        _stockCodeController.text.trim().toUpperCase(),
+        request.stockCode,
         period: 'day',
         limit: 1000,
       );
@@ -192,6 +198,56 @@ class _QuantScreenState extends State<QuantScreen> {
     } finally {
       if (mounted) setState(() => _isRunning = false);
     }
+  }
+
+  Object _buildRequest(StrategyDefinition strategy) {
+    final stockCode = _stockCodeController.text.trim().toUpperCase();
+    if (stockCode.isEmpty) {
+      return const _QuantValidationError('请输入股票代码');
+    }
+    if (!stockCode.contains('.') || stockCode.length < 4) {
+      return const _QuantValidationError('股票代码格式不正确，例如 HK.02628');
+    }
+    if (_startDate.isAfter(_endDate)) {
+      return const _QuantValidationError('开始日期不能晚于结束日期');
+    }
+
+    final initialCash = _parsePositiveDouble(
+      _initialCashController.text,
+      '初始资金',
+    );
+    if (initialCash is _QuantValidationError) return initialCash;
+    final feeRate = _parseNonNegativeDouble(_feeRateController.text, '手续费率');
+    if (feeRate is _QuantValidationError) return feeRate;
+    final slippageRate = _parseNonNegativeDouble(
+      _slippageRateController.text,
+      '滑点率',
+    );
+    if (slippageRate is _QuantValidationError) return slippageRate;
+    final shortWindow = _parsePositiveInt(_shortWindowController.text, '短均线');
+    if (shortWindow is _QuantValidationError) return shortWindow;
+    final longWindow = _parsePositiveInt(_longWindowController.text, '长均线');
+    if (longWindow is _QuantValidationError) return longWindow;
+    final parsedShortWindow = shortWindow as int;
+    final parsedLongWindow = longWindow as int;
+    if (parsedShortWindow >= parsedLongWindow) {
+      return const _QuantValidationError('短均线必须小于长均线');
+    }
+
+    return BacktestRequest(
+      strategyCode: strategy.code,
+      stockCode: stockCode,
+      period: 'day',
+      startDate: _startDate,
+      endDate: _endDate,
+      initialCash: initialCash as double,
+      feeRate: feeRate as double,
+      slippageRate: slippageRate as double,
+      parameters: {
+        'short_window': parsedShortWindow,
+        'long_window': parsedLongWindow,
+      },
+    );
   }
 
   void _updateStockSuggestions() {
@@ -310,12 +366,51 @@ class _QuantScreenState extends State<QuantScreen> {
   }
 }
 
-double _readDouble(String value, double fallback) {
-  return double.tryParse(value.trim()) ?? fallback;
+Object _parsePositiveDouble(String value, String label) {
+  final parsed = double.tryParse(value.trim());
+  if (parsed == null) {
+    return _QuantValidationError('$label必须是数字');
+  }
+  if (parsed <= 0) {
+    return _QuantValidationError('$label必须大于 0');
+  }
+  return parsed;
 }
 
-int _readInt(String value, int fallback) {
-  return int.tryParse(value.trim()) ?? fallback;
+Object _parseNonNegativeDouble(String value, String label) {
+  final parsed = double.tryParse(value.trim());
+  if (parsed == null) {
+    return _QuantValidationError('$label必须是数字');
+  }
+  if (parsed < 0) {
+    return _QuantValidationError('$label不能为负数');
+  }
+  return parsed;
+}
+
+Object _parsePositiveInt(String value, String label) {
+  final parsed = int.tryParse(value.trim());
+  if (parsed == null) {
+    return _QuantValidationError('$label必须是整数');
+  }
+  if (parsed <= 0) {
+    return _QuantValidationError('$label必须大于 0');
+  }
+  return parsed;
+}
+
+String? _backtestFailureMessage(BacktestResult result) {
+  if (result.run.status != 'failed') return null;
+  final errorMessage = result.run.summary['error_message'];
+  if (errorMessage is String && errorMessage.isNotEmpty) return errorMessage;
+  final error = result.run.summary['error'];
+  return switch (error) {
+    'unsupported_strategy' => '暂不支持该策略',
+    'invalid_ma_parameters' => '均线参数不合法，短均线必须小于长均线',
+    'not_enough_candles' => 'K 线数据不足，无法完成回测',
+    String value when value.isNotEmpty => value,
+    _ => '回测失败，请检查参数和 K 线数据',
+  };
 }
 
 List<Candle> _filterCandles(
@@ -331,4 +426,13 @@ List<Candle> _filterCandles(
     if (time == null) return false;
     return !time.isBefore(start) && !time.isAfter(end);
   }).toList();
+}
+
+class _QuantValidationError implements Exception {
+  const _QuantValidationError(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
 }

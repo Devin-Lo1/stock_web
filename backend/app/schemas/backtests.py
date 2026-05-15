@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 BacktestStatus = Literal["created", "running", "completed", "failed"]
@@ -18,6 +18,12 @@ class BacktestCreate(BaseModel):
     fee_rate: float = Field(default=0, ge=0)
     slippage_rate: float = Field(default=0, ge=0)
     parameters: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_date_range(self) -> "BacktestCreate":
+        if self.start_date > self.end_date:
+            raise ValueError("start_date must be earlier than or equal to end_date")
+        return self
 
 
 class BacktestRun(BacktestCreate):

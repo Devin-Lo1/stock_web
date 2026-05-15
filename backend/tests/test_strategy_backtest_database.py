@@ -118,3 +118,25 @@ def test_ma_cross_backtest_generates_result() -> None:
     assert len(saved.equity_curve) == len(result.equity_curve)
     assert len(saved.trades) == len(result.trades)
     assert saved.run.summary["trade_count"] == result.run.summary["trade_count"]
+
+
+def test_ma_cross_backtest_failure_has_readable_message() -> None:
+    run = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="ma_cross",
+            stock_code="HK.02628",
+            period="day",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 20),
+            initial_cash=100000,
+            fee_rate=0.001,
+            slippage_rate=0.001,
+            parameters={"short_window": 20, "long_window": 5},
+        ),
+    )
+
+    result = run_backtest(run)
+
+    assert result.run.status == "failed"
+    assert result.run.summary["error"] == "invalid_ma_parameters"
+    assert result.run.summary["error_message"]

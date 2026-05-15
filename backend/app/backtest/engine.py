@@ -107,11 +107,22 @@ def _fail_run(run: BacktestRun, reason: str) -> BacktestResult:
     failed = run.model_copy(
         update={
             "status": "failed",
-            "summary": {"error": reason},
+            "summary": {
+                "error": reason,
+                "error_message": _failure_message(reason),
+            },
             "updated_at": datetime.now(timezone.utc),
         },
     )
     return save_backtest_result(failed, [], [])
+
+
+def _failure_message(reason: str) -> str:
+    return {
+        "unsupported_strategy": "暂不支持该策略",
+        "invalid_ma_parameters": "均线参数不合法，短均线必须小于长均线",
+        "not_enough_candles": "K 线数据不足，无法完成回测",
+    }.get(reason, "回测失败，请检查参数和 K 线数据")
 
 
 def _buy(
