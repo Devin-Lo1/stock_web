@@ -1273,15 +1273,16 @@ backend/tests/test_strategy_backtest_database.py
 
 当前上述文件已经创建，负责策略定义、回测任务创建和回测结果读取的最小后端骨架。
 
-当 `backend/app/database.py` 因策略和回测继续变大时，再拆出仓储层：
+当前数据库仓储层已经拆出，后续不要再把具体 SQL 写回 `backend/app/database.py`：
 
 ```text
 backend/app/repositories/positions.py
-backend/app/repositories/quotes.py
-backend/app/repositories/klines.py
+backend/app/repositories/market_data.py
 backend/app/repositories/strategies.py
 backend/app/repositories/backtests.py
 ```
+
+当前 routers 和 `backend/app/backtest/engine.py` 已经直接引用对应 repository；`database.py` 只保留旧测试和兼容导出。
 
 策略和回测相关数据表预留：
 

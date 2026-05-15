@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
-from .. import database
+from ..repositories.backtests import save_backtest_result
+from ..repositories.market_data import list_candles_between
 from ..schemas import BacktestEquityPoint, BacktestResult, BacktestRun, BacktestTrade
 
 
@@ -13,7 +14,7 @@ def run_backtest(run: BacktestRun) -> BacktestResult:
     if short_window <= 0 or long_window <= 0 or short_window >= long_window:
         return _fail_run(run, "invalid_ma_parameters")
 
-    candles = database.list_candles_between(
+    candles = list_candles_between(
         run.stock_code,
         run.period,
         run.start_date,
@@ -99,7 +100,7 @@ def run_backtest(run: BacktestRun) -> BacktestResult:
             "updated_at": datetime.now(timezone.utc),
         },
     )
-    return database.save_backtest_result(completed, equity_curve, trades)
+    return save_backtest_result(completed, equity_curve, trades)
 
 
 def _fail_run(run: BacktestRun, reason: str) -> BacktestResult:
@@ -110,7 +111,7 @@ def _fail_run(run: BacktestRun, reason: str) -> BacktestResult:
             "updated_at": datetime.now(timezone.utc),
         },
     )
-    return database.save_backtest_result(failed, [], [])
+    return save_backtest_result(failed, [], [])
 
 
 def _buy(

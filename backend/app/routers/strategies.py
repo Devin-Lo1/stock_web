@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from ..database import list_strategy_definitions
+from ..repositories.strategies import list_strategy_definitions
 from ..schemas import StrategyDefinition
 
 router = APIRouter(prefix="/api/v1/strategies", tags=["strategies"])

@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Query
 
-from ..database import list_positions, upsert_quote
 from ..errors import futu_dependency_error, futu_unavailable_error
 from ..mock_store import get_quotes
+from ..repositories.market_data import upsert_quote
+from ..repositories.positions import list_positions
 from ..schemas import QuoteSnapshot
 from ..services.futu_client import FutuDependencyError, FutuOpenDError, get_futu_quote
 

@@ -743,3 +743,35 @@ pytest: 7 passed
 2. 把 `backend/app/backtest/engine.py` 从 `app.database` 迁移到 `repositories.market_data` 和 `repositories.backtests`。
 3. 每迁移一批都运行后端 compileall 和 pytest。
 4. 迁移完成后再继续做策略扩展、参数校验和历史回测列表。
+
+### 2026-05-15 后端 repository 直接引用补充
+
+已完成：
+
+- `backend/app/main.py` 直接引用 `db.init.init_database`。
+- `backend/app/mock_store.py` 直接引用 `repositories.market_data` 和 `repositories.positions`。
+- `backend/app/routers/positions.py` 直接引用 `repositories.positions`。
+- `backend/app/routers/quotes.py` 直接引用 `repositories.market_data` 和 `repositories.positions`。
+- `backend/app/routers/klines.py` 直接引用 `repositories.market_data` 和 `repositories.positions`。
+- `backend/app/routers/strategies.py` 直接引用 `repositories.strategies`。
+- `backend/app/routers/backtests.py` 直接引用 `repositories.backtests`。
+- `backend/app/backtest/engine.py` 直接引用 `repositories.market_data` 和 `repositories.backtests`。
+
+当前状态：
+
+- `backend/app` 业务代码已不再直接依赖 `app.database` 兼容门面。
+- `app.database` 暂时保留给旧测试和外部兼容。
+
+已验证：
+
+```text
+.venv\Scripts\python.exe -m compileall app scripts tests
+.venv\Scripts\python.exe -m pytest
+pytest: 7 passed
+```
+
+下一步建议：
+
+1. 增加量化参数校验和更清晰的错误提示。
+2. 增加历史回测列表接口和 App 展示。
+3. 再开始扩展 MACD、RSI、BOLL 等策略。

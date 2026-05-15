@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Query
 
-from ..database import list_candles, list_positions, upsert_candles
 from ..errors import futu_dependency_error, futu_no_data_error, futu_unavailable_error
 from ..mock_store import get_candles
+from ..repositories.market_data import list_candles, upsert_candles
+from ..repositories.positions import list_positions
 from ..schemas import Candle
 from ..services.futu_client import (
     FutuDependencyError,

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
-from .database import init_database
+from .db.init import init_database
 from .routers import backtests, futu, health, klines, positions, quotes, signals
 from .routers import stocks, strategies
 

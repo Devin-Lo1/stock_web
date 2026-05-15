@@ -1,12 +1,8 @@
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
-from .database import (
-    create_position,
-    delete_position,
-    get_quotes,
-    update_position,
-)
+from .repositories.market_data import get_quotes
+from .repositories.positions import create_position, delete_position, update_position
 from .schemas import Candle, Signal
 
 

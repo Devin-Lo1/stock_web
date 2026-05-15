@@ -1,8 +1,8 @@
 from fastapi import APIRouter, status
 
 from ..backtest import run_backtest
-from ..database import create_backtest_run, get_backtest_result
 from ..errors import not_found_error
+from ..repositories.backtests import create_backtest_run, get_backtest_result
 from ..schemas import BacktestCreate, BacktestResult
 
 router = APIRouter(prefix="/api/v1/backtests", tags=["backtests"])

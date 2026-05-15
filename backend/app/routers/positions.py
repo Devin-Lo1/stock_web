@@ -1,8 +1,8 @@
 from fastapi import APIRouter, status
 
+from ..repositories.positions import list_positions
 from ..errors import not_found_error
 from ..mock_store import create_position, delete_position, update_position
-from ..database import list_positions
 from ..schemas import Position, PositionCreate, PositionUpdate
 
 router = APIRouter(prefix="/api/v1/positions", tags=["positions"])
