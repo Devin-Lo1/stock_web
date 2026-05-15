@@ -1335,6 +1335,45 @@ name: MA Cross
 default_parameters: short_window=5, long_window=20
 ```
 
+下一步策略扩展计划：
+
+```text
+backend/app/strategies/base.py
+backend/app/strategies/factors.py
+backend/app/strategies/registry.py
+backend/app/strategies/ma_cross.py
+backend/app/strategies/rsi_reversal.py
+```
+
+职责边界：
+
+- `base.py`：定义策略输入、信号输出和策略接口。
+- `factors.py`：放 MA、RSI 等可复用技术指标计算。
+- `ma_cross.py`：只放双均线策略信号逻辑。
+- `rsi_reversal.py`：只放 RSI 反转策略信号逻辑。
+- `registry.py`：按 `strategy_code` 注册和查找策略。
+- `backend/app/backtest/engine.py`：继续负责回测执行、交易撮合、手续费、滑点、仓位、净值曲线和结果保存，不继续堆策略判断。
+
+RSI 策略第一版建议：
+
+```text
+strategy_code: rsi_reversal
+default_parameters:
+  rsi_window: 14
+  oversold: 30
+  overbought: 70
+```
+
+当前上述策略目录已经创建：
+
+- `base.py`：定义策略接口、策略信号和策略配置错误。
+- `factors.py`：包含 `moving_average` 和 `relative_strength_index`。
+- `ma_cross.py`：双均线信号逻辑。
+- `rsi_reversal.py`：RSI 超卖回升买入、超买回落卖出信号逻辑。
+- `registry.py`：根据 `strategy_code` 查找策略实现。
+
+后续新增 MACD、BOLL、成交量动量等策略时，应继续在 `strategies/` 下新增独立文件，不要把策略判断写回 `backtest/engine.py`。
+
 ## 18. 回测引擎结构
 
 ```text
@@ -1355,6 +1394,13 @@ backend/app/backtest/engine.py
 - 更新 `backtest_runs.status` 和 `summary`。
 
 当前 `POST /api/v1/backtests` 会同步执行回测并返回 `BacktestResult`。
+
+下一步多策略改造后：
+
+- `engine.py` 不再直接判断所有策略细节，当前已经通过 `strategies/registry.py` 获取策略。
+- 策略模块只负责产生买入/卖出信号。
+- 回测引擎继续统一处理成交价格、手续费、滑点、持仓、净值曲线、交易记录和保存。
+- 新增 RSI、MACD、BOLL 时优先新增策略文件，不要把所有逻辑写回 `engine.py`。
 
 ## 19. App 量化入口结构
 
@@ -1394,6 +1440,8 @@ App 端回测模型：
 ### `mobile_app/lib/repositories/backtest_repository.dart`
 
 回测仓储层，负责隔离页面和 API service。
+
+后续动态参数 UI 要继续通过 repository/service 读取策略定义，不要在页面里写死所有策略参数。
 
 ### `mobile_app/lib/screens/quant_screen.dart`
 

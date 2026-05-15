@@ -22,6 +22,17 @@ def test_strategy_definition_upsert_and_list() -> None:
     assert rows[0].default_parameters["short_window"] == 5
 
 
+def test_seed_strategy_definitions_includes_rsi() -> None:
+    database.init_database(seed_defaults=True)
+
+    rows = database.list_strategy_definitions()
+    by_code = {row.code: row for row in rows}
+
+    assert "ma_cross" in by_code
+    assert "rsi_reversal" in by_code
+    assert by_code["rsi_reversal"].default_parameters["rsi_window"] == 14
+
+
 def test_backtest_run_create_and_get_result() -> None:
     run = database.create_backtest_run(
         BacktestCreate(
@@ -255,4 +266,101 @@ def test_ma_cross_backtest_failure_has_readable_message() -> None:
 
     assert result.run.status == "failed"
     assert result.run.summary["error"] == "invalid_ma_parameters"
+    assert result.run.summary["error_message"]
+
+
+def test_rsi_reversal_backtest_generates_result() -> None:
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    closes = [
+        50,
+        48,
+        46,
+        44,
+        42,
+        40,
+        38,
+        36,
+        34,
+        32,
+        30,
+        32,
+        34,
+        36,
+        38,
+        40,
+        42,
+        44,
+        46,
+        48,
+        50,
+        52,
+        54,
+        56,
+        58,
+        56,
+        54,
+        52,
+        50,
+        48,
+    ]
+    candles = [
+        Candle(
+            code="HK.02628",
+            market="HK",
+            period="day",
+            time=start + timedelta(days=index),
+            open=close,
+            high=close,
+            low=close,
+            close=close,
+            volume=1000,
+            turnover=close * 1000,
+        )
+        for index, close in enumerate(closes)
+    ]
+    database.upsert_candles(candles)
+    run = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="rsi_reversal",
+            stock_code="HK.02628",
+            period="day",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 30),
+            initial_cash=100000,
+            fee_rate=0.001,
+            slippage_rate=0.001,
+            parameters={"rsi_window": 5, "oversold": 30, "overbought": 70},
+        ),
+    )
+
+    result = run_backtest(run)
+    saved = database.get_backtest_result(run.id)
+
+    assert result.run.status == "completed"
+    assert result.run.summary["strategy_code"] == "rsi_reversal"
+    assert result.run.summary["trade_count"] >= 1
+    assert saved is not None
+    assert saved.run.status == "completed"
+    assert len(saved.trades) == len(result.trades)
+
+
+def test_rsi_reversal_invalid_parameters_have_readable_message() -> None:
+    run = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="rsi_reversal",
+            stock_code="HK.02628",
+            period="day",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 30),
+            initial_cash=100000,
+            fee_rate=0.001,
+            slippage_rate=0.001,
+            parameters={"rsi_window": 1, "oversold": 70, "overbought": 30},
+        ),
+    )
+
+    result = run_backtest(run)
+
+    assert result.run.status == "failed"
+    assert result.run.summary["error"] == "invalid_rsi_parameters"
     assert result.run.summary["error_message"]

@@ -839,4 +839,102 @@ pytest: 9 passed
 
 1. 真机安装验证历史回测面板、点击加载详情、名称编辑、筛选、单条删除和一键删除全部。
 2. 验证通过后再 git 保存。
-3. 之后可以开始做更多策略，优先 MACD 或 RSI。
+3. 之后开始做第二个策略，优先 RSI。
+
+## 13. 下一步马上做：RSI 策略和多策略分发
+
+当前量化模块已经具备：
+
+- 启动双均线回测。
+- 展示收益曲线、买卖点 K 线和交易记录。
+- 管理历史回测。
+- 编辑历史回测名称。
+- 按股票代码、策略和状态筛选历史回测。
+
+下一步不要继续优先扩展历史管理，应该验证多策略扩展能力。优先做 RSI 策略。
+
+### 后端第一步
+
+新增 RSI 策略：
+
+```text
+strategy_code: rsi_reversal
+parameters:
+  rsi_window: 14
+  oversold: 30
+  overbought: 70
+```
+
+交易规则第一版建议：
+
+- RSI 低于超卖线后回升，产生买入信号。
+- RSI 高于超买线后回落，产生卖出信号。
+- 手续费、滑点、仓位管理继续沿用现有回测引擎。
+
+### 后端第二步
+
+拆出多策略分发：
+
+```text
+backend/app/strategies/base.py
+backend/app/strategies/factors.py
+backend/app/strategies/registry.py
+backend/app/strategies/ma_cross.py
+backend/app/strategies/rsi_reversal.py
+```
+
+职责边界：
+
+- `factors.py`：计算 RSI、MA 等指标。
+- `ma_cross.py`：只负责双均线信号。
+- `rsi_reversal.py`：只负责 RSI 信号。
+- `registry.py`：根据 `strategy_code` 找到策略实现。
+- `backtest/engine.py`：只负责回测执行、交易撮合、手续费、滑点、净值曲线、交易记录和结果保存。
+
+### App 第三步
+
+后端 RSI 接口跑通后，再改 App 参数区：
+
+- 选 MA Cross 时显示短均线和长均线。
+- 选 RSI 时显示 RSI 周期、超卖线、超买线。
+- 参数区必须按策略动态显示，不能把所有策略参数固定堆在一个表单里。
+
+### App 第四步
+
+历史记录策略显示优化：
+
+- 历史记录优先显示策略名称，例如 `MA Cross`、`RSI 反转`。
+- 策略 code 作为辅助信息，不作为主要展示文本。
+
+### 验收标准
+
+- `POST /api/v1/backtests` 使用 `strategy_code=rsi_reversal` 能返回 completed 或明确 failed 原因。
+- RSI 回测结果能写入 `backtest_runs`、`backtest_equity_curve`、`backtest_trades`。
+- 原有 MA Cross 回测不回归。
+- 后端 `pytest` 必须新增 RSI 策略测试。
+- App 动态参数 UI 上线前，至少后端接口测试先通过。
+
+### 2026-05-16 当前完成状态
+
+已完成后端 RSI 第一阶段：
+
+- 新增 `backend/app/strategies/` 包。
+- 新增 `base.py`、`factors.py`、`registry.py`、`ma_cross.py`、`rsi_reversal.py`。
+- `engine.py` 已从直接写死 MA 策略改为通过 registry 获取策略并执行信号。
+- `rsi_reversal` 已接入策略种子数据。
+- 后端测试新增 RSI 正常回测、RSI 参数错误、种子策略包含 RSI。
+
+已验证：
+
+```text
+.venv\Scripts\python.exe -m compileall app scripts tests
+.venv\Scripts\python.exe -m pytest
+pytest: 15 passed
+```
+
+下一步：
+
+1. App 参数区按策略动态显示。
+2. 选 `MA Cross` 时显示短均线、长均线。
+3. 选 `RSI Reversal` 时显示 RSI 周期、超卖线、超买线。
+4. 历史记录策略展示改为策略可读名。

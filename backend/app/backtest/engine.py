@@ -3,16 +3,19 @@ from datetime import datetime, timezone
 from ..repositories.backtests import save_backtest_result
 from ..repositories.market_data import list_candles_between
 from ..schemas import BacktestEquityPoint, BacktestResult, BacktestRun, BacktestTrade
+from ..strategies import get_strategy
+from ..strategies.base import StrategyConfigurationError
 
 
 def run_backtest(run: BacktestRun) -> BacktestResult:
-    if run.strategy_code != "ma_cross":
+    strategy = get_strategy(run.strategy_code)
+    if strategy is None:
         return _fail_run(run, "unsupported_strategy")
 
-    short_window = int(run.parameters.get("short_window", 5))
-    long_window = int(run.parameters.get("long_window", 20))
-    if short_window <= 0 or long_window <= 0 or short_window >= long_window:
-        return _fail_run(run, "invalid_ma_parameters")
+    try:
+        minimum_candles = strategy.minimum_candles(run.parameters)
+    except StrategyConfigurationError as error:
+        return _fail_run(run, error.reason)
 
     candles = list_candles_between(
         run.stock_code,
@@ -20,46 +23,46 @@ def run_backtest(run: BacktestRun) -> BacktestResult:
         run.start_date,
         run.end_date,
     )
-    if len(candles) < long_window:
+    if len(candles) < minimum_candles:
         return _fail_run(run, "not_enough_candles")
+
+    try:
+        evaluation = strategy.evaluate(candles, run.parameters)
+    except StrategyConfigurationError as error:
+        return _fail_run(run, error.reason)
 
     cash = run.initial_cash
     position_quantity = 0.0
     peak_equity = run.initial_cash
-    previous_short_ma: float | None = None
-    previous_long_ma: float | None = None
     equity_curve: list[BacktestEquityPoint] = []
     trades: list[BacktestTrade] = []
+    signals_by_index = {signal.index: signal.side for signal in evaluation.signals}
 
-    closes = [candle.close for candle in candles]
     for index, candle in enumerate(candles):
-        if index + 1 < long_window:
+        if index < evaluation.warmup:
             continue
 
-        short_ma = _mean(closes[index + 1 - short_window : index + 1])
-        long_ma = _mean(closes[index + 1 - long_window : index + 1])
-
-        if previous_short_ma is not None and previous_long_ma is not None:
-            if previous_short_ma <= previous_long_ma and short_ma > long_ma:
-                trade = _buy(run, candle.time, candle.close, cash, run.fee_rate, run.slippage_rate)
-                if trade is not None:
-                    trades.append(trade)
-                    cash = trade.cash_after
-                    position_quantity = trade.position_after
-            elif previous_short_ma >= previous_long_ma and short_ma < long_ma:
-                trade = _sell(
-                    run,
-                    candle.time,
-                    candle.close,
-                    cash,
-                    position_quantity,
-                    run.fee_rate,
-                    run.slippage_rate,
-                )
-                if trade is not None:
-                    trades.append(trade)
-                    cash = trade.cash_after
-                    position_quantity = trade.position_after
+        signal_side = signals_by_index.get(index)
+        if signal_side == "buy":
+            trade = _buy(run, candle.time, candle.close, cash, run.fee_rate, run.slippage_rate)
+            if trade is not None:
+                trades.append(trade)
+                cash = trade.cash_after
+                position_quantity = trade.position_after
+        elif signal_side == "sell":
+            trade = _sell(
+                run,
+                candle.time,
+                candle.close,
+                cash,
+                position_quantity,
+                run.fee_rate,
+                run.slippage_rate,
+            )
+            if trade is not None:
+                trades.append(trade)
+                cash = trade.cash_after
+                position_quantity = trade.position_after
 
         market_value = position_quantity * candle.close
         equity = cash + market_value
@@ -76,9 +79,6 @@ def run_backtest(run: BacktestRun) -> BacktestResult:
                 drawdown=drawdown,
             ),
         )
-
-        previous_short_ma = short_ma
-        previous_long_ma = long_ma
 
     final_equity = equity_curve[-1].equity if equity_curve else run.initial_cash
     completed = run.model_copy(
@@ -121,6 +121,7 @@ def _failure_message(reason: str) -> str:
     return {
         "unsupported_strategy": "暂不支持该策略",
         "invalid_ma_parameters": "均线参数不合法，短均线必须小于长均线",
+        "invalid_rsi_parameters": "RSI 参数不合法，周期必须大于 1，且超卖线小于超买线",
         "not_enough_candles": "K 线数据不足，无法完成回测",
     }.get(reason, "回测失败，请检查参数和 K 线数据")
 
@@ -183,7 +184,3 @@ def _sell(
         cash_after=cash_after,
         position_after=0,
     )
-
-
-def _mean(values: list[float]) -> float:
-    return sum(values) / len(values)

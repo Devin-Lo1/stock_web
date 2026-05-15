@@ -243,6 +243,49 @@ screens/signal_history_screen.dart
 4. BOLL 突破/回归策略。
 5. 成交量放大 + 动量策略。
 
+### 下一步策略扩展顺序
+
+当前量化模块已经具备回测执行、结果展示、历史回测管理、历史命名和筛选能力。下一步不继续优先打磨历史管理，而是进入多策略扩展，先做 RSI 策略。
+
+建议顺序：
+
+1. 后端新增 RSI 策略。
+   - 策略 code 建议为 `rsi_reversal`。
+   - 参数：`rsi_window`、`oversold`、`overbought`。
+   - 买入：RSI 低于超卖线后回升。
+   - 卖出：RSI 高于超买线后回落，或触发退出条件。
+2. 回测引擎支持多策略分发。
+   - 不要继续把所有策略逻辑堆进 `backend/app/backtest/engine.py`。
+   - 建议新增或扩展 `backend/app/strategies/`，把策略信号计算放到策略模块。
+   - `engine.py` 负责读取 K 线、执行交易撮合、手续费、滑点、仓位和结果保存。
+3. App 参数区按策略动态变化。
+   - 选 MA Cross 时显示短均线和长均线。
+   - 选 RSI 时显示 RSI 周期、超卖线、超买线。
+   - 后续 MACD、BOLL 等策略继续按策略定义动态渲染参数，不要把所有参数固定铺在页面上。
+4. 历史记录显示策略中文名或可读名。
+   - 历史记录目前以策略 code 为主。
+   - 策略变多后，应展示 `MA Cross`、`RSI 反转` 这类可读名称，code 只作为辅助信息。
+
+第一轮建议只做后端 RSI 策略和多策略分发，接口能跑通 RSI 后，再做 App 动态参数 UI。
+
+### 2026-05-16 RSI 后端进展
+
+已完成：
+
+- 新增 `backend/app/strategies/` 策略包。
+- `ma_cross` 已从 `backtest/engine.py` 拆到 `strategies/ma_cross.py`。
+- 新增 `strategies/rsi_reversal.py`。
+- 新增 `strategies/factors.py`，当前包含 MA 和 RSI 计算。
+- 新增 `strategies/registry.py`，回测引擎通过 `strategy_code` 获取策略实现。
+- `backtest/engine.py` 已改为读取策略信号并统一执行交易、手续费、滑点、净值曲线和结果保存。
+- 种子策略新增 `rsi_reversal`，默认参数为 `rsi_window=14`、`oversold=30`、`overbought=70`。
+- 后端测试已覆盖 RSI 正常回测和 RSI 参数错误。
+
+待做：
+
+- App 参数区仍是 MA 参数输入，下一步要按策略动态显示参数。
+- 历史记录策略展示仍以 code 为主，后续要显示策略可读名。
+
 ### 后端建议结构
 
 ```text

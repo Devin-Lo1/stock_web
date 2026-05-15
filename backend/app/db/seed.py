@@ -178,26 +178,41 @@ def _seed_quotes(connection: _DatabaseConnection) -> None:
 
 
 def _seed_strategy_definitions(connection: _DatabaseConnection) -> None:
-    strategy = StrategyDefinition(
-        id=str(uuid4()),
-        code="ma_cross",
-        name="MA Cross",
-        description="Moving average crossover baseline strategy.",
-        default_parameters={
-            "short_window": 5,
-            "long_window": 20,
-        },
-        created_at=_now(),
-        updated_at=_now(),
-    )
-    connection.execute(
-        """
-        INSERT INTO strategy_definitions (
-            id, code, name, description, default_parameters,
-            created_at, updated_at
+    for strategy in [
+        StrategyDefinition(
+            id=str(uuid4()),
+            code="ma_cross",
+            name="MA Cross",
+            description="Moving average crossover baseline strategy.",
+            default_parameters={
+                "short_window": 5,
+                "long_window": 20,
+            },
+            created_at=_now(),
+            updated_at=_now(),
+        ),
+        StrategyDefinition(
+            id=str(uuid4()),
+            code="rsi_reversal",
+            name="RSI Reversal",
+            description="RSI oversold rebound and overbought pullback strategy.",
+            default_parameters={
+                "rsi_window": 14,
+                "oversold": 30,
+                "overbought": 70,
+            },
+            created_at=_now(),
+            updated_at=_now(),
+        ),
+    ]:
+        connection.execute(
+            """
+            INSERT INTO strategy_definitions (
+                id, code, name, description, default_parameters,
+                created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(code) DO NOTHING
+            """,
+            _strategy_definition_values(strategy),
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(code) DO NOTHING
-        """,
-        _strategy_definition_values(strategy),
-    )
