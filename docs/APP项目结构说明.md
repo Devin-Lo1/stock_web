@@ -647,6 +647,7 @@ K 线计算和格式化工具。
 
 - `backtest_equity_chart.dart`
 - `backtest_kline_trade_chart.dart`
+- `backtest_kline_trade_painter.dart`
 - `backtest_chart_values.dart`
 
 #### `backtest_equity_chart.dart`
@@ -665,13 +666,32 @@ K 线计算和格式化工具。
 
 职责：
 
-- 绘制量化页专用 K 线。
+- 维护回测 K 线的可视窗口、选中点和手势状态。
+- 处理点击、横向拖动和双指缩放。
+- 调用 `BacktestKlineTradePainter` 完成实际绘制。
+
+注意：它是量化页专用图表入口，不要影响持仓详情页的 `widgets/chart/` K 线。
+
+#### `backtest_kline_trade_painter.dart`
+
+回测买卖点 K 线图 painter。
+
+职责：
+
+- 绘制量化页专用 K 线主体。
 - 绘制 MA5、MA20。
 - 在 K 线上标记买入、卖出点。
-- 支持点选查看日期、开高低收、成交量、成交额。
-- 支持横向拖动和双指缩放。
+- 绘制选中 K 线的信息面板、十字线、价格和日期标签。
+- 绘制图表边框、网格和坐标文案。
 
-注意：它是量化页专用图表，不要影响持仓详情页的 `widgets/chart/` K 线。
+约束：
+
+- 不在 painter 内发起网络请求。
+- 不在 painter 内维护 widget 状态。
+- 新增成交量、MACD、RSI、BOLL 等图层时，优先在本文件或同级新 painter 文件扩展。
+- 如果某个指标需要复杂计算，先放到 `backtest_chart_values.dart`，不要直接堆在 painter 里。
+
+注意：它只服务量化页回测结果图，不要复用到持仓详情页，以免破坏现有持仓 K 线交互。
 
 #### `backtest_chart_values.dart`
 
@@ -685,7 +705,7 @@ K 线计算和格式化工具。
 - `visibleBacktestTrades`：筛选当前可视区间内的交易记录。
 - `formatBacktestAxisDate`、`formatBacktestFullDate`、`formatBacktestCompactNumber`：图表日期和数值格式化。
 
-后续拆图表 painter 时应继续复用本文件，不要把这些计算逻辑搬回 UI 或 painter。
+后续新增图表指标时应继续复用本文件，不要把这些计算逻辑搬回 UI 或 painter。
 
 ## 12. Flutter 测试目录
 
