@@ -389,3 +389,130 @@ FCM 在国内设备上可能不稳定，后续可能需要华为、小米、OPPO
 - `backend/app/schemas.py` 已拆为 `backend/app/schemas/` 包。
 - 当前按持仓、行情、K 线、信号、股票搜索分文件。
 - 后续新增策略和回测模型时，直接增加 `schemas/strategies.py` 和 `schemas/backtests.py`。
+
+## 13. 策略和回测后端骨架计划
+
+接下来进入策略和回测模块，但第一步只做后端地基，不先做复杂算法和 App 页面。
+
+### 当前前置条件
+
+- PostgreSQL 已作为后端主库。
+- 已有独立测试库 `stock_web_test`。
+- 后端数据库基础读写已有 pytest 覆盖。
+- routers 已按业务领域拆分。
+- schemas 已按业务领域拆分。
+
+### 第一阶段开发内容
+
+已新增策略和回测的最小后端结构：
+
+```text
+backend/app/schemas/strategies.py
+backend/app/schemas/backtests.py
+backend/app/routers/strategies.py
+backend/app/routers/backtests.py
+backend/tests/test_strategy_backtest_database.py
+```
+
+已落库：
+
+```text
+strategy_definitions
+backtest_runs
+backtest_equity_curve
+backtest_trades
+strategy_parameters
+strategy_signals
+```
+
+### 第一版接口范围
+
+```text
+GET  /api/v1/strategies
+POST /api/v1/backtests
+GET  /api/v1/backtests/{run_id}
+```
+
+`POST /api/v1/backtests` 由 App 提交回测配置。后端不能固定回测时间，也不能脱离用户配置自动决定时间范围。
+
+第一版请求参数建议：
+
+```text
+strategy_code
+stock_code
+period
+start_date
+end_date
+initial_cash
+fee_rate
+slippage_rate
+parameters
+```
+
+其中 `start_date` 和 `end_date` 必须由 App 用户选择。
+
+### 第一版回测范围
+
+- 策略：双均线策略。
+- 标的：单股票。
+- 数据：日 K。
+- 参数：短均线、长均线、初始资金、手续费、滑点。
+- 输出：收益率、最大回撤、交易记录、净值曲线。
+
+当前状态：
+
+- `GET /api/v1/strategies` 已可返回默认双均线策略。
+- `POST /api/v1/backtests` 已可创建回测任务并同步执行最小双均线回测。
+- `GET /api/v1/backtests/{run_id}` 已可读取回测任务结果结构。
+- 最小双均线回测引擎已实现，会写入净值曲线和交易记录。
+
+### 设计边界
+
+- 回测在后端跑。
+- App 负责配置股票、策略、开始日期、结束日期、资金、手续费、滑点和策略参数。
+- App 负责展示收益曲线、最大回撤、交易记录和回测摘要。
+- 不在 Flutter 中实现回测引擎。
+- 策略规则、手续费、滑点、仓位管理必须由后端策略模块控制。
+- 回测结果必须落 PostgreSQL，便于后续多人使用和迁云。
+
+### 开发节奏
+
+第一阶段可以先只实现后端接口，用接口请求跑通回测闭环；第二阶段再在 App 增加“量化”入口和结果展示页面。
+
+### 已实现的最小双均线回测引擎
+
+当前执行流程：
+
+```text
+输入 BacktestCreate
+  -> 查询指定时间区间 K 线
+  -> 计算 MA short / MA long
+  -> 生成买卖点
+  -> 计算资金、持仓、市值、净值和回撤
+  -> 保存净值曲线和交易记录
+  -> 返回 BacktestResult
+```
+
+当前验收：
+
+```text
+pytest: 7 passed
+HK.02628 日 K 回测: completed
+equity_points: 315
+trades: 7
+```
+
+### 下一步实现重点
+
+进入 App 量化入口和回测结果展示：
+
+```text
+策略列表
+股票选择
+开始日期和结束日期
+策略参数设置
+启动回测
+收益曲线
+交易记录
+回测摘要
+```

@@ -1,7 +1,8 @@
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+import json
+from datetime import date, datetime, time, timezone
 import os
 from pathlib import Path
 from typing import Any
@@ -11,7 +12,20 @@ import psycopg
 from dotenv import load_dotenv
 from psycopg.rows import dict_row
 
-from .schemas import Candle, Position, PositionCreate, PositionUpdate, QuoteSnapshot
+from .schemas import (
+    BacktestCreate,
+    BacktestEquityPoint,
+    BacktestResult,
+    BacktestRun,
+    BacktestTrade,
+    Candle,
+    Position,
+    PositionCreate,
+    PositionUpdate,
+    QuoteSnapshot,
+    StrategyDefinition,
+    StrategyDefinitionCreate,
+)
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -99,6 +113,98 @@ def init_database(*, seed_defaults: bool = True) -> None:
             ON klines (code, period, time DESC)
             """,
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS strategy_definitions (
+                id TEXT PRIMARY KEY,
+                code TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL,
+                default_parameters TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """,
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS strategy_parameters (
+                id TEXT PRIMARY KEY,
+                strategy_code TEXT NOT NULL,
+                name TEXT NOT NULL,
+                value_type TEXT NOT NULL,
+                default_value TEXT NOT NULL,
+                min_value REAL,
+                max_value REAL,
+                description TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """,
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS backtest_runs (
+                id TEXT PRIMARY KEY,
+                strategy_code TEXT NOT NULL,
+                stock_code TEXT NOT NULL,
+                period TEXT NOT NULL,
+                start_date TEXT NOT NULL,
+                end_date TEXT NOT NULL,
+                initial_cash REAL NOT NULL,
+                fee_rate REAL NOT NULL,
+                slippage_rate REAL NOT NULL,
+                parameters TEXT NOT NULL,
+                status TEXT NOT NULL,
+                summary TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """,
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS backtest_equity_curve (
+                run_id TEXT NOT NULL,
+                time TEXT NOT NULL,
+                equity REAL NOT NULL,
+                cash REAL NOT NULL,
+                position_quantity REAL NOT NULL,
+                market_value REAL NOT NULL,
+                drawdown REAL NOT NULL,
+                PRIMARY KEY (run_id, time)
+            )
+            """,
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS backtest_trades (
+                run_id TEXT NOT NULL,
+                time TEXT NOT NULL,
+                side TEXT NOT NULL,
+                price REAL NOT NULL,
+                quantity REAL NOT NULL,
+                fee REAL NOT NULL,
+                slippage REAL NOT NULL,
+                cash_after REAL NOT NULL,
+                position_after REAL NOT NULL,
+                PRIMARY KEY (run_id, time, side)
+            )
+            """,
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS strategy_signals (
+                id TEXT PRIMARY KEY,
+                strategy_code TEXT NOT NULL,
+                stock_code TEXT NOT NULL,
+                signal_type TEXT NOT NULL,
+                signal_time TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """,
+        )
         count = _first_column(connection.execute("SELECT COUNT(*) FROM positions").fetchone())
         if count == 0 and seed_defaults:
             _seed_positions(connection)
@@ -109,6 +215,12 @@ def init_database(*, seed_defaults: bool = True) -> None:
         quote_count = _first_column(quote_count)
         if quote_count == 0 and seed_defaults:
             _seed_quotes(connection)
+        strategy_count = connection.execute(
+            "SELECT COUNT(*) FROM strategy_definitions",
+        ).fetchone()
+        strategy_count = _first_column(strategy_count)
+        if strategy_count == 0 and seed_defaults:
+            _seed_strategy_definitions(connection)
 
 
 def list_positions() -> list[Position]:
@@ -293,6 +405,32 @@ def list_candles(code: str, period: str, limit: int) -> list[Candle]:
     return [_row_to_candle(row) for row in rows]
 
 
+def list_candles_between(
+    code: str,
+    period: str,
+    start_date: date,
+    end_date: date,
+) -> list[Candle]:
+    normalized_code = code.strip().upper()
+    normalized_period = period.strip().lower()
+    start_text = _datetime_to_text(datetime.combine(start_date, time.min, UTC))
+    end_text = _datetime_to_text(datetime.combine(end_date, time.max, UTC))
+    with _connect() as connection:
+        rows = connection.execute(
+            """
+            SELECT code, market, period, time, open, high, low, close, volume, turnover
+            FROM klines
+            WHERE UPPER(code) = ?
+              AND period = ?
+              AND time >= ?
+              AND time <= ?
+            ORDER BY time ASC
+            """,
+            (normalized_code, normalized_period, start_text, end_text),
+        ).fetchall()
+    return [_row_to_candle(row) for row in rows]
+
+
 def upsert_candles(candles: list[Candle]) -> list[Candle]:
     if not candles:
         return []
@@ -319,6 +457,166 @@ def upsert_candles(candles: list[Candle]) -> list[Candle]:
             [_candle_values(candle, now_text) for candle in candles],
         )
     return candles
+
+
+def list_strategy_definitions() -> list[StrategyDefinition]:
+    with _connect() as connection:
+        rows = connection.execute(
+            """
+            SELECT id, code, name, description, default_parameters,
+                   created_at, updated_at
+            FROM strategy_definitions
+            ORDER BY code ASC
+            """,
+        ).fetchall()
+    return [_row_to_strategy_definition(row) for row in rows]
+
+
+def create_strategy_definition(
+    payload: StrategyDefinitionCreate,
+) -> StrategyDefinition:
+    now = _now()
+    strategy = StrategyDefinition(
+        id=str(uuid4()),
+        created_at=now,
+        updated_at=now,
+        **payload.model_dump(),
+    )
+    with _connect() as connection:
+        connection.execute(
+            """
+            INSERT INTO strategy_definitions (
+                id, code, name, description, default_parameters,
+                created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(code) DO UPDATE SET
+                name = excluded.name,
+                description = excluded.description,
+                default_parameters = excluded.default_parameters,
+                updated_at = excluded.updated_at
+            """,
+            _strategy_definition_values(strategy),
+        )
+    return strategy
+
+
+def create_backtest_run(payload: BacktestCreate) -> BacktestRun:
+    now = _now()
+    run = BacktestRun(
+        id=str(uuid4()),
+        status="created",
+        summary={},
+        created_at=now,
+        updated_at=now,
+        **payload.model_dump(),
+    )
+    with _connect() as connection:
+        connection.execute(
+            """
+            INSERT INTO backtest_runs (
+                id, strategy_code, stock_code, period, start_date, end_date,
+                initial_cash, fee_rate, slippage_rate, parameters, status,
+                summary, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            _backtest_run_values(run),
+        )
+    return run
+
+
+def get_backtest_result(run_id: str) -> BacktestResult | None:
+    with _connect() as connection:
+        run_row = connection.execute(
+            """
+            SELECT id, strategy_code, stock_code, period, start_date, end_date,
+                   initial_cash, fee_rate, slippage_rate, parameters, status,
+                   summary, created_at, updated_at
+            FROM backtest_runs
+            WHERE id = ?
+            """,
+            (run_id,),
+        ).fetchone()
+        if run_row is None:
+            return None
+        equity_rows = connection.execute(
+            """
+            SELECT run_id, time, equity, cash, position_quantity,
+                   market_value, drawdown
+            FROM backtest_equity_curve
+            WHERE run_id = ?
+            ORDER BY time ASC
+            """,
+            (run_id,),
+        ).fetchall()
+        trade_rows = connection.execute(
+            """
+            SELECT run_id, time, side, price, quantity, fee, slippage,
+                   cash_after, position_after
+            FROM backtest_trades
+            WHERE run_id = ?
+            ORDER BY time ASC
+            """,
+            (run_id,),
+        ).fetchall()
+    return BacktestResult(
+        run=_row_to_backtest_run(run_row),
+        equity_curve=[_row_to_backtest_equity_point(row) for row in equity_rows],
+        trades=[_row_to_backtest_trade(row) for row in trade_rows],
+    )
+
+
+def save_backtest_result(
+    run: BacktestRun,
+    equity_curve: list[BacktestEquityPoint],
+    trades: list[BacktestTrade],
+) -> BacktestResult:
+    with _connect() as connection:
+        connection.execute(
+            """
+            UPDATE backtest_runs
+            SET status = ?,
+                summary = ?,
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                run.status,
+                _json_to_text(run.summary),
+                _datetime_to_text(run.updated_at),
+                run.id,
+            ),
+        )
+        connection.execute(
+            "DELETE FROM backtest_equity_curve WHERE run_id = ?",
+            (run.id,),
+        )
+        connection.execute(
+            "DELETE FROM backtest_trades WHERE run_id = ?",
+            (run.id,),
+        )
+        connection.executemany(
+            """
+            INSERT INTO backtest_equity_curve (
+                run_id, time, equity, cash, position_quantity,
+                market_value, drawdown
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            [_backtest_equity_values(point) for point in equity_curve],
+        )
+        connection.executemany(
+            """
+            INSERT INTO backtest_trades (
+                run_id, time, side, price, quantity, fee, slippage,
+                cash_after, position_after
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [_backtest_trade_values(trade) for trade in trades],
+        )
+    return BacktestResult(run=run, equity_curve=equity_curve, trades=trades)
 
 
 class _DatabaseConnection:
@@ -535,6 +833,32 @@ def _seed_quotes(connection: _DatabaseConnection) -> None:
         )
 
 
+def _seed_strategy_definitions(connection: _DatabaseConnection) -> None:
+    strategy = StrategyDefinition(
+        id=str(uuid4()),
+        code="ma_cross",
+        name="MA Cross",
+        description="Moving average crossover baseline strategy.",
+        default_parameters={
+            "short_window": 5,
+            "long_window": 20,
+        },
+        created_at=_now(),
+        updated_at=_now(),
+    )
+    connection.execute(
+        """
+        INSERT INTO strategy_definitions (
+            id, code, name, description, default_parameters,
+            created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(code) DO NOTHING
+        """,
+        _strategy_definition_values(strategy),
+    )
+
+
 def _position_values(position: Position) -> tuple[object, ...]:
     return (
         position.id,
@@ -584,6 +908,65 @@ def _candle_values(candle: Candle, now_text: str) -> tuple[object, ...]:
         candle.turnover,
         now_text,
         now_text,
+    )
+
+
+def _strategy_definition_values(
+    strategy: StrategyDefinition,
+) -> tuple[object, ...]:
+    return (
+        strategy.id,
+        strategy.code,
+        strategy.name,
+        strategy.description,
+        _json_to_text(strategy.default_parameters),
+        _datetime_to_text(strategy.created_at),
+        _datetime_to_text(strategy.updated_at),
+    )
+
+
+def _backtest_run_values(run: BacktestRun) -> tuple[object, ...]:
+    return (
+        run.id,
+        run.strategy_code,
+        run.stock_code,
+        run.period,
+        run.start_date.isoformat(),
+        run.end_date.isoformat(),
+        run.initial_cash,
+        run.fee_rate,
+        run.slippage_rate,
+        _json_to_text(run.parameters),
+        run.status,
+        _json_to_text(run.summary),
+        _datetime_to_text(run.created_at),
+        _datetime_to_text(run.updated_at),
+    )
+
+
+def _backtest_equity_values(point: BacktestEquityPoint) -> tuple[object, ...]:
+    return (
+        point.run_id,
+        _datetime_to_text(point.time),
+        point.equity,
+        point.cash,
+        point.position_quantity,
+        point.market_value,
+        point.drawdown,
+    )
+
+
+def _backtest_trade_values(trade: BacktestTrade) -> tuple[object, ...]:
+    return (
+        trade.run_id,
+        _datetime_to_text(trade.time),
+        trade.side,
+        trade.price,
+        trade.quantity,
+        trade.fee,
+        trade.slippage,
+        trade.cash_after,
+        trade.position_after,
     )
 
 
@@ -637,6 +1020,67 @@ def _row_to_candle(row: sqlite3.Row | dict[str, Any]) -> Candle:
     )
 
 
+def _row_to_strategy_definition(
+    row: sqlite3.Row | dict[str, Any],
+) -> StrategyDefinition:
+    return StrategyDefinition(
+        id=row["id"],
+        code=row["code"],
+        name=row["name"],
+        description=row["description"],
+        default_parameters=_json_from_text(row["default_parameters"]),
+        created_at=_text_to_datetime(row["created_at"]),
+        updated_at=_text_to_datetime(row["updated_at"]),
+    )
+
+
+def _row_to_backtest_run(row: sqlite3.Row | dict[str, Any]) -> BacktestRun:
+    return BacktestRun(
+        id=row["id"],
+        strategy_code=row["strategy_code"],
+        stock_code=row["stock_code"],
+        period=row["period"],
+        start_date=row["start_date"],
+        end_date=row["end_date"],
+        initial_cash=row["initial_cash"],
+        fee_rate=row["fee_rate"],
+        slippage_rate=row["slippage_rate"],
+        parameters=_json_from_text(row["parameters"]),
+        status=row["status"],
+        summary=_json_from_text(row["summary"]),
+        created_at=_text_to_datetime(row["created_at"]),
+        updated_at=_text_to_datetime(row["updated_at"]),
+    )
+
+
+def _row_to_backtest_equity_point(
+    row: sqlite3.Row | dict[str, Any],
+) -> BacktestEquityPoint:
+    return BacktestEquityPoint(
+        run_id=row["run_id"],
+        time=_text_to_datetime(row["time"]),
+        equity=row["equity"],
+        cash=row["cash"],
+        position_quantity=row["position_quantity"],
+        market_value=row["market_value"],
+        drawdown=row["drawdown"],
+    )
+
+
+def _row_to_backtest_trade(row: sqlite3.Row | dict[str, Any]) -> BacktestTrade:
+    return BacktestTrade(
+        run_id=row["run_id"],
+        time=_text_to_datetime(row["time"]),
+        side=row["side"],
+        price=row["price"],
+        quantity=row["quantity"],
+        fee=row["fee"],
+        slippage=row["slippage"],
+        cash_after=row["cash_after"],
+        position_after=row["position_after"],
+    )
+
+
 def _ensure_column(
     connection: _DatabaseConnection,
     table_name: str,
@@ -682,3 +1126,13 @@ def _text_to_datetime(value: str | datetime) -> datetime:
             return value.replace(tzinfo=UTC)
         return value.astimezone(UTC)
     return datetime.fromisoformat(value)
+
+
+def _json_to_text(value: dict[str, Any]) -> str:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True)
+
+
+def _json_from_text(value: str | dict[str, Any]) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    return json.loads(value)

@@ -418,3 +418,194 @@ rg -n "\x{FFFD}" docs mobile_app\docs
 - 已按持仓、行情、K 线、信号、股票搜索拆分数据模型。
 - `backend/app/schemas/__init__.py` 保留统一导出，现有导入方式不需要改。
 - 下一步可以开始设计策略和回测数据库表结构。
+
+## 10. 当前马上要做的策略回测后端任务
+
+当前基础状态：
+
+- PostgreSQL 已迁移。
+- 数据库测试已补。
+- 后端 routers 已拆。
+- 后端 schemas 已拆。
+- 文档已同步。
+- Git 已保存。
+
+策略和回测后端骨架已开始落地，当前先做后端地基，不做复杂算法，也先不做 App 页面。
+
+### 第一阶段目标
+
+完成策略和回测的数据库地基：
+
+```text
+策略/回测数据库表结构
+  -> Pydantic schemas
+  -> 数据库读写函数
+  -> 数据库测试
+```
+
+当前已完成：
+
+```text
+strategy_definitions 表
+strategy_parameters 表
+backtest_runs 表
+backtest_equity_curve 表
+backtest_trades 表
+strategy_signals 表
+schemas/strategies.py
+schemas/backtests.py
+routers/strategies.py
+routers/backtests.py
+test_strategy_backtest_database.py
+```
+
+当前已验证：
+
+```text
+pytest: 6 passed
+GET /api/v1/strategies: ok
+正式库 strategy_definitions: 1
+正式库 backtest_runs: 0
+测试库策略/回测表: 0
+```
+
+### 建议新增文件
+
+```text
+backend/app/schemas/strategies.py
+backend/app/schemas/backtests.py
+backend/app/routers/strategies.py
+backend/app/routers/backtests.py
+backend/tests/test_strategy_backtest_database.py
+```
+
+后续如果 `backend/app/database.py` 继续变大，应再拆：
+
+```text
+backend/app/repositories/positions.py
+backend/app/repositories/quotes.py
+backend/app/repositories/klines.py
+backend/app/repositories/strategies.py
+backend/app/repositories/backtests.py
+```
+
+### 第一批数据库表状态
+
+已设计并落库：
+
+```text
+strategy_definitions
+strategy_parameters
+backtest_runs
+backtest_equity_curve
+backtest_trades
+strategy_signals
+```
+
+当前已经具备最小写入和读取能力：
+
+```text
+strategy_definitions
+backtest_runs
+backtest_equity_curve
+backtest_trades
+```
+
+### 第一版接口
+
+先做最小闭环需要的接口：
+
+```text
+GET  /api/v1/strategies
+POST /api/v1/backtests
+GET  /api/v1/backtests/{run_id}
+```
+
+`POST /api/v1/backtests` 必须由前端提交回测配置，后端不得随意固定回测时间。
+
+请求参数应至少包含：
+
+```text
+strategy_code
+stock_code
+period
+start_date
+end_date
+initial_cash
+fee_rate
+slippage_rate
+parameters
+```
+
+其中 `start_date` 和 `end_date` 由 App 用户选择。
+
+### 第一版策略
+
+当前默认策略已写入 `strategy_definitions`：
+
+```text
+双均线策略
+code = ma_cross
+```
+
+第一版目标闭环：
+
+```text
+App 配置股票和参数
+  -> App 选择开始日期和结束日期
+  -> 后端创建回测任务
+  -> 后端读取 K 线
+  -> 后端跑双均线
+  -> 保存回测结果
+  -> App 展示收益曲线和交易记录
+```
+
+### 验收要求
+
+- 新增数据库表必须有测试库测试。
+- 测试必须使用 `stock_web_test`，不得污染 `stock_web`。
+- 回测时间区间必须来自前端配置，后端只按参数执行。
+- 第一阶段可以先用接口调试，不做 App 页面；最终 App 必须提供回测配置和结果展示。
+- 每次后端改动后运行：
+
+```powershell
+cd C:\Users\58229\Desktop\stock_web\backend
+.venv\Scripts\python.exe -m compileall app scripts tests
+.venv\Scripts\python.exe -m pytest
+```
+
+### 下一步
+
+最小双均线回测引擎已实现：
+
+```text
+读取用户提交的 backtest 参数
+  -> 按 stock_code / period / start_date / end_date 查询 K 线
+  -> 计算短均线和长均线
+  -> 产生买卖交易
+  -> 计算净值曲线、收益率、最大回撤
+  -> 写入 backtest_equity_curve 和 backtest_trades
+  -> 更新 backtest_runs.status 和 summary
+```
+
+当前验收结果：
+
+```text
+pytest: 7 passed
+POST /api/v1/backtests: completed
+正式库 backtest_runs: 1
+正式库 backtest_equity_curve: 315
+正式库 backtest_trades: 7
+测试库回测表: 0
+```
+
+下一步建议：
+
+```text
+新增 App 量化入口
+  -> 策略列表
+  -> 股票和日期区间选择
+  -> 参数设置
+  -> 启动回测
+  -> 展示收益曲线、最大回撤、交易记录
+```

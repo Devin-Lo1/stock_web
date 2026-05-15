@@ -2,7 +2,8 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 from .database import init_database
-from .routers import futu, health, klines, positions, quotes, signals, stocks
+from .routers import backtests, futu, health, klines, positions, quotes, signals
+from .routers import stocks, strategies
 
 class UTF8JSONResponse(JSONResponse):
     media_type = "application/json; charset=utf-8"
@@ -28,3 +29,5 @@ app.include_router(klines.router)
 app.include_router(signals.router)
 app.include_router(stocks.router)
 app.include_router(futu.router)
+app.include_router(strategies.router)
+app.include_router(backtests.router)

@@ -12,7 +12,17 @@ os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 from app import database  # noqa: E402
 
 
-TABLES = ("klines", "quote_snapshots", "positions")
+TABLES = (
+    "strategy_signals",
+    "backtest_trades",
+    "backtest_equity_curve",
+    "backtest_runs",
+    "strategy_parameters",
+    "strategy_definitions",
+    "klines",
+    "quote_snapshots",
+    "positions",
+)
 
 
 @pytest.fixture(autouse=True)
