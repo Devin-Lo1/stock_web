@@ -43,7 +43,7 @@ def run_backtest(run: BacktestRun) -> BacktestResult:
             continue
 
         signal_side = signals_by_index.get(index)
-        if signal_side == "buy":
+        if signal_side == "buy" and position_quantity <= 0:
             trade = _buy(run, candle.time, candle.close, cash, run.fee_rate, run.slippage_rate)
             if trade is not None:
                 trades.append(trade)
@@ -81,6 +81,7 @@ def run_backtest(run: BacktestRun) -> BacktestResult:
         )
 
     final_equity = equity_curve[-1].equity if equity_curve else run.initial_cash
+    trade_metrics = _trade_metrics(trades)
     completed = run.model_copy(
         update={
             "status": "completed",
@@ -95,12 +96,45 @@ def run_backtest(run: BacktestRun) -> BacktestResult:
                 "total_return": final_equity / run.initial_cash - 1,
                 "max_drawdown": min((point.drawdown for point in equity_curve), default=0),
                 "trade_count": len(trades),
+                "round_trip_count": trade_metrics["round_trip_count"],
+                "win_count": trade_metrics["win_count"],
+                "loss_count": trade_metrics["loss_count"],
+                "win_rate": trade_metrics["win_rate"],
                 "candle_count": len(candles),
             },
             "updated_at": datetime.now(timezone.utc),
         },
     )
     return save_backtest_result(completed, equity_curve, trades)
+
+
+def _trade_metrics(trades: list[BacktestTrade]) -> dict[str, float | int]:
+    open_trade: BacktestTrade | None = None
+    wins = 0
+    losses = 0
+    for trade in trades:
+        if trade.side == "buy":
+            if open_trade is None:
+                open_trade = trade
+            continue
+        if trade.side != "sell" or open_trade is None:
+            continue
+        buy_cost = open_trade.price * open_trade.quantity + open_trade.fee
+        sell_income = trade.price * trade.quantity - trade.fee
+        if sell_income > buy_cost:
+            wins += 1
+        else:
+            losses += 1
+        open_trade = None
+
+    round_trips = wins + losses
+    win_rate = 0 if round_trips == 0 else wins / round_trips
+    return {
+        "round_trip_count": round_trips,
+        "win_count": wins,
+        "loss_count": losses,
+        "win_rate": win_rate,
+    }
 
 
 def _fail_run(run: BacktestRun, reason: str) -> BacktestResult:
@@ -139,7 +173,7 @@ def _buy(
     slippage = close_price * slippage_rate
     price = close_price + slippage
     quantity = cash / (price * (1 + fee_rate))
-    if quantity <= 0:
+    if quantity <= 0.000001:
         return None
     gross_amount = quantity * price
     fee = gross_amount * fee_rate

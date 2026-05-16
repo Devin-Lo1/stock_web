@@ -175,9 +175,5 @@ def init_database(*, seed_defaults: bool = True) -> None:
         quote_count = _first_column(quote_count)
         if quote_count == 0 and seed_defaults:
             _seed_quotes(connection)
-        strategy_count = connection.execute(
-            "SELECT COUNT(*) FROM strategy_definitions",
-        ).fetchone()
-        strategy_count = _first_column(strategy_count)
-        if strategy_count == 0 and seed_defaults:
+        if seed_defaults:
             _seed_strategy_definitions(connection)

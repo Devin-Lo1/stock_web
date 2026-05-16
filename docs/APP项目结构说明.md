@@ -1441,7 +1441,7 @@ App 端回测模型：
 
 回测仓储层，负责隔离页面和 API service。
 
-后续动态参数 UI 要继续通过 repository/service 读取策略定义，不要在页面里写死所有策略参数。
+动态参数 UI 要继续通过 repository/service 读取策略定义，不要在页面里写死所有策略参数。
 
 ### `mobile_app/lib/screens/quant_screen.dart`
 
@@ -1452,6 +1452,20 @@ App 端回测模型：
 - 处理股票搜索状态。
 - 调用后端启动回测。
 - 加载回测图表 K 线时优先读取后端真实缓存，缓存为空才刷新，避免富途 refresh 返回旧区间导致回测买卖点图被日期过滤为空。
+- 根据选中的策略构建参数：
+  - `ma_cross`：`short_window`、`long_window`。
+  - `rsi_reversal`：`rsi_window`、`oversold`、`overbought`。
+- 提交前进行策略参数校验。
+- 结果区展示 `summary` 中的总收益、最大回撤、期末权益、交易次数、胜率和买卖回合。
+- 胜率来自后端 `win_rate`，App 不重新计算。
+- 下一步结果区应增加参数快照，展示 `BacktestRun` 中的通用参数和策略参数。
+
+历史详情数据读取约束：
+
+- 历史列表只展示 `BacktestRun` 摘要。
+- 点击历史记录后再读取完整 `BacktestResult`。
+- K 线数据从现有 `klines` 表按股票、周期和日期范围读取。
+- 不要把 K 线快照复制到 `backtest_runs` 或新的回测详情表。
 
 页面展示组件已经拆到 `mobile_app/lib/widgets/quant/`，不要再把策略面板、参数面板、结果面板继续堆回 `quant_screen.dart`。
 

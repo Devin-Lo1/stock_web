@@ -932,9 +932,94 @@ backend/app/strategies/rsi_reversal.py
 pytest: 15 passed
 ```
 
+### 2026-05-16 胜率指标补充
+
+已完成：
+
+- 后端回测 summary 新增胜率相关字段：
+  - `round_trip_count`
+  - `win_count`
+  - `loss_count`
+  - `win_rate`
+- 胜率只统计完整买入/卖出回合，未平仓买入不算输赢。
+- App 结果区新增“胜率”和“买卖回合”。
+
+已验证：
+
+```text
+.venv\Scripts\python.exe -m compileall app scripts tests
+.venv\Scripts\python.exe -m pytest
+pytest: 17 passed
+D:\flutter\bin\flutter.bat analyze
+D:\flutter\bin\flutter.bat test
+```
+
+## 14. 下一步马上做：历史详情和参数快照
+
+下一步建议先做回测结果的参数快照展示，然后再做更完整的历史详情体验。
+
+### 为什么可以做历史详情
+
+历史详情对数据库压力不大。
+
+一次历史详情主要读取：
+
+- `backtest_runs`：回测参数、状态、summary。
+- `backtest_equity_curve`：净值曲线。
+- `backtest_trades`：交易记录。
+- `klines`：按股票、周期、日期范围读取已有 K 线。
+
+不要为每次回测复制一份 K 线。K 线必须继续复用 `klines` 表。
+
+### 当前数据量判断
+
+如果一次日 K 回测 5 年，大约 1200 个交易日：
+
+- `backtest_runs`：1 行。
+- `backtest_equity_curve`：约 1200 行。
+- `backtest_trades`：通常几十行。
+
+即使以后有 1000 次回测，也大约是 120 万行净值曲线。这个量级对 PostgreSQL 是轻量的。
+
+### 当前实现必须保持
+
+- 历史列表只读摘要，不要加载完整曲线。
+- 点击某条历史记录后才加载完整结果。
+- App 打开历史详情时再读取对应 K 线，不要重复存 K 线。
+- 历史记录继续限制数量或分页，当前 30 条只是第一版。
+
+### 下一步实现顺序
+
+1. 结果区新增“参数快照”。
+2. 历史回测点开后显示当时的通用参数和策略参数。
+3. 历史列表可增加胜率摘要。
+4. 后续再做 MACD 策略。
+
 下一步：
 
-1. App 参数区按策略动态显示。
-2. 选 `MA Cross` 时显示短均线、长均线。
-3. 选 `RSI Reversal` 时显示 RSI 周期、超卖线、超买线。
-4. 历史记录策略展示改为策略可读名。
+1. 真机安装验证 RSI Reversal 回测。
+2. 检查 App 选 `MA Cross` 时只显示短均线、长均线。
+3. 检查 App 选 `RSI Reversal` 时只显示 RSI 周期、超卖线、超买线。
+4. 检查历史记录策略展示是否显示策略可读名。
+
+### 2026-05-16 App 动态参数进展
+
+已完成：
+
+- App 参数区已按策略动态显示。
+- `MA Cross` 显示短均线、长均线。
+- `RSI Reversal` 显示 RSI 周期、超卖线、超买线。
+- App 提交 RSI 回测时会传 `rsi_window`、`oversold`、`overbought`。
+- App 提交前会校验 RSI 周期必须大于 1，超卖线必须小于超买线。
+- 历史回测记录已优先展示策略可读名。
+
+已验证：
+
+```text
+D:\flutter\bin\dart.bat format lib test
+D:\flutter\bin\flutter.bat analyze
+D:\flutter\bin\flutter.bat test
+.venv\Scripts\python.exe -m compileall app scripts tests
+.venv\Scripts\python.exe -m pytest
+pytest: 15 passed
+```

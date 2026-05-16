@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/stock_suggestion.dart';
+import '../../models/strategy_definition.dart';
 import '../../utils/theme_helpers.dart';
 import 'quant_common_widgets.dart';
 import 'quant_stock_suggestion_list.dart';
@@ -14,6 +15,10 @@ class QuantConfigPanel extends StatelessWidget {
     required this.slippageRateController,
     required this.shortWindowController,
     required this.longWindowController,
+    required this.rsiWindowController,
+    required this.rsiOversoldController,
+    required this.rsiOverboughtController,
+    required this.selectedStrategy,
     required this.selectedStockName,
     required this.stockSuggestions,
     required this.isSearchingStocks,
@@ -30,6 +35,10 @@ class QuantConfigPanel extends StatelessWidget {
   final TextEditingController slippageRateController;
   final TextEditingController shortWindowController;
   final TextEditingController longWindowController;
+  final TextEditingController rsiWindowController;
+  final TextEditingController rsiOversoldController;
+  final TextEditingController rsiOverboughtController;
+  final StrategyDefinition? selectedStrategy;
   final String selectedStockName;
   final List<StockSuggestion> stockSuggestions;
   final bool isSearchingStocks;
@@ -118,24 +127,85 @@ class QuantConfigPanel extends StatelessWidget {
                   label: '滑点率',
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: QuantNumberField(
-                  controller: shortWindowController,
-                  label: '短均线',
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: QuantNumberField(
-                  controller: longWindowController,
-                  label: '长均线',
-                ),
-              ),
             ],
+          ),
+          const SizedBox(height: 10),
+          _StrategyParameterFields(
+            strategyCode: selectedStrategy?.code ?? '',
+            shortWindowController: shortWindowController,
+            longWindowController: longWindowController,
+            rsiWindowController: rsiWindowController,
+            rsiOversoldController: rsiOversoldController,
+            rsiOverboughtController: rsiOverboughtController,
           ),
         ],
       ),
+    );
+  }
+}
+
+class _StrategyParameterFields extends StatelessWidget {
+  const _StrategyParameterFields({
+    required this.strategyCode,
+    required this.shortWindowController,
+    required this.longWindowController,
+    required this.rsiWindowController,
+    required this.rsiOversoldController,
+    required this.rsiOverboughtController,
+  });
+
+  final String strategyCode;
+  final TextEditingController shortWindowController;
+  final TextEditingController longWindowController;
+  final TextEditingController rsiWindowController;
+  final TextEditingController rsiOversoldController;
+  final TextEditingController rsiOverboughtController;
+
+  @override
+  Widget build(BuildContext context) {
+    if (strategyCode == 'rsi_reversal') {
+      return Row(
+        children: [
+          Expanded(
+            child: QuantNumberField(
+              controller: rsiWindowController,
+              label: 'RSI 周期',
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: QuantNumberField(
+              controller: rsiOversoldController,
+              label: '超卖线',
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: QuantNumberField(
+              controller: rsiOverboughtController,
+              label: '超买线',
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: QuantNumberField(
+            controller: shortWindowController,
+            label: '短均线',
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: QuantNumberField(
+            controller: longWindowController,
+            label: '长均线',
+          ),
+        ),
+      ],
     );
   }
 }

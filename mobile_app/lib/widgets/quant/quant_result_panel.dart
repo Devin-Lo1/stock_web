@@ -25,6 +25,8 @@ class QuantResultPanel extends StatelessWidget {
     final totalReturn = run.summaryDouble('total_return') * 100;
     final maxDrawdown = run.summaryDouble('max_drawdown') * 100;
     final finalEquity = run.summaryDouble('final_equity');
+    final winRate = run.summaryDouble('win_rate') * 100;
+    final roundTripCount = run.summaryDouble('round_trip_count').round();
 
     return QuantPanel(
       child: Column(
@@ -64,8 +66,30 @@ class QuantResultPanel extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: QuantMetric(
+                  label: '胜率',
+                  value: roundTripCount == 0 ? '--' : formatPercent(winRate),
+                  color: roundTripCount == 0
+                      ? secondaryTextColor(context)
+                      : quantProfitColor(winRate),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: QuantMetric(
                   label: '交易次数',
-                  value: '${result.trades.length}',
+                  value: '${run.summaryDouble('trade_count').round()}',
+                  color: primaryTextColor(context),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: QuantMetric(
+                  label: '买卖回合',
+                  value: '$roundTripCount',
                   color: primaryTextColor(context),
                 ),
               ),

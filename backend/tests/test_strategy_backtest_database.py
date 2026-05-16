@@ -239,12 +239,15 @@ def test_ma_cross_backtest_generates_result() -> None:
 
     assert result.run.status == "completed"
     assert result.run.summary["trade_count"] >= 1
+    assert "win_rate" in result.run.summary
+    assert "round_trip_count" in result.run.summary
     assert len(result.equity_curve) == 16
     assert saved is not None
     assert saved.run.status == "completed"
     assert len(saved.equity_curve) == len(result.equity_curve)
     assert len(saved.trades) == len(result.trades)
     assert saved.run.summary["trade_count"] == result.run.summary["trade_count"]
+    assert saved.run.summary["win_rate"] == result.run.summary["win_rate"]
 
 
 def test_ma_cross_backtest_failure_has_readable_message() -> None:
@@ -339,9 +342,151 @@ def test_rsi_reversal_backtest_generates_result() -> None:
     assert result.run.status == "completed"
     assert result.run.summary["strategy_code"] == "rsi_reversal"
     assert result.run.summary["trade_count"] >= 1
+    assert "win_rate" in result.run.summary
+    assert "round_trip_count" in result.run.summary
     assert saved is not None
     assert saved.run.status == "completed"
     assert len(saved.trades) == len(result.trades)
+    assert all(trade.quantity > 0.000001 for trade in result.trades)
+    assert min(point.equity for point in result.equity_curve) > 0
+
+
+def test_rsi_reversal_repeated_buy_signals_do_not_replace_existing_position() -> None:
+    start = datetime(2026, 2, 1, tzinfo=timezone.utc)
+    closes = [
+        50,
+        45,
+        40,
+        35,
+        30,
+        32,
+        31,
+        32,
+        31,
+        32,
+        31,
+        32,
+        31,
+        32,
+        31,
+        32,
+        31,
+        32,
+        31,
+        32,
+    ]
+    candles = [
+        Candle(
+            code="HK.00700",
+            market="HK",
+            period="day",
+            time=start + timedelta(days=index),
+            open=close,
+            high=close,
+            low=close,
+            close=close,
+            volume=1000,
+            turnover=close * 1000,
+        )
+        for index, close in enumerate(closes)
+    ]
+    database.upsert_candles(candles)
+    run = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="rsi_reversal",
+            stock_code="HK.00700",
+            period="day",
+            start_date=date(2026, 2, 1),
+            end_date=date(2026, 2, 20),
+            initial_cash=100000,
+            fee_rate=0.001,
+            slippage_rate=0.001,
+            parameters={"rsi_window": 2, "oversold": 45, "overbought": 95},
+        ),
+    )
+
+    result = run_backtest(run)
+    buy_trades = [trade for trade in result.trades if trade.side == "buy"]
+
+    assert result.run.status == "completed"
+    assert len(buy_trades) == 1
+    assert buy_trades[0].quantity > 0.000001
+    assert min(point.equity for point in result.equity_curve) > 1000
+
+
+def test_backtest_summary_win_rate_counts_completed_round_trips() -> None:
+    start = datetime(2026, 3, 1, tzinfo=timezone.utc)
+    closes = [
+        10,
+        10,
+        10,
+        10,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        14,
+        13,
+        12,
+        11,
+        10,
+        9,
+        8,
+        7,
+        6,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        9,
+        8,
+        7,
+        6,
+        5,
+    ]
+    candles = [
+        Candle(
+            code="HK.03988",
+            market="HK",
+            period="day",
+            time=start + timedelta(days=index),
+            open=close,
+            high=close,
+            low=close,
+            close=close,
+            volume=1000,
+            turnover=close * 1000,
+        )
+        for index, close in enumerate(closes)
+    ]
+    database.upsert_candles(candles)
+    run = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="ma_cross",
+            stock_code="HK.03988",
+            period="day",
+            start_date=date(2026, 3, 1),
+            end_date=date(2026, 3, 30),
+            initial_cash=100000,
+            fee_rate=0,
+            slippage_rate=0,
+            parameters={"short_window": 3, "long_window": 5},
+        ),
+    )
+
+    result = run_backtest(run)
+
+    assert result.run.status == "completed"
+    assert result.run.summary["round_trip_count"] >= 1
+    assert 0 <= result.run.summary["win_rate"] <= 1
+    assert (
+        result.run.summary["win_count"] + result.run.summary["loss_count"]
+        == result.run.summary["round_trip_count"]
+    )
 
 
 def test_rsi_reversal_invalid_parameters_have_readable_message() -> None:

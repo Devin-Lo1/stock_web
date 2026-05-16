@@ -10,6 +10,7 @@ import '../models/strategy_definition.dart';
 import '../repositories/backtest_repository.dart';
 import '../services/api_client.dart';
 import '../services/stock_search_api_service.dart';
+import '../utils/formatters.dart';
 import '../utils/stock_suggestion_search.dart';
 import '../widgets/common/page_title.dart';
 import '../widgets/quant/quant_panels.dart';
@@ -38,6 +39,9 @@ class _QuantScreenState extends State<QuantScreen> {
   final _slippageRateController = TextEditingController(text: '0.0005');
   final _shortWindowController = TextEditingController(text: '5');
   final _longWindowController = TextEditingController(text: '20');
+  final _rsiWindowController = TextEditingController(text: '14');
+  final _rsiOversoldController = TextEditingController(text: '30');
+  final _rsiOverboughtController = TextEditingController(text: '70');
   final _historyStockCodeController = TextEditingController();
   late final StockSearchApiService _stockSearchService;
   Timer? _stockSearchDebounce;
@@ -80,6 +84,9 @@ class _QuantScreenState extends State<QuantScreen> {
     _slippageRateController.dispose();
     _shortWindowController.dispose();
     _longWindowController.dispose();
+    _rsiWindowController.dispose();
+    _rsiOversoldController.dispose();
+    _rsiOverboughtController.dispose();
     _historyStockCodeController.dispose();
     super.dispose();
   }
@@ -95,7 +102,7 @@ class _QuantScreenState extends State<QuantScreen> {
           strategies: _strategies,
           selectedStrategy: _selectedStrategy,
           isLoading: _isLoadingStrategies,
-          onChanged: (strategy) => setState(() => _selectedStrategy = strategy),
+          onChanged: _selectStrategy,
           onReload: _loadStrategies,
         ),
         const SizedBox(height: 12),
@@ -124,6 +131,10 @@ class _QuantScreenState extends State<QuantScreen> {
           slippageRateController: _slippageRateController,
           shortWindowController: _shortWindowController,
           longWindowController: _longWindowController,
+          rsiWindowController: _rsiWindowController,
+          rsiOversoldController: _rsiOversoldController,
+          rsiOverboughtController: _rsiOverboughtController,
+          selectedStrategy: _selectedStrategy,
           selectedStockName: _selectedStockName,
           stockSuggestions: _stockSuggestions,
           isSearchingStocks: _isSearchingStocks,
@@ -161,15 +172,56 @@ class _QuantScreenState extends State<QuantScreen> {
     try {
       final strategies = await widget.repository.loadStrategies();
       if (!mounted) return;
+      final selected = strategies.isEmpty ? null : strategies.first;
+      _applyStrategyDefaults(selected);
       setState(() {
         _strategies = strategies;
-        _selectedStrategy = strategies.isEmpty ? null : strategies.first;
+        _selectedStrategy = selected;
       });
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = error);
     } finally {
       if (mounted) setState(() => _isLoadingStrategies = false);
+    }
+  }
+
+  void _selectStrategy(StrategyDefinition? strategy) {
+    _applyStrategyDefaults(strategy);
+    setState(() => _selectedStrategy = strategy);
+  }
+
+  void _applyStrategyDefaults(StrategyDefinition? strategy) {
+    if (strategy == null) return;
+    if (strategy.code == 'rsi_reversal') {
+      _rsiWindowController.text = _defaultParameterText(
+        strategy,
+        'rsi_window',
+        '14',
+      );
+      _rsiOversoldController.text = _defaultParameterText(
+        strategy,
+        'oversold',
+        '30',
+      );
+      _rsiOverboughtController.text = _defaultParameterText(
+        strategy,
+        'overbought',
+        '70',
+      );
+      return;
+    }
+    if (strategy.code == 'ma_cross') {
+      _shortWindowController.text = _defaultParameterText(
+        strategy,
+        'short_window',
+        '5',
+      );
+      _longWindowController.text = _defaultParameterText(
+        strategy,
+        'long_window',
+        '20',
+      );
     }
   }
 
@@ -332,7 +384,6 @@ class _QuantScreenState extends State<QuantScreen> {
         );
       },
     );
-    controller.dispose();
     if (name == null) return;
     await _renameHistory(run, name);
   }
@@ -488,15 +539,8 @@ class _QuantScreenState extends State<QuantScreen> {
       '滑点率',
     );
     if (slippageRate is _QuantValidationError) return slippageRate;
-    final shortWindow = _parsePositiveInt(_shortWindowController.text, '短均线');
-    if (shortWindow is _QuantValidationError) return shortWindow;
-    final longWindow = _parsePositiveInt(_longWindowController.text, '长均线');
-    if (longWindow is _QuantValidationError) return longWindow;
-    final parsedShortWindow = shortWindow as int;
-    final parsedLongWindow = longWindow as int;
-    if (parsedShortWindow >= parsedLongWindow) {
-      return const _QuantValidationError('短均线必须小于长均线');
-    }
+    final parametersOrError = _buildStrategyParameters(strategy);
+    if (parametersOrError is _QuantValidationError) return parametersOrError;
 
     return BacktestRequest(
       strategyCode: strategy.code,
@@ -507,11 +551,47 @@ class _QuantScreenState extends State<QuantScreen> {
       initialCash: initialCash as double,
       feeRate: feeRate as double,
       slippageRate: slippageRate as double,
-      parameters: {
-        'short_window': parsedShortWindow,
-        'long_window': parsedLongWindow,
-      },
+      parameters: parametersOrError as Map<String, Object?>,
     );
+  }
+
+  Object _buildStrategyParameters(StrategyDefinition strategy) {
+    if (strategy.code == 'rsi_reversal') {
+      final window = _parsePositiveInt(_rsiWindowController.text, 'RSI 周期');
+      if (window is _QuantValidationError) return window;
+      final parsedWindow = window as int;
+      if (parsedWindow <= 1) {
+        return const _QuantValidationError('RSI 周期必须大于 1');
+      }
+      final oversold = _parseBoundedDouble(_rsiOversoldController.text, '超卖线');
+      if (oversold is _QuantValidationError) return oversold;
+      final overbought = _parseBoundedDouble(
+        _rsiOverboughtController.text,
+        '超买线',
+      );
+      if (overbought is _QuantValidationError) return overbought;
+      final parsedOversold = oversold as double;
+      final parsedOverbought = overbought as double;
+      if (parsedOversold >= parsedOverbought) {
+        return const _QuantValidationError('超卖线必须小于超买线');
+      }
+      return {
+        'rsi_window': parsedWindow,
+        'oversold': parsedOversold,
+        'overbought': parsedOverbought,
+      };
+    }
+
+    final shortWindow = _parsePositiveInt(_shortWindowController.text, '短均线');
+    if (shortWindow is _QuantValidationError) return shortWindow;
+    final longWindow = _parsePositiveInt(_longWindowController.text, '长均线');
+    if (longWindow is _QuantValidationError) return longWindow;
+    final parsedShortWindow = shortWindow as int;
+    final parsedLongWindow = longWindow as int;
+    if (parsedShortWindow >= parsedLongWindow) {
+      return const _QuantValidationError('短均线必须小于长均线');
+    }
+    return {'short_window': parsedShortWindow, 'long_window': parsedLongWindow};
   }
 
   void _updateStockSuggestions() {
@@ -652,6 +732,17 @@ Object _parseNonNegativeDouble(String value, String label) {
   return parsed;
 }
 
+Object _parseBoundedDouble(String value, String label) {
+  final parsed = double.tryParse(value.trim());
+  if (parsed == null) {
+    return _QuantValidationError('$label必须是数字');
+  }
+  if (parsed <= 0 || parsed >= 100) {
+    return _QuantValidationError('$label必须大于 0 且小于 100');
+  }
+  return parsed;
+}
+
 Object _parsePositiveInt(String value, String label) {
   final parsed = int.tryParse(value.trim());
   if (parsed == null) {
@@ -663,6 +754,17 @@ Object _parsePositiveInt(String value, String label) {
   return parsed;
 }
 
+String _defaultParameterText(
+  StrategyDefinition strategy,
+  String key,
+  String fallback,
+) {
+  final value = strategy.defaultParameters[key];
+  if (value is num) return formatNumberInput(value.toDouble());
+  if (value is String && value.isNotEmpty) return value;
+  return fallback;
+}
+
 String? _backtestFailureMessage(BacktestResult result) {
   if (result.run.status != 'failed') return null;
   final errorMessage = result.run.summary['error_message'];
@@ -671,6 +773,7 @@ String? _backtestFailureMessage(BacktestResult result) {
   return switch (error) {
     'unsupported_strategy' => '暂不支持该策略',
     'invalid_ma_parameters' => '均线参数不合法，短均线必须小于长均线',
+    'invalid_rsi_parameters' => 'RSI 参数不合法，周期必须大于 1，且超卖线小于超买线',
     'not_enough_candles' => 'K 线数据不足，无法完成回测',
     String value when value.isNotEmpty => value,
     _ => '回测失败，请检查参数和 K 线数据',

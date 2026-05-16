@@ -90,6 +90,7 @@ class QuantHistoryPanel extends StatelessWidget {
                 for (final run in runs)
                   _BacktestHistoryTile(
                     run: run,
+                    strategyName: _strategyName(strategies, run.strategyCode),
                     onTap: () => onSelected(run),
                     onDelete: () => onDelete(run),
                     onRename: () => onRename(run),
@@ -205,12 +206,14 @@ class _HistoryFilters extends StatelessWidget {
 class _BacktestHistoryTile extends StatelessWidget {
   const _BacktestHistoryTile({
     required this.run,
+    required this.strategyName,
     required this.onTap,
     required this.onDelete,
     required this.onRename,
   });
 
   final BacktestRun run;
+  final String strategyName;
   final VoidCallback onTap;
   final VoidCallback onDelete;
   final VoidCallback onRename;
@@ -257,7 +260,7 @@ class _BacktestHistoryTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${run.stockCode}  ${run.strategyCode}  ${quantDateText(run.startDate)} - ${quantDateText(run.endDate)}',
+                    '${run.stockCode}  $strategyName  ${quantDateText(run.startDate)} - ${quantDateText(run.endDate)}',
                     style: TextStyle(
                       color: secondaryTextColor(context),
                       fontSize: 12,
@@ -311,4 +314,11 @@ String _statusText(String status) {
     'running' => '运行',
     _ => '创建',
   };
+}
+
+String _strategyName(List<StrategyDefinition> strategies, String code) {
+  for (final strategy in strategies) {
+    if (strategy.code == code) return strategy.name;
+  }
+  return code;
 }

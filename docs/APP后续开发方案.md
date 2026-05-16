@@ -283,8 +283,54 @@ screens/signal_history_screen.dart
 
 待做：
 
-- App 参数区仍是 MA 参数输入，下一步要按策略动态显示参数。
-- 历史记录策略展示仍以 code 为主，后续要显示策略可读名。
+- App 参数区已支持按策略动态显示参数：MA Cross 显示短均线和长均线，RSI Reversal 显示 RSI 周期、超卖线、超买线。
+- 历史记录策略展示已优先显示策略可读名。
+
+下一步待做：
+
+- 真机验证 RSI Reversal 能从 App 直接发起回测。
+- 后续结果区可增加策略参数快照，让历史结果能直观看到当时使用的 RSI/MA 参数。
+
+### 2026-05-16 回测胜率指标
+
+已新增回测胜率指标：
+
+- 后端根据完整买入/卖出回合计算胜率。
+- 未平仓买入不计入胜率分母。
+- 盈利回合定义为卖出净收入大于买入成本。
+- 回测 summary 新增 `round_trip_count`、`win_count`、`loss_count`、`win_rate`。
+- App 结果区新增“胜率”和“买卖回合”展示。
+- 旧历史回测如果没有这些字段会显示空值，需要重新跑回测后才有胜率。
+
+### 历史回测详情与数据库压力
+
+历史回测详情页或详情展开可以继续做，不会对当前数据库造成明显压力。
+
+当前历史详情需要保存和读取的数据：
+
+- `backtest_runs`：一次回测的配置、参数、状态和 summary。
+- `backtest_equity_curve`：每天一条净值曲线。
+- `backtest_trades`：买卖交易记录。
+- `klines`：K 线数据统一复用现有行情表，不要为每次回测复制一份完整 K 线。
+
+量级估算：
+
+- 一次日 K 回测 5 年，大约 1200 个交易日。
+- 一次回测大约写入 1 行 `backtest_runs`、1200 行 `backtest_equity_curve`、几十行 `backtest_trades`。
+- 即使跑 1000 次回测，净值曲线约 120 万行，对 PostgreSQL 属于轻量数据。
+
+强约束：
+
+- 历史详情打开时按 `stock_code`、`period`、`start_date`、`end_date` 从 `klines` 查询 K 线。
+- 不要把 K 线快照重复写入每条回测记录。
+- 历史列表只读 `backtest_runs` 摘要，不加载净值曲线和交易记录。
+- 只有点击某条历史记录后，才加载 `backtest_equity_curve`、`backtest_trades` 和对应 K 线。
+
+后续优化：
+
+- 给 `backtest_equity_curve` 和 `backtest_trades` 保持或补充 `run_id` 相关索引。
+- 历史回测数量增多后，将当前最多 30 条改为分页或分页加载。
+- 结果区下一步建议增加参数快照，便于打开历史回测后知道当时使用的策略参数。
 
 ### 后端建议结构
 
