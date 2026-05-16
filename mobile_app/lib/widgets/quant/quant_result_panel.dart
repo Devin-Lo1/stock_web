@@ -14,10 +14,12 @@ class QuantResultPanel extends StatelessWidget {
     super.key,
     required this.result,
     required this.candles,
+    this.isHistoricalResult = false,
   });
 
   final BacktestResult result;
   final List<Candle> candles;
+  final bool isHistoricalResult;
 
   @override
   Widget build(BuildContext context) {
@@ -27,107 +29,251 @@ class QuantResultPanel extends StatelessWidget {
     final finalEquity = run.summaryDouble('final_equity');
     final winRate = run.summaryDouble('win_rate') * 100;
     final roundTripCount = run.summaryDouble('round_trip_count').round();
+    final failureMessage = _failureMessage(run);
 
     return QuantPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const QuantPanelHeader(title: '结果', icon: Icons.analytics_rounded),
+          QuantPanelHeader(
+            title: isHistoricalResult ? '历史回测详情' : '回测结果',
+            icon: Icons.analytics_rounded,
+          ),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: QuantMetric(
-                  label: '总收益',
-                  value: formatPercent(totalReturn),
-                  color: quantProfitColor(totalReturn),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: QuantMetric(
-                  label: '最大回撤',
-                  value: formatPercent(maxDrawdown),
-                  color: const Color(0xFFFF3B45),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: QuantMetric(
-                  label: '期末权益',
-                  value: formatHkd(finalEquity, showSign: false),
-                  color: primaryTextColor(context),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: QuantMetric(
-                  label: '胜率',
-                  value: roundTripCount == 0 ? '--' : formatPercent(winRate),
-                  color: roundTripCount == 0
-                      ? secondaryTextColor(context)
-                      : quantProfitColor(winRate),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: QuantMetric(
-                  label: '交易次数',
-                  value: '${run.summaryDouble('trade_count').round()}',
-                  color: primaryTextColor(context),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: QuantMetric(
-                  label: '买卖回合',
-                  value: '$roundTripCount',
-                  color: primaryTextColor(context),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _QuantResultSectionTitle(title: '参数'),
-          const SizedBox(height: 8),
-          _BacktestParameterSnapshot(run: run),
-          const SizedBox(height: 14),
-          _QuantResultSectionTitle(title: '收益曲线'),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: softCardColor(context),
-              borderRadius: BorderRadius.circular(8),
+          _ResultContextBar(run: run, isHistoricalResult: isHistoricalResult),
+          const SizedBox(height: 10),
+          if (failureMessage != null) ...[
+            _ResultNotice(
+              icon: Icons.error_outline_rounded,
+              text: failureMessage,
+              color: const Color(0xFFFF3B45),
             ),
-            child: BacktestEquityChart(points: result.equityCurve),
-          ),
-          const SizedBox(height: 14),
-          _QuantResultSectionTitle(title: '买卖点'),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: softCardColor(context),
-              borderRadius: BorderRadius.circular(8),
+            const SizedBox(height: 14),
+            _QuantResultSectionTitle(title: '参数'),
+            const SizedBox(height: 8),
+            _BacktestParameterSnapshot(run: run),
+          ] else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: QuantMetric(
+                    label: '总收益',
+                    value: formatPercent(totalReturn),
+                    color: quantProfitColor(totalReturn),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: QuantMetric(
+                    label: '最大回撤',
+                    value: formatPercent(maxDrawdown),
+                    color: const Color(0xFFFF3B45),
+                  ),
+                ),
+              ],
             ),
-            child: BacktestKlineTradeChart(
-              candles: candles,
-              trades: result.trades,
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: QuantMetric(
+                    label: '期末权益',
+                    value: formatHkd(finalEquity, showSign: false),
+                    color: primaryTextColor(context),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: QuantMetric(
+                    label: '胜率',
+                    value: roundTripCount == 0 ? '--' : formatPercent(winRate),
+                    color: roundTripCount == 0
+                        ? secondaryTextColor(context)
+                        : quantProfitColor(winRate),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: QuantMetric(
+                    label: '交易次数',
+                    value: '${run.summaryDouble('trade_count').round()}',
+                    color: primaryTextColor(context),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: QuantMetric(
+                    label: '买卖回合',
+                    value: '$roundTripCount',
+                    color: primaryTextColor(context),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _QuantResultSectionTitle(title: '参数'),
+            const SizedBox(height: 8),
+            _BacktestParameterSnapshot(run: run),
+            const SizedBox(height: 14),
+            _QuantResultSectionTitle(title: '收益曲线'),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: softCardColor(context),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: BacktestEquityChart(points: result.equityCurve),
+            ),
+            const SizedBox(height: 14),
+            _QuantResultSectionTitle(title: '买卖点'),
+            const SizedBox(height: 8),
+            if (candles.isEmpty)
+              _ResultNotice(
+                icon: Icons.candlestick_chart_rounded,
+                text: '历史结果已加载，但当前 K 线数据不足，无法绘制买卖点图。',
+                color: secondaryTextColor(context),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: softCardColor(context),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: BacktestKlineTradeChart(
+                  candles: candles,
+                  trades: result.trades,
+                ),
+              ),
+            const SizedBox(height: 14),
+            _QuantResultSectionTitle(title: '交易记录'),
+            const SizedBox(height: 8),
+            QuantTradeList(trades: result.trades),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ResultContextBar extends StatelessWidget {
+  const _ResultContextBar({
+    required this.run,
+    required this.isHistoricalResult,
+  });
+
+  final BacktestRun run;
+  final bool isHistoricalResult;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = run.name.isEmpty ? run.stockCode : run.name;
+    final subtitle =
+        '${_strategyLabel(run.strategyCode)} / ${run.stockCode} / '
+        '${quantDateText(run.startDate)} - ${quantDateText(run.endDate)}';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: softCardColor(context),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor(context)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isHistoricalResult
+                ? Icons.manage_search_rounded
+                : Icons.play_circle_outline_rounded,
+            color: mutedIconColor(context),
+            size: 22,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isHistoricalResult ? '当前查看历史回测' : '刚刚完成的回测',
+                  style: TextStyle(
+                    color: secondaryTextColor(context),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: primaryTextColor(context),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: secondaryTextColor(context),
+                    fontSize: 11,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 14),
-          _QuantResultSectionTitle(title: '交易记录'),
-          const SizedBox(height: 8),
-          QuantTradeList(trades: result.trades),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResultNotice extends StatelessWidget {
+  const _ResultNotice({
+    required this.icon,
+    required this.text,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: softCardColor(context),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor(context)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: primaryTextColor(context),
+                fontSize: 12,
+                height: 1.35,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -286,6 +432,21 @@ String _parameterText(BacktestRun run, String key) {
   if (value is num) return formatNumberInput(value.toDouble());
   if (value is String && value.isNotEmpty) return value;
   return '--';
+}
+
+String? _failureMessage(BacktestRun run) {
+  if (run.status != 'failed') return null;
+  final errorMessage = run.summary['error_message'];
+  if (errorMessage is String && errorMessage.isNotEmpty) return errorMessage;
+  final error = run.summary['error'];
+  return switch (error) {
+    'unsupported_strategy' => '暂不支持该策略',
+    'invalid_ma_parameters' => '均线参数不合法，短均线必须小于长均线',
+    'invalid_rsi_parameters' => 'RSI 参数不合法，请检查周期和超买超卖线',
+    'not_enough_candles' => 'K 线数据不足，无法完成回测',
+    String value when value.isNotEmpty => value,
+    _ => '回测失败，请检查参数和 K 线数据',
+  };
 }
 
 String _formatRate(double value) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/stock_suggestion.dart';
 import '../../models/strategy_definition.dart';
+import '../../models/strategy_parameter_config.dart';
 import '../../utils/theme_helpers.dart';
 import 'quant_common_widgets.dart';
 import 'quant_stock_suggestion_list.dart';
@@ -13,11 +14,7 @@ class QuantConfigPanel extends StatelessWidget {
     required this.initialCashController,
     required this.feeRateController,
     required this.slippageRateController,
-    required this.shortWindowController,
-    required this.longWindowController,
-    required this.rsiWindowController,
-    required this.rsiOversoldController,
-    required this.rsiOverboughtController,
+    required this.strategyParameterControllers,
     required this.selectedStrategy,
     required this.selectedStockName,
     required this.stockSuggestions,
@@ -33,11 +30,7 @@ class QuantConfigPanel extends StatelessWidget {
   final TextEditingController initialCashController;
   final TextEditingController feeRateController;
   final TextEditingController slippageRateController;
-  final TextEditingController shortWindowController;
-  final TextEditingController longWindowController;
-  final TextEditingController rsiWindowController;
-  final TextEditingController rsiOversoldController;
-  final TextEditingController rsiOverboughtController;
+  final Map<String, TextEditingController> strategyParameterControllers;
   final StrategyDefinition? selectedStrategy;
   final String selectedStockName;
   final List<StockSuggestion> stockSuggestions;
@@ -131,12 +124,8 @@ class QuantConfigPanel extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _StrategyParameterFields(
-            strategyCode: selectedStrategy?.code ?? '',
-            shortWindowController: shortWindowController,
-            longWindowController: longWindowController,
-            rsiWindowController: rsiWindowController,
-            rsiOversoldController: rsiOversoldController,
-            rsiOverboughtController: rsiOverboughtController,
+            specs: strategyParameterSpecsFor(selectedStrategy?.code ?? ''),
+            controllers: strategyParameterControllers,
           ),
         ],
       ),
@@ -146,66 +135,36 @@ class QuantConfigPanel extends StatelessWidget {
 
 class _StrategyParameterFields extends StatelessWidget {
   const _StrategyParameterFields({
-    required this.strategyCode,
-    required this.shortWindowController,
-    required this.longWindowController,
-    required this.rsiWindowController,
-    required this.rsiOversoldController,
-    required this.rsiOverboughtController,
+    required this.specs,
+    required this.controllers,
   });
 
-  final String strategyCode;
-  final TextEditingController shortWindowController;
-  final TextEditingController longWindowController;
-  final TextEditingController rsiWindowController;
-  final TextEditingController rsiOversoldController;
-  final TextEditingController rsiOverboughtController;
+  final List<StrategyParameterSpec> specs;
+  final Map<String, TextEditingController> controllers;
 
   @override
   Widget build(BuildContext context) {
-    if (strategyCode == 'rsi_reversal') {
-      return Row(
-        children: [
-          Expanded(
-            child: QuantNumberField(
-              controller: rsiWindowController,
-              label: 'RSI 周期',
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: QuantNumberField(
-              controller: rsiOversoldController,
-              label: '超卖线',
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: QuantNumberField(
-              controller: rsiOverboughtController,
-              label: '超买线',
-            ),
-          ),
-        ],
-      );
-    }
-
-    return Row(
-      children: [
-        Expanded(
-          child: QuantNumberField(
-            controller: shortWindowController,
-            label: '短均线',
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: QuantNumberField(
-            controller: longWindowController,
-            label: '长均线',
-          ),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 10.0;
+        final columns = specs.length >= 3 ? 3 : 2;
+        final itemWidth =
+            (constraints.maxWidth - gap * (columns - 1)) / columns;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final spec in specs)
+              SizedBox(
+                width: itemWidth,
+                child: QuantNumberField(
+                  controller: controllers[spec.key]!,
+                  label: spec.label,
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
