@@ -66,12 +66,21 @@ class QuoteApiService {
     String code, {
     String period = 'day',
     int limit = 240,
+    DateTime? startDate,
+    DateTime? endDate,
   }) async {
     try {
+      final query = {
+        'codes': code,
+        'period': period,
+        'max_count': limit.toString(),
+        if (startDate != null) 'start': _dateText(startDate),
+        if (endDate != null) 'end': _dateText(endDate),
+      };
       final decoded = await _apiClient.post(
         '/api/v1/klines/refresh',
         const {},
-        query: {'codes': code, 'period': period, 'max_count': limit.toString()},
+        query: query,
       );
       if (decoded is List) {
         final candles = decoded
@@ -92,4 +101,10 @@ class QuoteApiService {
 
     return fetchCandles(code, period: period, limit: limit);
   }
+}
+
+String _dateText(DateTime value) {
+  final month = value.month.toString().padLeft(2, '0');
+  final day = value.day.toString().padLeft(2, '0');
+  return '${value.year}-$month-$day';
 }

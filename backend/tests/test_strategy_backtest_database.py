@@ -274,6 +274,90 @@ def test_ma_cross_backtest_failure_has_readable_message() -> None:
     assert result.run.summary["error_message"]
 
 
+def test_backtest_refreshes_futu_klines_when_cache_is_insufficient(monkeypatch) -> None:
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    closes = [
+        10,
+        10,
+        10,
+        10,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        14,
+        13,
+        12,
+        11,
+        10,
+        9,
+        8,
+        7,
+        6,
+        5,
+    ]
+    refreshed_candles = [
+        Candle(
+            code="HK.09988",
+            market="HK",
+            period="day",
+            time=start + timedelta(days=index),
+            open=close,
+            high=close,
+            low=close,
+            close=close,
+            volume=1000,
+            turnover=close * 1000,
+        )
+        for index, close in enumerate(closes)
+    ]
+    calls: list[dict[str, object]] = []
+
+    def fake_request_history_klines(**kwargs):
+        calls.append(kwargs)
+        return refreshed_candles
+
+    monkeypatch.setattr(
+        "app.backtest.engine.request_history_klines",
+        fake_request_history_klines,
+    )
+    run = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="ma_cross",
+            stock_code="HK.09988",
+            period="day",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 20),
+            initial_cash=100000,
+            fee_rate=0.001,
+            slippage_rate=0.001,
+            parameters={"short_window": 3, "long_window": 5},
+        ),
+    )
+
+    result = run_backtest(run)
+    cached = database.list_candles_between(
+        "HK.09988",
+        "day",
+        date(2026, 1, 1),
+        date(2026, 1, 20),
+    )
+
+    assert result.run.status == "completed"
+    assert calls == [
+        {
+            "code": "HK.09988",
+            "period": "day",
+            "max_count": 1000,
+            "start": "2026-01-01",
+            "end": "2026-01-20",
+        }
+    ]
+    assert len(cached) == len(refreshed_candles)
+
+
 def test_rsi_reversal_backtest_generates_result() -> None:
     start = datetime(2026, 1, 1, tzinfo=timezone.utc)
     closes = [

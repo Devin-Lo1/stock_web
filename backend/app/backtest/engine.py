@@ -1,8 +1,19 @@
 from datetime import datetime, timezone
 
 from ..repositories.backtests import save_backtest_result
-from ..repositories.market_data import list_candles_between
-from ..schemas import BacktestEquityPoint, BacktestResult, BacktestRun, BacktestTrade
+from ..repositories.market_data import list_candles_between, upsert_candles
+from ..schemas import (
+    BacktestEquityPoint,
+    BacktestResult,
+    BacktestRun,
+    BacktestTrade,
+    Candle,
+)
+from ..services.futu_client import (
+    FutuDependencyError,
+    FutuOpenDError,
+    request_history_klines,
+)
 from ..strategies import get_strategy
 from ..strategies.base import StrategyConfigurationError
 
@@ -17,14 +28,17 @@ def run_backtest(run: BacktestRun) -> BacktestResult:
     except StrategyConfigurationError as error:
         return _fail_run(run, error.reason)
 
-    candles = list_candles_between(
-        run.stock_code,
-        run.period,
-        run.start_date,
-        run.end_date,
-    )
+    candles, refresh_error = _load_backtest_candles(run, minimum_candles)
     if len(candles) < minimum_candles:
-        return _fail_run(run, "not_enough_candles")
+        return _fail_run(
+            run,
+            "not_enough_candles",
+            detail={
+                "cached_candle_count": len(candles),
+                "required_candle_count": minimum_candles,
+                "refresh_error": refresh_error,
+            },
+        )
 
     try:
         evaluation = strategy.evaluate(candles, run.parameters)
@@ -108,6 +122,41 @@ def run_backtest(run: BacktestRun) -> BacktestResult:
     return save_backtest_result(completed, equity_curve, trades)
 
 
+def _load_backtest_candles(
+    run: BacktestRun,
+    minimum_candles: int,
+) -> tuple[list[Candle], str | None]:
+    candles = list_candles_between(
+        run.stock_code,
+        run.period,
+        run.start_date,
+        run.end_date,
+    )
+    if len(candles) >= minimum_candles:
+        return candles, None
+
+    try:
+        refreshed = request_history_klines(
+            code=run.stock_code,
+            period=run.period,
+            max_count=1000,
+            start=run.start_date.isoformat(),
+            end=run.end_date.isoformat(),
+        )
+    except (FutuDependencyError, FutuOpenDError) as error:
+        return candles, str(error)
+
+    if refreshed:
+        upsert_candles(refreshed)
+        candles = list_candles_between(
+            run.stock_code,
+            run.period,
+            run.start_date,
+            run.end_date,
+        )
+    return candles, None if len(candles) >= minimum_candles else "empty_futu_response"
+
+
 def _trade_metrics(trades: list[BacktestTrade]) -> dict[str, float | int]:
     open_trade: BacktestTrade | None = None
     wins = 0
@@ -137,14 +186,21 @@ def _trade_metrics(trades: list[BacktestTrade]) -> dict[str, float | int]:
     }
 
 
-def _fail_run(run: BacktestRun, reason: str) -> BacktestResult:
+def _fail_run(
+    run: BacktestRun,
+    reason: str,
+    detail: dict[str, object] | None = None,
+) -> BacktestResult:
+    summary = {
+        "error": reason,
+        "error_message": _failure_message(reason),
+    }
+    if detail:
+        summary.update({key: value for key, value in detail.items() if value is not None})
     failed = run.model_copy(
         update={
             "status": "failed",
-            "summary": {
-                "error": reason,
-                "error_message": _failure_message(reason),
-            },
+            "summary": summary,
             "updated_at": datetime.now(timezone.utc),
         },
     )

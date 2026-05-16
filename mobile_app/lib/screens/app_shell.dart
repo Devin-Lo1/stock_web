@@ -292,15 +292,26 @@ class _AppShellState extends State<AppShell> {
     String code, {
     String period = 'day',
     int limit = 1000,
+    DateTime? startDate,
+    DateTime? endDate,
+    bool forceRefresh = false,
   }) async {
-    final cached = await _quoteApiService.fetchCandles(
+    if (!forceRefresh) {
+      final cached = await _quoteApiService.fetchCandles(
+        code,
+        period: period,
+        limit: limit,
+        includeMock: false,
+      );
+      if (cached.isNotEmpty) return cached;
+    }
+    return _quoteApiService.refreshCandles(
       code,
       period: period,
       limit: limit,
-      includeMock: false,
+      startDate: startDate,
+      endDate: endDate,
     );
-    if (cached.isNotEmpty) return cached;
-    return _quoteApiService.refreshCandles(code, period: period, limit: limit);
   }
 
   void _replacePosition(StockPosition original, StockPosition updated) {

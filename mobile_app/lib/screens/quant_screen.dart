@@ -25,7 +25,14 @@ class QuantScreen extends StatefulWidget {
 
   final List<StockPosition> positions;
   final BacktestRepository repository;
-  final Future<List<Candle>> Function(String code, {String period, int limit})
+  final Future<List<Candle>> Function(
+    String code, {
+    String period,
+    int limit,
+    DateTime? startDate,
+    DateTime? endDate,
+    bool forceRefresh,
+  })
   onLoadBacktestCandles;
 
   @override
@@ -471,6 +478,14 @@ class _QuantScreenState extends State<QuantScreen> {
       _error = null;
     });
     try {
+      await widget.onLoadBacktestCandles(
+        request.stockCode,
+        period: request.period,
+        limit: 1000,
+        startDate: request.startDate,
+        endDate: request.endDate,
+        forceRefresh: true,
+      );
       final result = await widget.repository.runBacktest(request);
       final failedMessage = _backtestFailureMessage(result);
       if (failedMessage != null) {

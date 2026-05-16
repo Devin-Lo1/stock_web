@@ -711,7 +711,8 @@ K 线计算和格式化工具。
 
 - 展示买入/卖出标签。
 - 展示交易日期、数量和价格。
-- 当前默认展示前 8 条交易记录。
+- 交易记录必须完整可查看，不允许只截断展示前几条。
+- 当前组件采用固定高度滚动卡片，默认约显示 8 行高度，用户可在卡片内滚动查看全部交易。
 
 #### `quant_error_panel.dart`
 
@@ -1124,16 +1125,32 @@ Flutter：
 
 ```text
 mobile_app/lib/services/notification_service.dart
+mobile_app/lib/services/push_token_service.dart
 mobile_app/lib/repositories/notification_repository.dart
 mobile_app/lib/screens/notification_settings_screen.dart
+mobile_app/lib/models/notification_models.dart
 ```
 
 后端：
 
 ```text
+backend/app/models/notification_models.py
+backend/app/repositories/notifications.py
+backend/app/services/signal_scan_service.py
 backend/app/services/push_service.py
+backend/app/services/push_providers/fcm.py
 backend/app/routers/notifications.py
 ```
+
+推送结构约束：
+
+- `notification_service.dart` 继续负责 App 内本地通知展示。
+- `push_token_service.dart` 负责获取、刷新和上报设备 token。
+- `notification_repository.dart` 负责通知设置、测试通知、设备注册接口，不在页面里直接拼 HTTP。
+- `signal_scan_service.py` 负责后端扫描持仓和行情并生成信号事件。
+- `push_service.py` 负责编排推送、去重、重试和记录结果。
+- `push_providers/` 下按通道拆实现，第一版优先 `fcm.py`，后续再加厂商推送。
+- 信号必须先落库再推送，推送失败不能导致信号丢失。
 
 ## 15. 后端路由结构
 
@@ -1367,12 +1384,13 @@ default_parameters:
 当前上述策略目录已经创建：
 
 - `base.py`：定义策略接口、策略信号和策略配置错误。
-- `factors.py`：包含 `moving_average` 和 `relative_strength_index`。
+- `factors.py`：包含 `moving_average`、`relative_strength_index`、EMA 和 MACD 计算。
 - `ma_cross.py`：双均线信号逻辑。
 - `rsi_reversal.py`：RSI 超卖回升买入、超买回落卖出信号逻辑。
+- `macd_trend.py`：MACD 柱由负转正买入、由正转负卖出信号逻辑。
 - `registry.py`：根据 `strategy_code` 查找策略实现。
 
-后续新增 MACD、BOLL、成交量动量等策略时，应继续在 `strategies/` 下新增独立文件，不要把策略判断写回 `backtest/engine.py`。
+后续新增 BOLL、成交量动量等策略时，应继续在 `strategies/` 下新增独立文件，不要把策略判断写回 `backtest/engine.py`。
 
 ## 18. 回测引擎结构
 
@@ -1383,24 +1401,24 @@ backend/app/backtest/engine.py
 
 ### `backend/app/backtest/engine.py`
 
-第一版最小双均线回测引擎。当前职责：
+当前通用回测引擎。当前职责：
 
 - 接收 `BacktestRun`。
 - 按 `stock_code`、`period`、`start_date`、`end_date` 读取 K 线。
-- 支持 `strategy_code = ma_cross`。
-- 根据 `short_window` 和 `long_window` 计算均线交叉。
+- 通过 `strategies/registry.py` 按 `strategy_code` 获取策略实现。
+- 当前支持 `ma_cross`、`rsi_reversal`、`macd_trend`。
 - 计算买入、卖出、手续费、滑点、现金、持仓、市值、净值和回撤。
 - 写入 `backtest_equity_curve` 和 `backtest_trades`。
 - 更新 `backtest_runs.status` 和 `summary`。
 
 当前 `POST /api/v1/backtests` 会同步执行回测并返回 `BacktestResult`。
 
-下一步多策略改造后：
+多策略结构约束：
 
-- `engine.py` 不再直接判断所有策略细节，当前已经通过 `strategies/registry.py` 获取策略。
+- `engine.py` 不直接判断所有策略细节，必须通过 `strategies/registry.py` 获取策略。
 - 策略模块只负责产生买入/卖出信号。
 - 回测引擎继续统一处理成交价格、手续费、滑点、持仓、净值曲线、交易记录和保存。
-- 新增 RSI、MACD、BOLL 时优先新增策略文件，不要把所有逻辑写回 `engine.py`。
+- 新增 BOLL、成交量动量等策略时优先新增策略文件，不要把所有逻辑写回 `engine.py`。
 
 ## 19. App 量化入口结构
 

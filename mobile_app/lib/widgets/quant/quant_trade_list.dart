@@ -5,20 +5,43 @@ import '../../utils/theme_helpers.dart';
 import 'quant_common_widgets.dart';
 
 class QuantTradeList extends StatelessWidget {
-  const QuantTradeList({super.key, required this.trades, this.maxCount = 8});
+  const QuantTradeList({
+    super.key,
+    required this.trades,
+    this.maxVisibleRows = 8,
+  });
 
   final List<BacktestTrade> trades;
-  final int maxCount;
+  final int maxVisibleRows;
 
   @override
   Widget build(BuildContext context) {
     if (trades.isEmpty) {
       return Text('暂无交易', style: TextStyle(color: secondaryTextColor(context)));
     }
-    return Column(
-      children: [
-        for (final trade in trades.take(maxCount)) _TradeRow(trade: trade),
-      ],
+    final visibleRows = trades.length < maxVisibleRows
+        ? trades.length
+        : maxVisibleRows;
+    final listHeight = visibleRows * 44.0 + (visibleRows - 1) * 8.0;
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: softCardColor(context),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor(context)),
+      ),
+      child: SizedBox(
+        height: listHeight,
+        child: Scrollbar(
+          child: ListView.separated(
+            primary: false,
+            padding: EdgeInsets.zero,
+            itemCount: trades.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
+            itemBuilder: (context, index) => _TradeRow(trade: trades[index]),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -31,8 +54,8 @@ class _TradeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isBuy = trade.side == 'buy';
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+    return SizedBox(
+      height: 44,
       child: Row(
         children: [
           Container(
@@ -58,6 +81,8 @@ class _TradeRow extends StatelessWidget {
           Expanded(
             child: Text(
               '${quantDateText(trade.time)}  ${trade.quantity.toStringAsFixed(2)}股',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(color: primaryTextColor(context)),
             ),
           ),
