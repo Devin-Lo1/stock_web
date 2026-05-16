@@ -611,6 +611,15 @@ class _QuantScreenState extends State<QuantScreen> {
       return null;
     }
 
+    if (strategyCode == 'macd_trend') {
+      final fastWindow = parameters['fast_window'];
+      final slowWindow = parameters['slow_window'];
+      if (fastWindow is int && slowWindow is int && fastWindow >= slowWindow) {
+        return const _QuantValidationError('快线周期必须小于慢线周期');
+      }
+      return null;
+    }
+
     final shortWindow = parameters['short_window'];
     final longWindow = parameters['long_window'];
     if (shortWindow is int && longWindow is int && shortWindow >= longWindow) {
@@ -788,6 +797,7 @@ String? _backtestFailureMessage(BacktestResult result) {
     'unsupported_strategy' => '暂不支持该策略',
     'invalid_ma_parameters' => '均线参数不合法，短均线必须小于长均线',
     'invalid_rsi_parameters' => 'RSI 参数不合法，周期必须大于 1，且超卖线小于超买线',
+    'invalid_macd_parameters' => 'MACD 参数不合法，快线周期必须小于慢线周期',
     'not_enough_candles' => 'K 线数据不足，无法完成回测',
     String value when value.isNotEmpty => value,
     _ => '回测失败，请检查参数和 K 线数据',

@@ -480,6 +480,85 @@ debug APK 已重新构建并安装到真机
 - 继续整理 App 动态参数结构，让策略参数 UI、默认值、校验和请求参数构建从统一配置读取。
 - 完成动态参数结构整理后，再进入 MACD、BOLL、成交量动量等策略扩展。
 
+### 2026-05-16 MACD 后端策略进展
+
+已完成 MACD 后端第一阶段：
+
+- `backend/app/strategies/factors.py` 新增 EMA 和 MACD 指标计算。
+- 新增 `backend/app/strategies/macd_trend.py`。
+- `macd_trend` 已接入策略 registry。
+- 种子策略新增 `macd_trend`，默认参数为 `fast_window=12`、`slow_window=26`、`signal_window=9`。
+- 第一版交易规则：MACD 柱由负转正买入，由正转负卖出。
+- 后端回测失败原因新增 `invalid_macd_parameters`。
+- 后端测试覆盖 MACD 策略 seed、正常回测和参数错误。
+
+已验证：
+
+```text
+.venv\Scripts\python.exe -m compileall app scripts tests
+.venv\Scripts\python.exe -m pytest
+pytest: 19 passed
+```
+
+下一步：
+
+- App 动态参数配置补充 `macd_trend` 的三个参数。
+- 量化页策略选择 MACD 后，应显示快线周期、慢线周期、信号周期。
+- 提交回测时传 `fast_window`、`slow_window`、`signal_window`。
+
+### 2026-05-16 App 接入 MACD 参数
+
+已完成：
+
+- App 动态参数配置新增 `macd_trend`。
+- 量化页选择 MACD Trend 后显示快线周期、慢线周期、信号周期。
+- 提交 MACD 回测时传 `fast_window`、`slow_window`、`signal_window`。
+- App 端增加快线周期必须小于慢线周期的提交前校验。
+- 结果区参数快照新增 MACD 参数展示。
+- App 回测失败提示兼容 `invalid_macd_parameters`。
+- 参数配置测试覆盖 MACD 参数 spec 和默认值读取。
+
+已验证：
+
+```text
+D:\flutter\bin\dart.bat format lib test
+D:\flutter\bin\flutter.bat analyze
+D:\flutter\bin\flutter.bat test
+.venv\Scripts\python.exe -m compileall app scripts tests
+.venv\Scripts\python.exe -m pytest
+pytest: 19 passed
+```
+
+下一步：
+
+- 真机验证 MACD Trend 可以从 App 直接发起回测。
+- 验证通过后再考虑 BOLL 或成交量动量策略。
+
+### 2026-05-16 持仓 K 线 VOL 副图进展
+
+已完成：
+
+- 持仓详情 K 线图新增 VOL 成交量副图。
+- VOL 使用现有 `Candle.volume` 数据，不需要新增后端接口。
+- K 线主图继续显示价格蜡烛和 MA5/MA10/MA20/MA60。
+- K 线下方新增成交量柱，并叠加 VOL MA5/MA10/MA20。
+- VOL 颜色按当前约定处理：绿色表示流入/上涨量，红色表示流出/下跌量。
+- 横屏 K 线复用同一个 painter，因此也会显示 VOL 副图。
+- 新增成交量均线工具测试。
+
+已验证：
+
+```text
+D:\flutter\bin\dart.bat format lib test
+D:\flutter\bin\flutter.bat analyze
+D:\flutter\bin\flutter.bat test
+```
+
+下一步：
+
+- 真机检查竖屏和横屏 K 线的 VOL 区域高度、标签可读性和手势交互。
+- 如果拥挤，再调整主图和 VOL 区域比例。
+
 ## 12. PostgreSQL 迁移后的开发顺序
 
 当前后端已经具备 PostgreSQL 连接能力，数据库迁移已完成。后续不建议继续把回测、策略、历史行情全部压在 SQLite 上。

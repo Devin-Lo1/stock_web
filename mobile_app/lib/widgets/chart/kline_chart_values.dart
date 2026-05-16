@@ -15,6 +15,18 @@ Map<int, double?> klineMaValuesAt(List<Candle> candles, int index) {
   };
 }
 
+Map<int, double?> volumeMaValuesAt(List<Candle> candles, int index) {
+  if (candles.isEmpty) {
+    return {5: null, 10: null, 20: null};
+  }
+  final effectiveIndex = index.clamp(0, candles.length - 1).toInt();
+  return {
+    5: volumeMovingAverageAt(candles, effectiveIndex, 5),
+    10: volumeMovingAverageAt(candles, effectiveIndex, 10),
+    20: volumeMovingAverageAt(candles, effectiveIndex, 20),
+  };
+}
+
 double? klineMovingAverageAt(List<Candle> candles, int index, int period) {
   if (index < period - 1 || index >= candles.length) return null;
   var sum = 0.0;
@@ -24,9 +36,23 @@ double? klineMovingAverageAt(List<Candle> candles, int index, int period) {
   return sum / period;
 }
 
+double? volumeMovingAverageAt(List<Candle> candles, int index, int period) {
+  if (index < period - 1 || index >= candles.length) return null;
+  var sum = 0.0;
+  for (var i = index - period + 1; i <= index; i++) {
+    sum += candles[i].volume;
+  }
+  return sum / period;
+}
+
 String formatKlineMa(double? value) {
   if (value == null) return '--';
   return value.toStringAsFixed(2);
+}
+
+String formatVolumeMa(double? value) {
+  if (value == null) return '--';
+  return formatKlineLargeNumber(value);
 }
 
 String formatKlinePrice(double value) {

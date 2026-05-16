@@ -19,6 +19,16 @@ void main() {
     ]);
   });
 
+  test('strategyParameterSpecsFor returns MACD parameters', () {
+    final specs = strategyParameterSpecsFor('macd_trend');
+
+    expect(specs.map((spec) => spec.key), [
+      'fast_window',
+      'slow_window',
+      'signal_window',
+    ]);
+  });
+
   test('strategyParameterDefaultText reads backend defaults', () {
     const strategy = StrategyDefinition(
       id: 'strategy-1',
@@ -32,5 +42,24 @@ void main() {
     expect(strategyParameterDefaultText(strategy, specs[0]), '14');
     expect(strategyParameterDefaultText(strategy, specs[1]), '25.50');
     expect(strategyParameterDefaultText(strategy, specs[2]), '70');
+  });
+
+  test('strategyParameterDefaultText reads MACD backend defaults', () {
+    const strategy = StrategyDefinition(
+      id: 'strategy-2',
+      code: 'macd_trend',
+      name: 'MACD Trend',
+      description: '',
+      defaultParameters: {
+        'fast_window': 12,
+        'slow_window': 26,
+        'signal_window': 9,
+      },
+    );
+    final specs = strategyParameterSpecsFor(strategy.code);
+
+    expect(strategyParameterDefaultText(strategy, specs[0]), '12');
+    expect(strategyParameterDefaultText(strategy, specs[1]), '26');
+    expect(strategyParameterDefaultText(strategy, specs[2]), '9');
   });
 }

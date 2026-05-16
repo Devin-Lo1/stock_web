@@ -413,6 +413,13 @@ List<_SnapshotItem> _strategyParameterItems(BacktestRun run) {
       _SnapshotItem('超买线', _parameterText(run, 'overbought')),
     ];
   }
+  if (run.strategyCode == 'macd_trend') {
+    return [
+      _SnapshotItem('快线周期', _parameterText(run, 'fast_window')),
+      _SnapshotItem('慢线周期', _parameterText(run, 'slow_window')),
+      _SnapshotItem('信号周期', _parameterText(run, 'signal_window')),
+    ];
+  }
   return [
     _SnapshotItem('短均线', _parameterText(run, 'short_window')),
     _SnapshotItem('长均线', _parameterText(run, 'long_window')),
@@ -422,6 +429,7 @@ List<_SnapshotItem> _strategyParameterItems(BacktestRun run) {
 String _strategyLabel(String code) {
   return switch (code) {
     'ma_cross' => 'MA Cross',
+    'macd_trend' => 'MACD Trend',
     'rsi_reversal' => 'RSI Reversal',
     _ => code,
   };
@@ -443,6 +451,7 @@ String? _failureMessage(BacktestRun run) {
     'unsupported_strategy' => '暂不支持该策略',
     'invalid_ma_parameters' => '均线参数不合法，短均线必须小于长均线',
     'invalid_rsi_parameters' => 'RSI 参数不合法，请检查周期和超买超卖线',
+    'invalid_macd_parameters' => 'MACD 参数不合法，请检查快线和慢线周期',
     'not_enough_candles' => 'K 线数据不足，无法完成回测',
     String value when value.isNotEmpty => value,
     _ => '回测失败，请检查参数和 K 线数据',

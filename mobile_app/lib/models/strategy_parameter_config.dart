@@ -53,8 +53,30 @@ const _rsiReversalSpecs = [
   ),
 ];
 
+const _macdTrendSpecs = [
+  StrategyParameterSpec(
+    key: 'fast_window',
+    label: '快线周期',
+    fallback: '12',
+    valueType: StrategyParameterValueType.positiveInt,
+  ),
+  StrategyParameterSpec(
+    key: 'slow_window',
+    label: '慢线周期',
+    fallback: '26',
+    valueType: StrategyParameterValueType.positiveInt,
+  ),
+  StrategyParameterSpec(
+    key: 'signal_window',
+    label: '信号周期',
+    fallback: '9',
+    valueType: StrategyParameterValueType.positiveInt,
+  ),
+];
+
 List<StrategyParameterSpec> strategyParameterSpecsFor(String strategyCode) {
   return switch (strategyCode) {
+    'macd_trend' => _macdTrendSpecs,
     'rsi_reversal' => _rsiReversalSpecs,
     _ => _maCrossSpecs,
   };
@@ -64,6 +86,7 @@ Set<String> allStrategyParameterKeys() {
   return {
     for (final spec in _maCrossSpecs) spec.key,
     for (final spec in _rsiReversalSpecs) spec.key,
+    for (final spec in _macdTrendSpecs) spec.key,
   };
 }
 

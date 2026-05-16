@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stock_mobile/models/candle.dart';
 import 'package:stock_mobile/models/quote_snapshot.dart';
+import 'package:stock_mobile/widgets/chart/kline_chart_values.dart';
 
 void main() {
   test('QuoteSnapshot parses backend style json', () {
@@ -44,5 +45,26 @@ void main() {
     expect(candle.period, 'day');
     expect(candle.open, 180.1);
     expect(candle.toJson()['close'], 183.2);
+  });
+
+  test('volume moving average uses candle volume values', () {
+    final candles = [
+      for (var index = 1; index <= 5; index++)
+        Candle(
+          code: 'HK.00700',
+          market: 'HK',
+          period: 'day',
+          time: DateTime(2026, 5, index),
+          open: 10,
+          high: 11,
+          low: 9,
+          close: 10.5,
+          volume: index * 1000,
+          turnover: index * 10000,
+        ),
+    ];
+
+    expect(volumeMovingAverageAt(candles, 2, 3), 2000);
+    expect(volumeMaValuesAt(candles, 4)[5], 3000);
   });
 }

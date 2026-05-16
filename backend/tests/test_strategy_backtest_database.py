@@ -22,7 +22,7 @@ def test_strategy_definition_upsert_and_list() -> None:
     assert rows[0].default_parameters["short_window"] == 5
 
 
-def test_seed_strategy_definitions_includes_rsi() -> None:
+def test_seed_strategy_definitions_includes_rsi_and_macd() -> None:
     database.init_database(seed_defaults=True)
 
     rows = database.list_strategy_definitions()
@@ -30,7 +30,9 @@ def test_seed_strategy_definitions_includes_rsi() -> None:
 
     assert "ma_cross" in by_code
     assert "rsi_reversal" in by_code
+    assert "macd_trend" in by_code
     assert by_code["rsi_reversal"].default_parameters["rsi_window"] == 14
+    assert by_code["macd_trend"].default_parameters["fast_window"] == 12
 
 
 def test_backtest_run_create_and_get_result() -> None:
@@ -508,4 +510,131 @@ def test_rsi_reversal_invalid_parameters_have_readable_message() -> None:
 
     assert result.run.status == "failed"
     assert result.run.summary["error"] == "invalid_rsi_parameters"
+    assert result.run.summary["error_message"]
+
+
+def test_macd_trend_backtest_generates_result() -> None:
+    start = datetime(2026, 4, 1, tzinfo=timezone.utc)
+    closes = [
+        10,
+        10.2,
+        10.4,
+        10.6,
+        10.8,
+        11,
+        11.3,
+        11.6,
+        12,
+        12.5,
+        13,
+        13.6,
+        14.2,
+        14.8,
+        15.2,
+        15,
+        14.6,
+        14,
+        13.2,
+        12.4,
+        11.8,
+        11.2,
+        10.8,
+        10.5,
+        10.3,
+        10.6,
+        11.1,
+        11.8,
+        12.7,
+        13.8,
+        14.8,
+        15.6,
+        16.2,
+        16.7,
+        17,
+        16.8,
+        16.2,
+        15.4,
+        14.5,
+        13.6,
+        12.8,
+        12.2,
+        11.8,
+        11.6,
+        11.9,
+        12.5,
+        13.4,
+        14.6,
+        15.8,
+        16.9,
+    ]
+    candles = [
+        Candle(
+            code="HK.02628",
+            market="HK",
+            period="day",
+            time=start + timedelta(days=index),
+            open=close,
+            high=close,
+            low=close,
+            close=close,
+            volume=1000,
+            turnover=close * 1000,
+        )
+        for index, close in enumerate(closes)
+    ]
+    database.upsert_candles(candles)
+    run = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="macd_trend",
+            stock_code="HK.02628",
+            period="day",
+            start_date=date(2026, 4, 1),
+            end_date=date(2026, 5, 20),
+            initial_cash=100000,
+            fee_rate=0.001,
+            slippage_rate=0.001,
+            parameters={
+                "fast_window": 3,
+                "slow_window": 6,
+                "signal_window": 3,
+            },
+        ),
+    )
+
+    result = run_backtest(run)
+    saved = database.get_backtest_result(run.id)
+
+    assert result.run.status == "completed"
+    assert result.run.summary["strategy_code"] == "macd_trend"
+    assert result.run.summary["trade_count"] >= 1
+    assert "win_rate" in result.run.summary
+    assert saved is not None
+    assert saved.run.status == "completed"
+    assert len(saved.trades) == len(result.trades)
+    assert min(point.equity for point in result.equity_curve) > 0
+
+
+def test_macd_trend_invalid_parameters_have_readable_message() -> None:
+    run = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="macd_trend",
+            stock_code="HK.02628",
+            period="day",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 30),
+            initial_cash=100000,
+            fee_rate=0.001,
+            slippage_rate=0.001,
+            parameters={
+                "fast_window": 12,
+                "slow_window": 6,
+                "signal_window": 9,
+            },
+        ),
+    )
+
+    result = run_backtest(run)
+
+    assert result.run.status == "failed"
+    assert result.run.summary["error"] == "invalid_macd_parameters"
     assert result.run.summary["error_message"]

@@ -395,6 +395,93 @@ debug APK install: Success
   -> 再进入 MACD / BOLL / 成交量动量策略
 ```
 
+### 2026-05-16 MACD 后端第一阶段完成
+
+已完成：
+
+- 后端新增 MACD 指标计算。
+- 后端新增 `macd_trend` 策略。
+- 策略 registry 已支持 `macd_trend`。
+- 种子策略新增 MACD Trend。
+- 后端测试覆盖 MACD 正常回测和参数错误。
+
+已验证：
+
+```text
+.venv\Scripts\python.exe -m compileall app scripts tests
+.venv\Scripts\python.exe -m pytest
+pytest: 19 passed
+```
+
+下一步马上做：
+
+```text
+App 接入 macd_trend 动态参数
+  -> 参数区显示快线周期 / 慢线周期 / 信号周期
+  -> 提交回测传 fast_window / slow_window / signal_window
+  -> 结果区参数快照显示 MACD 参数
+  -> Flutter format / analyze / test
+```
+
+### 2026-05-16 App 接入 MACD 参数完成
+
+已完成：
+
+- App 参数区已支持 `macd_trend`。
+- MACD 参数：快线周期、慢线周期、信号周期。
+- App 提交前校验快线周期必须小于慢线周期。
+- 回测请求会传 `fast_window`、`slow_window`、`signal_window`。
+- 结果区参数快照会显示 MACD 参数。
+- 失败提示已兼容 `invalid_macd_parameters`。
+
+已验证：
+
+```text
+D:\flutter\bin\dart.bat format lib test
+D:\flutter\bin\flutter.bat analyze
+D:\flutter\bin\flutter.bat test
+.venv\Scripts\python.exe -m compileall app scripts tests
+.venv\Scripts\python.exe -m pytest
+pytest: 19 passed
+```
+
+下一步马上做：
+
+```text
+真机验证 MACD Trend 回测
+  -> 重新构建并安装 debug APK
+  -> 后端确保 seed 中已有 macd_trend
+  -> App 量化页刷新策略列表
+  -> 选择 MACD Trend 发起回测
+```
+
+### 2026-05-16 持仓 K 线 VOL 副图完成
+
+已完成：
+
+- 持仓详情 K 线新增 VOL 成交量副图。
+- VOL 直接使用 K 线接口返回的 `volume` 字段。
+- 副图绘制成交量柱和 VOL MA5/MA10/MA20。
+- 颜色口径：绿色表示流入/上涨量，红色表示流出/下跌量。
+- 竖屏和横屏共用同一 painter，横屏也会显示 VOL。
+
+已验证：
+
+```text
+D:\flutter\bin\dart.bat format lib test
+D:\flutter\bin\flutter.bat analyze
+D:\flutter\bin\flutter.bat test
+```
+
+下一步马上做：
+
+```text
+重新构建并安装 APK
+  -> 真机检查持仓详情日 K / 周 K / 月 K 的 VOL 显示
+  -> 真机检查横屏 K 线 VOL 显示
+  -> 如布局拥挤再调整价格区和 VOL 区比例
+```
+
 ## 9. 2026-05-14 当前状态更新
 
 ### 已完成

@@ -156,6 +156,7 @@ def _failure_message(reason: str) -> str:
         "unsupported_strategy": "暂不支持该策略",
         "invalid_ma_parameters": "均线参数不合法，短均线必须小于长均线",
         "invalid_rsi_parameters": "RSI 参数不合法，周期必须大于 1，且超卖线小于超买线",
+        "invalid_macd_parameters": "MACD 参数不合法，快线周期必须小于慢线周期",
         "not_enough_candles": "K 线数据不足，无法完成回测",
     }.get(reason, "回测失败，请检查参数和 K 线数据")
 

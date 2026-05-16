@@ -12,6 +12,57 @@ def moving_average(values: list[float], window: int) -> list[float | None]:
     return averages
 
 
+def exponential_moving_average(
+    values: list[float],
+    window: int,
+) -> list[float | None]:
+    result: list[float | None] = [None] * len(values)
+    if window <= 0 or len(values) < window:
+        return result
+
+    multiplier = 2 / (window + 1)
+    current = mean(values[:window])
+    result[window - 1] = current
+    for index in range(window, len(values)):
+        current = (values[index] - current) * multiplier + current
+        result[index] = current
+    return result
+
+
+def macd(
+    values: list[float],
+    fast_window: int,
+    slow_window: int,
+    signal_window: int,
+) -> tuple[list[float | None], list[float | None], list[float | None]]:
+    fast_ema = exponential_moving_average(values, fast_window)
+    slow_ema = exponential_moving_average(values, slow_window)
+    dif: list[float | None] = []
+    for fast, slow in zip(fast_ema, slow_ema):
+        dif.append(None if fast is None or slow is None else fast - slow)
+
+    valid_dif = [value for value in dif if value is not None]
+    valid_signal = exponential_moving_average(valid_dif, signal_window)
+    signal: list[float | None] = [None] * len(values)
+    first_valid_index = next(
+        (index for index, value in enumerate(dif) if value is not None),
+        len(values),
+    )
+    for offset, value in enumerate(valid_signal):
+        index = first_valid_index + offset
+        if index < len(signal):
+            signal[index] = value
+
+    histogram: list[float | None] = []
+    for dif_value, signal_value in zip(dif, signal):
+        histogram.append(
+            None
+            if dif_value is None or signal_value is None
+            else dif_value - signal_value
+        )
+    return dif, signal, histogram
+
+
 def relative_strength_index(values: list[float], window: int) -> list[float | None]:
     result: list[float | None] = [None] * len(values)
     if window <= 0 or len(values) <= window:

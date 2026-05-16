@@ -42,18 +42,27 @@ class InteractiveKLinePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final chartHeight = math.max(40.0, size.height - 24);
+    final plotHeight = math.max(80.0, size.height - 24);
+    final volumeGap = math.min(12.0, plotHeight * 0.04);
+    final priceHeight = math.max(44.0, plotHeight * 0.72);
+    final volumeTop = priceHeight + volumeGap;
+    final volumeHeight = math.max(24.0, plotHeight - volumeTop);
     final gridPaint = Paint()
       ..color = gridColor.withValues(alpha: 0.55)
       ..strokeWidth = 1;
     for (var i = 1; i < 4; i++) {
-      final y = chartHeight * i / 4;
+      final y = priceHeight * i / 4;
       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
     }
     for (var i = 1; i < 4; i++) {
       final x = size.width * i / 4;
-      canvas.drawLine(Offset(x, 0), Offset(x, chartHeight), gridPaint);
+      canvas.drawLine(Offset(x, 0), Offset(x, priceHeight), gridPaint);
     }
+    canvas.drawLine(
+      Offset(0, volumeTop),
+      Offset(size.width, volumeTop),
+      gridPaint,
+    );
     if (candles.isEmpty) return;
 
     final scaleValues = <double>[
@@ -73,7 +82,7 @@ class InteractiveKLinePainter extends CustomPainter {
     final bodyWidth = math.max(1.8, math.min(5.2, slotWidth * 0.42));
 
     double yFor(double price) {
-      return chartHeight - (price - minPrice) / priceRange * chartHeight;
+      return priceHeight - (price - minPrice) / priceRange * priceHeight;
     }
 
     for (var index = 0; index < candles.length; index++) {
@@ -114,10 +123,17 @@ class InteractiveKLinePainter extends CustomPainter {
       );
     }
 
-    _drawMa(canvas, size, 5, ma5Color, yFor, slotWidth);
     _drawMa(
       canvas,
-      Size(size.width, chartHeight),
+      Size(size.width, priceHeight),
+      5,
+      ma5Color,
+      yFor,
+      slotWidth,
+    );
+    _drawMa(
+      canvas,
+      Size(size.width, priceHeight),
       10,
       ma10Color,
       yFor,
@@ -125,7 +141,7 @@ class InteractiveKLinePainter extends CustomPainter {
     );
     _drawMa(
       canvas,
-      Size(size.width, chartHeight),
+      Size(size.width, priceHeight),
       20,
       ma20Color,
       yFor,
@@ -133,20 +149,22 @@ class InteractiveKLinePainter extends CustomPainter {
     );
     _drawMa(
       canvas,
-      Size(size.width, chartHeight),
+      Size(size.width, priceHeight),
       60,
       ma60Color,
       yFor,
       slotWidth,
     );
-    _drawRangeExtremes(canvas, Size(size.width, chartHeight), yFor, slotWidth);
+    _drawVolume(canvas, size, volumeTop, volumeHeight, slotWidth);
+    _drawRangeExtremes(canvas, Size(size.width, priceHeight), yFor, slotWidth);
     _drawSelectedCrosshair(
       canvas,
-      Size(size.width, chartHeight),
+      Size(size.width, plotHeight),
       yFor,
       slotWidth,
+      priceHeight,
     );
-    _drawDateAxis(canvas, size, chartHeight, slotWidth);
+    _drawDateAxis(canvas, size, plotHeight, slotWidth);
   }
 
   void _drawMa(
@@ -193,11 +211,23 @@ class InteractiveKLinePainter extends CustomPainter {
     }
   }
 
+  Iterable<double> _visibleVolumeAverages(int period) sync* {
+    for (var index = 0; index < candles.length; index++) {
+      final average = volumeMovingAverageAt(
+        allCandles,
+        startIndex + index,
+        period,
+      );
+      if (average != null) yield average;
+    }
+  }
+
   void _drawSelectedCrosshair(
     Canvas canvas,
     Size size,
     double Function(double price) yFor,
     double slotWidth,
+    double priceHeight,
   ) {
     final index = selectedIndex;
     if (index == null || index < 0 || index >= candles.length) return;
@@ -209,12 +239,135 @@ class InteractiveKLinePainter extends CustomPainter {
       ..color = crosshairColor
       ..strokeWidth = 0.8;
     canvas.drawLine(Offset(centerX, 0), Offset(centerX, size.height), paint);
-    canvas.drawLine(Offset(0, closeY), Offset(size.width, closeY), paint);
+    if (closeY >= 0 && closeY <= priceHeight) {
+      canvas.drawLine(Offset(0, closeY), Offset(size.width, closeY), paint);
+    }
 
     final markerPaint = Paint()
       ..color = candle.close >= candle.open ? upColor : downColor
       ..style = PaintingStyle.fill;
     canvas.drawCircle(Offset(centerX, closeY), 3.2, markerPaint);
+  }
+
+  void _drawVolume(
+    Canvas canvas,
+    Size size,
+    double volumeTop,
+    double volumeHeight,
+    double slotWidth,
+  ) {
+    if (candles.isEmpty) return;
+    final legendHeight = math.min(18.0, volumeHeight * 0.35);
+    final plotTop = volumeTop + legendHeight;
+    final plotHeight = math.max(8.0, volumeHeight - legendHeight);
+    final values = <double>[
+      for (final candle in candles) candle.volume,
+      ..._visibleVolumeAverages(5),
+      ..._visibleVolumeAverages(10),
+      ..._visibleVolumeAverages(20),
+    ];
+    final maxVolume = math.max(values.reduce(math.max), 1.0);
+    final barWidth = math.max(1.4, math.min(5.0, slotWidth * 0.46));
+
+    double yForVolume(double volume) {
+      return plotTop + plotHeight - volume / maxVolume * plotHeight;
+    }
+
+    _drawVolumeLegend(canvas, size.width, volumeTop);
+    for (var index = 0; index < candles.length; index++) {
+      final candle = candles[index];
+      final centerX = slotWidth * index + slotWidth / 2;
+      final top = yForVolume(candle.volume);
+      final rect = Rect.fromLTWH(
+        centerX - barWidth / 2,
+        top,
+        barWidth,
+        math.max(plotTop + plotHeight - top, 1.0),
+      );
+      final isInflow = candle.close >= candle.open;
+      canvas.drawRect(
+        rect,
+        Paint()
+          ..color = (isInflow ? upColor : downColor).withValues(alpha: 0.9)
+          ..style = PaintingStyle.fill,
+      );
+    }
+
+    _drawVolumeMa(canvas, 5, ma5Color, yForVolume, slotWidth);
+    _drawVolumeMa(canvas, 10, ma10Color, yForVolume, slotWidth);
+    _drawVolumeMa(canvas, 20, ma20Color, yForVolume, slotWidth);
+  }
+
+  void _drawVolumeLegend(Canvas canvas, double maxWidth, double volumeTop) {
+    final globalIndex = selectedIndex == null
+        ? startIndex + candles.length - 1
+        : startIndex + selectedIndex!;
+    final values = volumeMaValuesAt(allCandles, globalIndex);
+    final painter = TextPainter(
+      text: TextSpan(
+        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
+        children: [
+          TextSpan(
+            text: 'VOL ',
+            style: TextStyle(
+              color: axisLabelColor.withValues(alpha: 0.92),
+              backgroundColor: axisLabelColor.withValues(alpha: 0.18),
+            ),
+          ),
+          TextSpan(
+            text: ' MA5:${formatVolumeMa(values[5])}',
+            style: TextStyle(color: ma5Color),
+          ),
+          TextSpan(
+            text: ' MA10:${formatVolumeMa(values[10])}',
+            style: TextStyle(color: ma10Color),
+          ),
+          TextSpan(
+            text: ' MA20:${formatVolumeMa(values[20])}',
+            style: TextStyle(color: ma20Color),
+          ),
+        ],
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+      ellipsis: '...',
+    )..layout(maxWidth: maxWidth);
+    painter.paint(canvas, Offset(0, volumeTop + 1));
+  }
+
+  void _drawVolumeMa(
+    Canvas canvas,
+    int period,
+    Color color,
+    double Function(double volume) yForVolume,
+    double slotWidth,
+  ) {
+    final path = Path();
+    var hasPoint = false;
+    for (var index = 0; index < candles.length; index++) {
+      final globalIndex = startIndex + index;
+      final average = volumeMovingAverageAt(allCandles, globalIndex, period);
+      if (average == null) continue;
+      final point = Offset(
+        slotWidth * index + slotWidth / 2,
+        yForVolume(average),
+      );
+      if (!hasPoint) {
+        path.moveTo(point.dx, point.dy);
+        hasPoint = true;
+      } else {
+        path.lineTo(point.dx, point.dy);
+      }
+    }
+    if (!hasPoint) return;
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..strokeWidth = 1.1
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round,
+    );
   }
 
   void _drawRangeExtremes(

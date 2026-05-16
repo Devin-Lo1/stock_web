@@ -204,6 +204,19 @@ def _seed_strategy_definitions(connection: _DatabaseConnection) -> None:
             created_at=_now(),
             updated_at=_now(),
         ),
+        StrategyDefinition(
+            id=str(uuid4()),
+            code="macd_trend",
+            name="MACD Trend",
+            description="MACD histogram zero-crossing trend strategy.",
+            default_parameters={
+                "fast_window": 12,
+                "slow_window": 26,
+                "signal_window": 9,
+            },
+            created_at=_now(),
+            updated_at=_now(),
+        ),
     ]:
         connection.execute(
             """
