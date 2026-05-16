@@ -48,6 +48,7 @@ class BacktestRun {
     required this.initialCash,
     required this.feeRate,
     required this.slippageRate,
+    required this.parameters,
     required this.status,
     required this.summary,
   });
@@ -62,6 +63,7 @@ class BacktestRun {
   final double initialCash;
   final double feeRate;
   final double slippageRate;
+  final Map<String, Object?> parameters;
   final String status;
   final Map<String, Object?> summary;
 
@@ -77,6 +79,7 @@ class BacktestRun {
       initialCash: _readDouble(json['initial_cash']),
       feeRate: _readDouble(json['fee_rate']),
       slippageRate: _readDouble(json['slippage_rate']),
+      parameters: _readMap(json['parameters']),
       status: json['status'] as String? ?? '',
       summary: _readMap(json['summary']),
     );

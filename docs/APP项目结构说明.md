@@ -1458,7 +1458,7 @@ App 端回测模型：
 - 提交前进行策略参数校验。
 - 结果区展示 `summary` 中的总收益、最大回撤、期末权益、交易次数、胜率和买卖回合。
 - 胜率来自后端 `win_rate`，App 不重新计算。
-- 下一步结果区应增加参数快照，展示 `BacktestRun` 中的通用参数和策略参数。
+- 结果区展示参数快照，包含 `BacktestRun` 中的通用参数和策略参数；手机端使用紧凑三栏布局，长日期区间单独占满一行。
 
 历史详情数据读取约束：
 
@@ -1475,7 +1475,8 @@ App 端回测模型：
 
 - `QuantStrategyPanel`：策略下拉和刷新。
 - `QuantConfigPanel`：股票代码、日期、资金、手续费、滑点和均线参数。
-- `QuantResultPanel`：回测摘要、收益曲线、K 线买卖点和交易记录。
+- `QuantResultPanel`：回测摘要、参数快照、收益曲线、K 线买卖点和交易记录。
+- `QuantHistoryPanel`：历史回测列表、筛选、编辑名称、单条删除和一键删除；列表项已做紧凑展示，名称一行省略，元信息使用小字号排列。
 - `QuantErrorPanel`：接口错误展示。
 
 ### `mobile_app/lib/widgets/quant/quant_common_widgets.dart`

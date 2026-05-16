@@ -96,6 +96,10 @@ class QuantResultPanel extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
+          _QuantResultSectionTitle(title: '参数'),
+          const SizedBox(height: 8),
+          _BacktestParameterSnapshot(run: run),
+          const SizedBox(height: 14),
           _QuantResultSectionTitle(title: '收益曲线'),
           const SizedBox(height: 8),
           Container(
@@ -130,6 +134,113 @@ class QuantResultPanel extends StatelessWidget {
   }
 }
 
+class _BacktestParameterSnapshot extends StatelessWidget {
+  const _BacktestParameterSnapshot({required this.run});
+
+  final BacktestRun run;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      _SnapshotItem('策略', _strategyLabel(run.strategyCode)),
+      _SnapshotItem('股票', run.stockCode),
+      _SnapshotItem(
+        '区间',
+        '${quantDateText(run.startDate)} - ${quantDateText(run.endDate)}',
+        span: 3,
+      ),
+      _SnapshotItem('初始资金', formatHkd(run.initialCash, showSign: false)),
+      _SnapshotItem('手续费率', _formatRate(run.feeRate)),
+      _SnapshotItem('滑点率', _formatRate(run.slippageRate)),
+      ..._strategyParameterItems(run),
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: softCardColor(context),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          const gap = 6.0;
+          final columnWidth = (constraints.maxWidth - gap * 2) / 3;
+          return Wrap(
+            spacing: gap,
+            runSpacing: gap,
+            children: [
+              for (final item in items)
+                _SnapshotChip(
+                  item: item,
+                  width: item.span == 3
+                      ? constraints.maxWidth
+                      : columnWidth * item.span + gap * (item.span - 1),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SnapshotItem {
+  const _SnapshotItem(this.label, this.value, {this.span = 1});
+
+  final String label;
+  final String value;
+  final int span;
+}
+
+class _SnapshotChip extends StatelessWidget {
+  const _SnapshotChip({required this.item, required this.width});
+
+  final _SnapshotItem item;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: item.span == 3 ? 54 : 56,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: cardColor(context),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: borderColor(context)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              item.label,
+              style: TextStyle(
+                color: secondaryTextColor(context),
+                fontSize: 10,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              item.value,
+              maxLines: item.span == 3 ? 1 : 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: primaryTextColor(context),
+                fontSize: item.span == 3 ? 12 : 12,
+                height: 1.15,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _QuantResultSectionTitle extends StatelessWidget {
   const _QuantResultSectionTitle({required this.title});
 
@@ -146,4 +257,39 @@ class _QuantResultSectionTitle extends StatelessWidget {
       ),
     );
   }
+}
+
+List<_SnapshotItem> _strategyParameterItems(BacktestRun run) {
+  if (run.strategyCode == 'rsi_reversal') {
+    return [
+      _SnapshotItem('RSI 周期', _parameterText(run, 'rsi_window')),
+      _SnapshotItem('超卖线', _parameterText(run, 'oversold')),
+      _SnapshotItem('超买线', _parameterText(run, 'overbought')),
+    ];
+  }
+  return [
+    _SnapshotItem('短均线', _parameterText(run, 'short_window')),
+    _SnapshotItem('长均线', _parameterText(run, 'long_window')),
+  ];
+}
+
+String _strategyLabel(String code) {
+  return switch (code) {
+    'ma_cross' => 'MA Cross',
+    'rsi_reversal' => 'RSI Reversal',
+    _ => code,
+  };
+}
+
+String _parameterText(BacktestRun run, String key) {
+  final value = run.parameters[key];
+  if (value is num) return formatNumberInput(value.toDouble());
+  if (value is String && value.isNotEmpty) return value;
+  return '--';
+}
+
+String _formatRate(double value) {
+  return value == value.roundToDouble()
+      ? value.toStringAsFixed(0)
+      : value.toString();
 }

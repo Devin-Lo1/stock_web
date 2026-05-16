@@ -228,9 +228,10 @@ class _BacktestHistoryTile extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
-              width: 54,
+              width: 48,
               alignment: Alignment.center,
               padding: const EdgeInsets.symmetric(vertical: 5),
               decoration: BoxDecoration(
@@ -241,58 +242,98 @@ class _BacktestHistoryTile extends StatelessWidget {
                 _statusText(run.status),
                 style: TextStyle(
                   color: _statusColor(run.status),
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: FontWeight.w900,
                 ),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     run.name.isEmpty ? run.stockCode : run.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: primaryTextColor(context),
+                      fontSize: 14,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${run.stockCode}  $strategyName  ${quantDateText(run.startDate)} - ${quantDateText(run.endDate)}',
-                    style: TextStyle(
-                      color: secondaryTextColor(context),
-                      fontSize: 12,
-                    ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 5,
+                    runSpacing: 4,
+                    children: [
+                      _HistoryMetaChip(text: run.stockCode),
+                      _HistoryMetaChip(text: strategyName),
+                      _HistoryMetaChip(
+                        text:
+                            '${quantDateText(run.startDate)}-${quantDateText(run.endDate)}',
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
+            const SizedBox(width: 8),
             Text(
               hasReturn ? formatPercent(totalReturn) : '--',
               style: TextStyle(
                 color: hasReturn
                     ? quantProfitColor(totalReturn)
                     : secondaryTextColor(context),
+                fontSize: 14,
                 fontWeight: FontWeight.w900,
               ),
             ),
-            const SizedBox(width: 4),
-            IconButton(
-              onPressed: onRename,
-              icon: const Icon(Icons.edit_note_rounded),
-              tooltip: '编辑历史名称',
-              color: secondaryTextColor(context),
+            const SizedBox(width: 2),
+            SizedBox(
+              width: 38,
+              height: 38,
+              child: IconButton(
+                onPressed: onRename,
+                icon: const Icon(Icons.edit_note_rounded, size: 22),
+                tooltip: '编辑历史名称',
+                color: secondaryTextColor(context),
+                padding: EdgeInsets.zero,
+              ),
             ),
-            IconButton(
-              onPressed: onDelete,
-              icon: const Icon(Icons.delete_outline_rounded),
-              tooltip: '删除历史回测',
-              color: secondaryTextColor(context),
+            SizedBox(
+              width: 38,
+              height: 38,
+              child: IconButton(
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline_rounded, size: 22),
+                tooltip: '删除历史回测',
+                color: secondaryTextColor(context),
+                padding: EdgeInsets.zero,
+              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _HistoryMetaChip extends StatelessWidget {
+  const _HistoryMetaChip({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        color: secondaryTextColor(context),
+        fontSize: 11,
+        height: 1.1,
       ),
     );
   }
