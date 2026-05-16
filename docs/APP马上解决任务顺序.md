@@ -1049,6 +1049,39 @@ backend/app/strategies/rsi_reversal.py
 pytest: 15 passed
 ```
 
+### 2026-05-16 手机本地通知第一阶段完成
+
+已完成：
+
+- 当前修改前已先提交 git：`09a0d2f Add MACD strategy and volume chart`。
+- App 新增 `flutter_local_notifications`。
+- AndroidManifest 新增 `POST_NOTIFICATIONS` 权限。
+- Android Gradle 已开启 core library desugaring，并增加 `desugar_jdk_libs`，满足通知插件构建要求。
+- 新增 `mobile_app/lib/services/notification_service.dart`，负责初始化通知、请求权限、展示持仓信号通知。
+- `TradeSignal` 新增 `notificationKey`，用于同一轮运行期间去重。
+- `AppShell` 在持仓刷新、新增、编辑和信号阈值变化后重新计算信号，并对新信号弹本地通知。
+- App 启动首次加载持仓不弹通知，避免历史信号刷屏。
+
+已验证：
+
+```text
+D:\flutter\bin\dart.bat format lib test
+D:\flutter\bin\flutter.bat analyze
+D:\flutter\bin\flutter.bat test
+gradlew :app:assembleDebug
+```
+
+当前未完成：
+
+- 当前环境 `flutter devices` 未检测到手机，且 `adb` 不在 PATH，因此尚未安装到真机。
+
+下一步马上做：
+
+1. 真机重新安装 APK，首次打开时允许通知权限。
+2. 用一个容易触发的止盈/止损或异动阈值测试通知栏是否弹出。
+3. 如果本地通知稳定，再增加 App 内提醒开关和信号历史。
+4. 需要 App 不打开也能提醒时，再进入后端定时扫描 + 真实推送通道方案。
+
 ### 2026-05-16 胜率指标补充
 
 已完成：

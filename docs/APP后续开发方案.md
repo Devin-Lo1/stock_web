@@ -422,6 +422,41 @@ mobile_app/lib/widgets/backtest/
 
 FCM 在国内设备上可能不稳定，后续可能需要华为、小米、OPPO、vivo 厂商推送。
 
+### 2026-05-16 本地通知第一阶段
+
+已完成：
+
+- App 增加 `flutter_local_notifications` 本地通知依赖。
+- Android 增加 `POST_NOTIFICATIONS` 权限。
+- Android Gradle 已开启 core library desugaring，并增加 `desugar_jdk_libs`，满足通知插件构建要求。
+- 新增 `NotificationService`，通知插件初始化、权限申请和信号通知展示统一放在 `services/`。
+- 持仓刷新、新增持仓、编辑持仓、调整信号阈值后，会重新计算当前市场的信号。
+- 同一轮 App 运行期间按 `信号类型 + 股票` 去重，避免同一条信号重复弹通知。
+- 首次打开加载本地持仓时暂不弹通知，避免一进入 App 就被历史信号刷屏。
+
+已验证：
+
+```text
+D:\flutter\bin\dart.bat format lib test
+D:\flutter\bin\flutter.bat analyze
+D:\flutter\bin\flutter.bat test
+gradlew :app:assembleDebug
+```
+
+当前边界：
+
+- 这是 App 前台或用户触发刷新后的本地通知，不是后台服务器推送。
+- App 被系统杀掉、没有刷新行情、没有后端定时扫描时，不会主动发现新信号。
+- 真正后台推送仍需后端信号记录、设备 token、推送通道和推送结果表。
+- 当前环境未检测到真机，APK 尚未安装到手机实测。
+
+下一步建议：
+
+1. 增加 App 内提醒开关和权限状态提示。
+2. 增加信号历史与已读/未读状态。
+3. 后端增加信号扫描与推送记录表。
+4. 再评估 FCM、华为、小米、OPPO、vivo 等推送通道。
+
 ## 10. 任务八：生产化
 
 ### 目标

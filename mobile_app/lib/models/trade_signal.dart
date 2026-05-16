@@ -14,4 +14,6 @@ class TradeSignal {
   final String time;
   final String level;
   final Color color;
+
+  String get notificationKey => '$type|$stock';
 }

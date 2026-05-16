@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../data/sample_positions.dart';
@@ -6,11 +8,13 @@ import '../models/backend_connection_state.dart';
 import '../models/candle.dart';
 import '../models/strategy_settings.dart';
 import '../models/stock_position.dart';
+import '../models/trade_signal.dart';
 import '../repositories/backtest_repository.dart';
 import '../repositories/position_repository.dart';
 import '../services/api_client.dart';
 import '../services/backtest_api_service.dart';
 import '../services/local_signal_service.dart';
+import '../services/notification_service.dart';
 import '../services/position_api_service.dart';
 import '../services/position_storage_service.dart';
 import '../services/quote_api_service.dart';
@@ -43,8 +47,10 @@ class _AppShellState extends State<AppShell> {
   late final PositionRepository _positionRepository;
   late final QuoteApiService _quoteApiService;
   late final BacktestRepository _backtestRepository;
+  late final NotificationService _notificationService;
   List<StockPosition> _positions = List.of(samplePositions);
   StrategySettings _settings = StrategySettings.defaults;
+  final Set<String> _notifiedSignalKeys = <String>{};
   bool _isRefreshing = false;
   BackendConnectionState _backendState = BackendConnectionState.connecting;
   DateTime? _lastUpdatedAt;
@@ -57,11 +63,13 @@ class _AppShellState extends State<AppShell> {
     _apiBaseUrl = apiClient.baseUrl;
     _quoteApiService = QuoteApiService(apiClient);
     _backtestRepository = BacktestRepository(BacktestApiService(apiClient));
+    _notificationService = NotificationService();
     _positionRepository = PositionRepository(
       storageService: PositionStorageService(),
       apiService: PositionApiService(apiClient),
       quoteApiService: _quoteApiService,
     );
+    unawaited(_notificationService.initialize());
     _loadStoredPositions();
   }
 
@@ -109,7 +117,7 @@ class _AppShellState extends State<AppShell> {
         backendState: _backendState,
         apiBaseUrl: _apiBaseUrl,
         onRefresh: _refreshPositions,
-        onSettingsChanged: (settings) => setState(() => _settings = settings),
+        onSettingsChanged: _updateSettings,
         onDisplayModeChanged: widget.onDisplayModeChanged,
       ),
     ];
@@ -190,10 +198,12 @@ class _AppShellState extends State<AppShell> {
       );
       if (!mounted) return;
       setState(() => _positions.insert(0, created));
+      unawaited(_notifyCurrentSignals());
     } catch (_) {
       if (!mounted) return;
       setState(() => _positions.insert(0, position));
       await _savePositions();
+      unawaited(_notifyCurrentSignals());
     }
   }
 
@@ -217,11 +227,13 @@ class _AppShellState extends State<AppShell> {
       );
       if (!mounted) return remoteUpdated;
       setState(() => _replacePosition(position, remoteUpdated));
+      unawaited(_notifyCurrentSignals());
       return remoteUpdated;
     } catch (_) {
       if (!mounted) return updated;
       setState(() => _replacePosition(position, updated));
       await _savePositions();
+      unawaited(_notifyCurrentSignals());
       return updated;
     }
   }
@@ -240,7 +252,11 @@ class _AppShellState extends State<AppShell> {
   Future<void> _loadStoredPositions() async {
     final result = await _positionRepository.loadPositions();
     if (!mounted) return;
-    _applyLoadResult(result, notifyOnLocalFallback: false);
+    _applyLoadResult(
+      result,
+      notifyOnLocalFallback: false,
+      notifyOnSignals: false,
+    );
   }
 
   Future<List<StockPosition>> _refreshPositions() async {
@@ -249,7 +265,11 @@ class _AppShellState extends State<AppShell> {
     try {
       final result = await _positionRepository.loadPositions();
       if (!mounted) return result.positions;
-      _applyLoadResult(result, notifyOnLocalFallback: true);
+      _applyLoadResult(
+        result,
+        notifyOnLocalFallback: true,
+        notifyOnSignals: true,
+      );
       return result.positions;
     } finally {
       if (mounted) setState(() => _isRefreshing = false);
@@ -288,9 +308,30 @@ class _AppShellState extends State<AppShell> {
     if (index != -1) _positions[index] = updated;
   }
 
+  void _updateSettings(StrategySettings settings) {
+    setState(() => _settings = settings);
+    unawaited(_notifyCurrentSignals());
+  }
+
+  Future<void> _notifyCurrentSignals() async {
+    final visible = _positions
+        .where((position) => position.market == _marketFilter)
+        .toList();
+    await _notifyNewSignals(buildSignals(visible, _settings));
+  }
+
+  Future<void> _notifyNewSignals(List<TradeSignal> signals) async {
+    for (final signal in signals) {
+      if (_notifiedSignalKeys.add(signal.notificationKey)) {
+        await _notificationService.showTradeSignal(signal);
+      }
+    }
+  }
+
   void _applyLoadResult(
     PositionLoadResult result, {
     required bool notifyOnLocalFallback,
+    required bool notifyOnSignals,
   }) {
     setState(() {
       _positions = result.positions;
@@ -308,6 +349,10 @@ class _AppShellState extends State<AppShell> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('后端已连接，行情刷新失败：${_errorMessage(result.error)}')),
       );
+    }
+
+    if (notifyOnSignals) {
+      unawaited(_notifyCurrentSignals());
     }
   }
 
