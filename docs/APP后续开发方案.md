@@ -536,6 +536,14 @@ pytest: 23 passed
 - App 新增 `NotificationRepository`、`NotificationApiService`、`PushTokenService` 和通知模型。
 - 当前 App 使用本机安装 token 注册设备；真实 FCM token 等接入 Firebase 后替换。
 - 设置页可切换手机提醒和重要信号提醒，可重新注册设备，可触发本地测试通知并写入后端测试记录。
+- Debug APK 已安装到真机，`adb reverse tcp:8000 tcp:8000` 已设置，后端 `/health` 返回正常。
+
+交接验证：
+
+- 打开手机 App，进入 `设置 -> 手机推送 / 消息提醒设置`。
+- 确认当前设备注册成功。
+- 点击测试通知，确认手机能弹出本地测试通知。
+- 如果注册失败，先检查后端和 `adb reverse`。
 
 已验证：
 
@@ -546,6 +554,10 @@ pytest: 24 passed
 D:\flutter\bin\dart.bat format lib test
 D:\flutter\bin\flutter.bat analyze
 D:\flutter\bin\flutter.bat test
+D:\flutter\bin\flutter.bat build apk --debug
+adb install: Success
+adb reverse tcp:8000 tcp:8000
+backend /health: ok
 ```
 
 ## 10. 任务八：生产化
