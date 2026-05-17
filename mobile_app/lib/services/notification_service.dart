@@ -78,4 +78,30 @@ class NotificationService {
       // Notification failures should not interrupt quote refresh or editing.
     }
   }
+
+  Future<void> showTestNotification() async {
+    if (!_initialized) await initialize();
+    if (!_initialized || kIsWeb) return;
+
+    try {
+      await _plugin.show(
+        id: 1001,
+        title: '测试提醒',
+        body: '本地通知权限已可用。',
+        notificationDetails: const NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channelId,
+            _channelName,
+            channelDescription: _channelDescription,
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+          iOS: DarwinNotificationDetails(),
+          macOS: DarwinNotificationDetails(),
+        ),
+      );
+    } catch (_) {
+      // Notification failures should not interrupt settings flow.
+    }
+  }
 }

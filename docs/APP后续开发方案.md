@@ -498,13 +498,55 @@ gradlew :app:assembleDebug
 
 当前最小可执行顺序：
 
-1. 先做后端信号事件表、设备表、推送记录表。
-2. 做 App 通知设置页：总开关、重要信号开关、权限状态、测试通知。
-3. 做设备 token 注册接口和 App token 上报。
-4. 接 FCM 第一版服务端推送。
-5. 增加后端定时扫描任务，先扫描用户持仓止盈止损和异动阈值。
-6. 真机测试前台、后台、锁屏、App 被清理后的到达情况。
-7. 再决定是否接华为、小米、OPPO、vivo 厂商推送。
+1. 后端信号事件表、设备表、推送记录表已完成。
+2. App 通知设置页和设备 token 注册接口已完成。
+3. 接 FCM 第一版服务端推送。
+4. 增加后端定时扫描任务，先扫描用户持仓止盈止损和异动阈值。
+5. 真机测试前台、后台、锁屏、App 被清理后的到达情况。
+6. 再决定是否接华为、小米、OPPO、vivo 厂商推送。
+
+### 2026-05-17 推送后端地基完成
+
+已完成：
+
+- 新增 `signal_events`，用于保存重要信号事件、级别、去重 key、触发值、阈值、payload 和已读状态。
+- 新增 `notification_devices`，用于保存平台、推送通道、设备 token、通知开关、重要信号开关和最后活跃时间。
+- 新增 `push_records`，用于保存每次推送尝试、目标设备、通道、状态、请求/响应、错误原因、重试次数和发送时间。
+- 新增 `backend/app/schemas/notifications.py`。
+- 新增 `backend/app/repositories/notifications.py`。
+- `database.py` 已导出通知仓储函数，后续接口可直接复用。
+- 后端测试覆盖信号事件、设备 token upsert 和推送记录。
+
+已验证：
+
+```text
+.venv\Scripts\python.exe -m compileall app scripts tests
+.venv\Scripts\python.exe -m pytest
+pytest: 23 passed
+```
+
+### 2026-05-17 App 通知设置和设备注册完成
+
+已完成：
+
+- 后端新增通知路由 `backend/app/routers/notifications.py`。
+- `POST /api/v1/notifications/devices` 支持设备注册和 token upsert。
+- `POST /api/v1/notifications/test` 支持写入测试推送记录；真实推送通道未配置时状态为 `skipped`。
+- App 新增 `NotificationSettingsScreen`，从设置页进入。
+- App 新增 `NotificationRepository`、`NotificationApiService`、`PushTokenService` 和通知模型。
+- 当前 App 使用本机安装 token 注册设备；真实 FCM token 等接入 Firebase 后替换。
+- 设置页可切换手机提醒和重要信号提醒，可重新注册设备，可触发本地测试通知并写入后端测试记录。
+
+已验证：
+
+```text
+.venv\Scripts\python.exe -m compileall app scripts tests
+.venv\Scripts\python.exe -m pytest
+pytest: 24 passed
+D:\flutter\bin\dart.bat format lib test
+D:\flutter\bin\flutter.bat analyze
+D:\flutter\bin\flutter.bat test
+```
 
 ## 10. 任务八：生产化
 

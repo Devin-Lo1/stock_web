@@ -165,6 +165,93 @@ def init_database(*, seed_defaults: bool = True) -> None:
             )
             """,
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS signal_events (
+                id TEXT PRIMARY KEY,
+                source TEXT NOT NULL,
+                code TEXT NOT NULL,
+                signal_type TEXT NOT NULL,
+                level TEXT NOT NULL,
+                title TEXT NOT NULL,
+                message TEXT NOT NULL,
+                trigger_value REAL,
+                threshold_value REAL,
+                dedupe_key TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                read_status TEXT NOT NULL,
+                read_at TEXT,
+                triggered_at TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """,
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_signal_events_dedupe_time
+            ON signal_events (dedupe_key, triggered_at DESC)
+            """,
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_signal_events_code_time
+            ON signal_events (code, triggered_at DESC)
+            """,
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS notification_devices (
+                id TEXT PRIMARY KEY,
+                platform TEXT NOT NULL,
+                push_provider TEXT NOT NULL,
+                push_token TEXT NOT NULL,
+                device_name TEXT NOT NULL,
+                app_version TEXT NOT NULL,
+                enabled INTEGER NOT NULL,
+                important_enabled INTEGER NOT NULL,
+                last_seen_at TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """,
+        )
+        connection.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_notification_devices_provider_token
+            ON notification_devices (push_provider, push_token)
+            """,
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS push_records (
+                id TEXT PRIMARY KEY,
+                signal_event_id TEXT,
+                device_id TEXT NOT NULL,
+                provider TEXT NOT NULL,
+                status TEXT NOT NULL,
+                request_payload TEXT NOT NULL,
+                response_payload TEXT NOT NULL,
+                error_message TEXT NOT NULL,
+                attempt_count INTEGER NOT NULL,
+                sent_at TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """,
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_push_records_signal_event
+            ON push_records (signal_event_id)
+            """,
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_push_records_device_status
+            ON push_records (device_id, status)
+            """,
+        )
         count = _first_column(connection.execute("SELECT COUNT(*) FROM positions").fetchone())
         if count == 0 and seed_defaults:
             _seed_positions(connection)

@@ -1134,6 +1134,7 @@ mobile_app/lib/models/notification_models.dart
 后端：
 
 ```text
+backend/app/schemas/notifications.py
 backend/app/models/notification_models.py
 backend/app/repositories/notifications.py
 backend/app/services/signal_scan_service.py
@@ -1141,6 +1142,18 @@ backend/app/services/push_service.py
 backend/app/services/push_providers/fcm.py
 backend/app/routers/notifications.py
 ```
+
+当前已落地：
+
+- `backend/app/schemas/notifications.py`
+- `backend/app/repositories/notifications.py`
+- `backend/app/routers/notifications.py`
+- `mobile_app/lib/models/notification_models.dart`
+- `mobile_app/lib/repositories/notification_repository.dart`
+- `mobile_app/lib/services/notification_api_service.dart`
+- `mobile_app/lib/services/push_token_service.dart`
+- `mobile_app/lib/screens/notification_settings_screen.dart`
+- `signal_events`、`notification_devices`、`push_records` 三张表
 
 推送结构约束：
 

@@ -1,4 +1,4 @@
-from . import backtests, futu, health, klines, positions, quotes, signals, stocks
+from . import backtests, futu, health, klines, notifications, positions, quotes, signals, stocks
 from . import strategies
 
 __all__ = [
@@ -6,6 +6,7 @@ __all__ = [
     "futu",
     "health",
     "klines",
+    "notifications",
     "positions",
     "quotes",
     "signals",

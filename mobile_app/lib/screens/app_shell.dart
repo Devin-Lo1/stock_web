@@ -10,13 +10,16 @@ import '../models/strategy_settings.dart';
 import '../models/stock_position.dart';
 import '../models/trade_signal.dart';
 import '../repositories/backtest_repository.dart';
+import '../repositories/notification_repository.dart';
 import '../repositories/position_repository.dart';
 import '../services/api_client.dart';
 import '../services/backtest_api_service.dart';
 import '../services/local_signal_service.dart';
+import '../services/notification_api_service.dart';
 import '../services/notification_service.dart';
 import '../services/position_api_service.dart';
 import '../services/position_storage_service.dart';
+import '../services/push_token_service.dart';
 import '../services/quote_api_service.dart';
 import '../sheets/add_position_sheet.dart';
 import '../utils/theme_helpers.dart';
@@ -47,6 +50,7 @@ class _AppShellState extends State<AppShell> {
   late final PositionRepository _positionRepository;
   late final QuoteApiService _quoteApiService;
   late final BacktestRepository _backtestRepository;
+  late final NotificationRepository _notificationRepository;
   late final NotificationService _notificationService;
   List<StockPosition> _positions = List.of(samplePositions);
   StrategySettings _settings = StrategySettings.defaults;
@@ -64,6 +68,10 @@ class _AppShellState extends State<AppShell> {
     _quoteApiService = QuoteApiService(apiClient);
     _backtestRepository = BacktestRepository(BacktestApiService(apiClient));
     _notificationService = NotificationService();
+    _notificationRepository = NotificationRepository(
+      apiService: NotificationApiService(apiClient),
+      tokenService: const PushTokenService(),
+    );
     _positionRepository = PositionRepository(
       storageService: PositionStorageService(),
       apiService: PositionApiService(apiClient),
@@ -116,6 +124,8 @@ class _AppShellState extends State<AppShell> {
         displayMode: widget.displayMode,
         backendState: _backendState,
         apiBaseUrl: _apiBaseUrl,
+        notificationRepository: _notificationRepository,
+        notificationService: _notificationService,
         onRefresh: _refreshPositions,
         onSettingsChanged: _updateSettings,
         onDisplayModeChanged: widget.onDisplayModeChanged,

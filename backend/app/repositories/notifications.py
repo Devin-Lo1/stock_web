@@ -1,0 +1,272 @@
+from uuid import uuid4
+
+from ..db.core import _connect
+from ..db.converters import (
+    _datetime_to_text,
+    _notification_device_values,
+    _now,
+    _push_record_values,
+    _row_to_notification_device,
+    _row_to_push_record,
+    _row_to_signal_event,
+    _signal_event_values,
+)
+from ..schemas import (
+    NotificationDevice,
+    NotificationDeviceUpsert,
+    PushRecord,
+    PushRecordCreate,
+    SignalEvent,
+    SignalEventCreate,
+)
+
+
+def create_signal_event(payload: SignalEventCreate) -> SignalEvent:
+    now = _now()
+    data = payload.model_dump(exclude={"triggered_at"})
+    data["code"] = data["code"].strip().upper()
+    event = SignalEvent(
+        id=str(uuid4()),
+        triggered_at=payload.triggered_at or now,
+        read_status="unread",
+        read_at=None,
+        created_at=now,
+        updated_at=now,
+        **data,
+    )
+    with _connect() as connection:
+        connection.execute(
+            """
+            INSERT INTO signal_events (
+                id, source, code, signal_type, level, title, message,
+                trigger_value, threshold_value, dedupe_key, payload,
+                read_status, read_at, triggered_at, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            _signal_event_values(event),
+        )
+    return event
+
+
+def list_signal_events(
+    *,
+    code: str | None = None,
+    read_status: str | None = None,
+    limit: int = 50,
+) -> list[SignalEvent]:
+    clauses: list[str] = []
+    parameters: list[object] = []
+    if code:
+        clauses.append("code = ?")
+        parameters.append(code.strip().upper())
+    if read_status:
+        clauses.append("read_status = ?")
+        parameters.append(read_status)
+    where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    safe_limit = max(1, min(limit, 200))
+    with _connect() as connection:
+        rows = connection.execute(
+            f"""
+            SELECT id, source, code, signal_type, level, title, message,
+                   trigger_value, threshold_value, dedupe_key, payload,
+                   read_status, read_at, triggered_at, created_at, updated_at
+            FROM signal_events
+            {where_sql}
+            ORDER BY triggered_at DESC
+            LIMIT ?
+            """,
+            (*parameters, safe_limit),
+        ).fetchall()
+    return [_row_to_signal_event(row) for row in rows]
+
+
+def mark_signal_event_read(event_id: str) -> SignalEvent | None:
+    now = _now()
+    with _connect() as connection:
+        row = connection.execute(
+            """
+            SELECT id
+            FROM signal_events
+            WHERE id = ?
+            """,
+            (event_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        connection.execute(
+            """
+            UPDATE signal_events
+            SET read_status = ?,
+                read_at = ?,
+                updated_at = ?
+            WHERE id = ?
+            """,
+            ("read", _datetime_to_text(now), _datetime_to_text(now), event_id),
+        )
+        updated = connection.execute(
+            """
+            SELECT id, source, code, signal_type, level, title, message,
+                   trigger_value, threshold_value, dedupe_key, payload,
+                   read_status, read_at, triggered_at, created_at, updated_at
+            FROM signal_events
+            WHERE id = ?
+            """,
+            (event_id,),
+        ).fetchone()
+    return _row_to_signal_event(updated)
+
+
+def upsert_notification_device(
+    payload: NotificationDeviceUpsert,
+) -> NotificationDevice:
+    now = _now()
+    existing = get_notification_device_by_token(
+        payload.push_provider,
+        payload.push_token,
+    )
+    if existing is None:
+        device = NotificationDevice(
+            id=str(uuid4()),
+            last_seen_at=now,
+            created_at=now,
+            updated_at=now,
+            **payload.model_dump(),
+        )
+        with _connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO notification_devices (
+                    id, platform, push_provider, push_token, device_name,
+                    app_version, enabled, important_enabled, last_seen_at,
+                    created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                _notification_device_values(device),
+            )
+        return device
+
+    updated = existing.model_copy(
+        update={
+            **payload.model_dump(),
+            "last_seen_at": now,
+            "updated_at": now,
+        },
+    )
+    with _connect() as connection:
+        connection.execute(
+            """
+            UPDATE notification_devices
+            SET platform = ?,
+                device_name = ?,
+                app_version = ?,
+                enabled = ?,
+                important_enabled = ?,
+                last_seen_at = ?,
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                updated.platform,
+                updated.device_name,
+                updated.app_version,
+                1 if updated.enabled else 0,
+                1 if updated.important_enabled else 0,
+                _datetime_to_text(updated.last_seen_at),
+                _datetime_to_text(updated.updated_at),
+                updated.id,
+            ),
+        )
+    return updated
+
+
+def get_notification_device_by_token(
+    push_provider: str,
+    push_token: str,
+) -> NotificationDevice | None:
+    with _connect() as connection:
+        row = connection.execute(
+            """
+            SELECT id, platform, push_provider, push_token, device_name,
+                   app_version, enabled, important_enabled, last_seen_at,
+                   created_at, updated_at
+            FROM notification_devices
+            WHERE push_provider = ? AND push_token = ?
+            """,
+            (push_provider, push_token),
+        ).fetchone()
+    if row is None:
+        return None
+    return _row_to_notification_device(row)
+
+
+def list_notification_devices(*, enabled_only: bool = False) -> list[NotificationDevice]:
+    where_sql = "WHERE enabled = 1" if enabled_only else ""
+    with _connect() as connection:
+        rows = connection.execute(
+            f"""
+            SELECT id, platform, push_provider, push_token, device_name,
+                   app_version, enabled, important_enabled, last_seen_at,
+                   created_at, updated_at
+            FROM notification_devices
+            {where_sql}
+            ORDER BY last_seen_at DESC
+            """,
+        ).fetchall()
+    return [_row_to_notification_device(row) for row in rows]
+
+
+def create_push_record(payload: PushRecordCreate) -> PushRecord:
+    now = _now()
+    record = PushRecord(
+        id=str(uuid4()),
+        created_at=now,
+        updated_at=now,
+        **payload.model_dump(),
+    )
+    with _connect() as connection:
+        connection.execute(
+            """
+            INSERT INTO push_records (
+                id, signal_event_id, device_id, provider, status,
+                request_payload, response_payload, error_message,
+                attempt_count, sent_at, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            _push_record_values(record),
+        )
+    return record
+
+
+def list_push_records(
+    *,
+    signal_event_id: str | None = None,
+    device_id: str | None = None,
+    limit: int = 50,
+) -> list[PushRecord]:
+    clauses: list[str] = []
+    parameters: list[object] = []
+    if signal_event_id:
+        clauses.append("signal_event_id = ?")
+        parameters.append(signal_event_id)
+    if device_id:
+        clauses.append("device_id = ?")
+        parameters.append(device_id)
+    where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    safe_limit = max(1, min(limit, 200))
+    with _connect() as connection:
+        rows = connection.execute(
+            f"""
+            SELECT id, signal_event_id, device_id, provider, status,
+                   request_payload, response_payload, error_message,
+                   attempt_count, sent_at, created_at, updated_at
+            FROM push_records
+            {where_sql}
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (*parameters, safe_limit),
+        ).fetchall()
+    return [_row_to_push_record(row) for row in rows]

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 from .db.init import init_database
-from .routers import backtests, futu, health, klines, positions, quotes, signals
+from .routers import backtests, futu, health, klines, notifications, positions, quotes, signals
 from .routers import stocks, strategies
 
 class UTF8JSONResponse(JSONResponse):
@@ -26,6 +26,7 @@ app.include_router(health.router)
 app.include_router(positions.router)
 app.include_router(quotes.router)
 app.include_router(klines.router)
+app.include_router(notifications.router)
 app.include_router(signals.router)
 app.include_router(stocks.router)
 app.include_router(futu.router)

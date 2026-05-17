@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import '../models/app_enums.dart';
 import '../models/backend_connection_state.dart';
 import '../models/strategy_settings.dart';
+import '../repositories/notification_repository.dart';
+import '../services/notification_service.dart';
 import '../utils/theme_helpers.dart';
 import '../widgets/common/app_tag.dart';
 import '../widgets/common/page_title.dart';
 import 'display_settings_screen.dart';
+import 'notification_settings_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
@@ -15,6 +18,8 @@ class SettingsScreen extends StatelessWidget {
     required this.displayMode,
     required this.backendState,
     required this.apiBaseUrl,
+    required this.notificationRepository,
+    required this.notificationService,
     required this.onRefresh,
     required this.onSettingsChanged,
     required this.onDisplayModeChanged,
@@ -24,6 +29,8 @@ class SettingsScreen extends StatelessWidget {
   final DisplayMode displayMode;
   final BackendConnectionState backendState;
   final String apiBaseUrl;
+  final NotificationRepository notificationRepository;
+  final NotificationService notificationService;
   final Future<void> Function() onRefresh;
   final ValueChanged<StrategySettings> onSettingsChanged;
   final ValueChanged<DisplayMode> onDisplayModeChanged;
@@ -64,11 +71,20 @@ class SettingsScreen extends StatelessWidget {
             subtitle: apiBaseUrl,
             status: backendState.statusLabel,
           ),
-          const _SettingTile(
+          _SettingTile(
             icon: Icons.notifications_active_outlined,
             title: '手机推送',
-            subtitle: 'Firebase Messaging',
-            status: '未配置',
+            subtitle: '设备注册与测试通知',
+            status: '可配置',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (context) => NotificationSettingsScreen(
+                  repository: notificationRepository,
+                  notificationService: notificationService,
+                  onRefresh: onRefresh,
+                ),
+              ),
+            ),
           ),
           const _SettingTile(
             icon: Icons.show_chart_rounded,

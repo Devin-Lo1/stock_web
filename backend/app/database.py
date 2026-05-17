@@ -16,6 +16,16 @@ from .repositories.market_data import (
     upsert_candles,
     upsert_quote,
 )
+from .repositories.notifications import (
+    create_push_record,
+    create_signal_event,
+    get_notification_device_by_token,
+    list_notification_devices,
+    list_push_records,
+    list_signal_events,
+    mark_signal_event_read,
+    upsert_notification_device,
+)
 from .repositories.positions import (
     create_position,
     delete_position,
@@ -50,4 +60,12 @@ __all__ = [
     "delete_backtest_run",
     "rename_backtest_run",
     "save_backtest_result",
+    "create_signal_event",
+    "list_signal_events",
+    "mark_signal_event_read",
+    "upsert_notification_device",
+    "get_notification_device_by_token",
+    "list_notification_devices",
+    "create_push_record",
+    "list_push_records",
 ]

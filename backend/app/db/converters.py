@@ -8,8 +8,11 @@ from ..schemas import (
     BacktestRun,
     BacktestTrade,
     Candle,
+    NotificationDevice,
     Position,
+    PushRecord,
     QuoteSnapshot,
+    SignalEvent,
     StrategyDefinition,
 )
 
@@ -129,6 +132,60 @@ def _backtest_trade_values(trade: BacktestTrade) -> tuple[object, ...]:
     )
 
 
+def _signal_event_values(event: SignalEvent) -> tuple[object, ...]:
+    return (
+        event.id,
+        event.source,
+        event.code,
+        event.signal_type,
+        event.level,
+        event.title,
+        event.message,
+        event.trigger_value,
+        event.threshold_value,
+        event.dedupe_key,
+        _json_to_text(event.payload),
+        event.read_status,
+        _optional_datetime_to_text(event.read_at),
+        _datetime_to_text(event.triggered_at),
+        _datetime_to_text(event.created_at),
+        _datetime_to_text(event.updated_at),
+    )
+
+
+def _notification_device_values(device: NotificationDevice) -> tuple[object, ...]:
+    return (
+        device.id,
+        device.platform,
+        device.push_provider,
+        device.push_token,
+        device.device_name,
+        device.app_version,
+        _bool_to_int(device.enabled),
+        _bool_to_int(device.important_enabled),
+        _datetime_to_text(device.last_seen_at),
+        _datetime_to_text(device.created_at),
+        _datetime_to_text(device.updated_at),
+    )
+
+
+def _push_record_values(record: PushRecord) -> tuple[object, ...]:
+    return (
+        record.id,
+        record.signal_event_id,
+        record.device_id,
+        record.provider,
+        record.status,
+        _json_to_text(record.request_payload),
+        _json_to_text(record.response_payload),
+        record.error_message,
+        record.attempt_count,
+        _optional_datetime_to_text(record.sent_at),
+        _datetime_to_text(record.created_at),
+        _datetime_to_text(record.updated_at),
+    )
+
+
 def _row_to_position(row: sqlite3.Row | dict[str, Any]) -> Position:
     return Position(
         id=row["id"],
@@ -240,6 +297,62 @@ def _row_to_backtest_trade(row: sqlite3.Row | dict[str, Any]) -> BacktestTrade:
         position_after=row["position_after"],
     )
 
+
+def _row_to_signal_event(row: sqlite3.Row | dict[str, Any]) -> SignalEvent:
+    return SignalEvent(
+        id=row["id"],
+        source=row["source"],
+        code=row["code"],
+        signal_type=row["signal_type"],
+        level=row["level"],
+        title=row["title"],
+        message=row["message"],
+        trigger_value=row["trigger_value"],
+        threshold_value=row["threshold_value"],
+        dedupe_key=row["dedupe_key"],
+        payload=_json_from_text(row["payload"]),
+        read_status=row["read_status"],
+        read_at=_optional_text_to_datetime(row["read_at"]),
+        triggered_at=_text_to_datetime(row["triggered_at"]),
+        created_at=_text_to_datetime(row["created_at"]),
+        updated_at=_text_to_datetime(row["updated_at"]),
+    )
+
+
+def _row_to_notification_device(
+    row: sqlite3.Row | dict[str, Any],
+) -> NotificationDevice:
+    return NotificationDevice(
+        id=row["id"],
+        platform=row["platform"],
+        push_provider=row["push_provider"],
+        push_token=row["push_token"],
+        device_name=row["device_name"],
+        app_version=row["app_version"],
+        enabled=_int_to_bool(row["enabled"]),
+        important_enabled=_int_to_bool(row["important_enabled"]),
+        last_seen_at=_text_to_datetime(row["last_seen_at"]),
+        created_at=_text_to_datetime(row["created_at"]),
+        updated_at=_text_to_datetime(row["updated_at"]),
+    )
+
+
+def _row_to_push_record(row: sqlite3.Row | dict[str, Any]) -> PushRecord:
+    return PushRecord(
+        id=row["id"],
+        signal_event_id=row["signal_event_id"],
+        device_id=row["device_id"],
+        provider=row["provider"],
+        status=row["status"],
+        request_payload=_json_from_text(row["request_payload"]),
+        response_payload=_json_from_text(row["response_payload"]),
+        error_message=row["error_message"],
+        attempt_count=row["attempt_count"],
+        sent_at=_optional_text_to_datetime(row["sent_at"]),
+        created_at=_text_to_datetime(row["created_at"]),
+        updated_at=_text_to_datetime(row["updated_at"]),
+    )
+
 def _now() -> datetime:
     return datetime.now(UTC)
 
@@ -248,12 +361,32 @@ def _datetime_to_text(value: datetime) -> str:
     return value.astimezone(UTC).isoformat()
 
 
+def _optional_datetime_to_text(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    return _datetime_to_text(value)
+
+
 def _text_to_datetime(value: str | datetime) -> datetime:
     if isinstance(value, datetime):
         if value.tzinfo is None:
             return value.replace(tzinfo=UTC)
         return value.astimezone(UTC)
     return datetime.fromisoformat(value)
+
+
+def _optional_text_to_datetime(value: str | datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    return _text_to_datetime(value)
+
+
+def _bool_to_int(value: bool) -> int:
+    return 1 if value else 0
+
+
+def _int_to_bool(value: bool | int) -> bool:
+    return bool(value)
 
 
 def _json_to_text(value: dict[str, Any]) -> str:

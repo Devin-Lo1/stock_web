@@ -13,6 +13,9 @@ from app import database  # noqa: E402
 
 
 TABLES = (
+    "push_records",
+    "notification_devices",
+    "signal_events",
     "strategy_signals",
     "backtest_trades",
     "backtest_equity_curve",
