@@ -122,7 +122,11 @@ class _NotificationSettingsScreenState
     final record = _lastTestRecord;
     if (record == null) return '先弹本地通知，并在后端写入测试推送记录';
     if (record.status == 'queued') return '后端测试记录已排队，等待真实推送通道';
-    if (record.status == 'skipped') return '后端已记录测试请求，真实推送通道尚未配置';
+    if (record.status == 'skipped') {
+      return record.errorMessage.isEmpty
+          ? '后端已记录测试请求，真实推送通道尚未配置'
+          : '后端已记录：${record.errorMessage}';
+    }
     return '后端测试记录状态：${record.status}';
   }
 
@@ -245,7 +249,9 @@ class _DeviceCard extends StatelessWidget {
   }
 
   String _providerText(NotificationDevice device) {
-    if (device.pushProvider == 'unknown') return '本机安装 token，等待 FCM';
+    if (device.pushProvider == 'unknown') return '本机安装 token，等待真实推送通道';
+    if (device.pushProvider == 'huawei') return 'Huawei Push Kit';
+    if (device.pushProvider == 'fcm') return 'FCM';
     return device.pushProvider.toUpperCase();
   }
 }

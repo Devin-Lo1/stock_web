@@ -16,11 +16,11 @@ class NotificationRepository {
     required bool enabled,
     required bool importantEnabled,
   }) async {
-    final token = await _tokenService.getInstallationToken();
+    final registration = await _tokenService.getPushTokenRegistration();
     return _apiService.registerDevice(
       platform: _tokenService.platform,
-      pushProvider: 'unknown',
-      pushToken: token,
+      pushProvider: registration.provider,
+      pushToken: registration.token,
       deviceName: '当前手机',
       appVersion: 'Android MVP 0.1.0',
       enabled: enabled,

@@ -17,6 +17,7 @@
 - 所有代码改动必须执行 format、analyze、test。
 - 涉及后端改动必须执行 `python -m compileall app`。
 - 涉及真机体验必须重新构建并安装 APK。
+- 当前真机调试采用局域网后端地址 `http://192.168.1.4:8000`。重新打 debug APK 时禁止裸跑 `flutter build apk --debug`，必须传 `--dart-define=API_BASE_URL=http://192.168.1.4:8000`，或直接运行 `.\scripts\build_mobile_lan_debug.ps1`。
 
 ## 1. 当前真实状态
 
@@ -346,7 +347,7 @@ python -m compileall app
 
 ```powershell
 cd C:\Users\58229\Desktop\stock_web\mobile_app
-D:\flutter\bin\flutter.bat build apk --debug --dart-define=API_BASE_URL=http://192.168.1.4:8000
+..\scripts\build_mobile_lan_debug.ps1
 D:\Android\Sdk\platform-tools\adb.exe install -r build\app\outputs\flutter-apk\app-debug.apk
 D:\Android\Sdk\platform-tools\adb.exe reverse --remove-all
 ```
@@ -1238,6 +1239,12 @@ debug APK 已安装到真机验证
 - 后端已新增 `/api/v1/notifications/devices` 设备注册接口。
 - 后端已新增 `/api/v1/notifications/test` 测试通知记录接口。
 - App 设置页已接入“消息提醒设置”，可自动注册当前设备、切换提醒开关、触发本地测试通知，并在后端写入测试推送记录。
+- 后端已新增 `backend/app/services/push_service.py`，统一编排设备开关、推送通道、推送记录写入和发送结果状态。
+- 后端已新增 `backend/app/services/push_providers/fcm.py`，FCM provider 支持通过 `FCM_SERVICE_ACCOUNT_PATH` 或 `FCM_SERVICE_ACCOUNT_JSON` 初始化 Firebase Admin SDK。
+- 后端已新增 `backend/app/services/push_providers/huawei.py`，Huawei Push Kit provider 支持通过 `HUAWEI_PUSH_APP_ID`、`HUAWEI_PUSH_CLIENT_ID`、`HUAWEI_PUSH_CLIENT_SECRET` 获取 OAuth token 后调用 Push Kit 服务端发送接口。
+- `/api/v1/notifications/test` 已改为通过 `push_service` 调度；未配置真实通道时安全写入 `skipped`，FCM/Huawei provider 可用时写入 `sent` 和服务端响应摘要。
+- `backend/requirements.txt` 已新增 `firebase-admin`，`backend/.env.example` 已补充 FCM 与 Huawei Push Kit 配置占位。
+- App 端 token 注册顺序为 Huawei Push Kit -> FCM -> 本机安装 token。华为设备优先登记 `push_provider=huawei`，Google 设备登记 `push_provider=fcm`，都不可用时登记 `unknown` 并保留本地通知兜底。
 - Debug APK 已安装到真机，`adb reverse tcp:8000 tcp:8000` 已设置，后端 `/health` 返回正常。
 
 交接给下一位开发者的先做验证：
@@ -1246,14 +1253,14 @@ debug APK 已安装到真机验证
 2. 确认页面显示当前设备为“已注册”。
 3. 点击“测试”，确认手机能弹出本地测试通知。
 4. 如果页面注册失败，先检查后端是否运行、`adb reverse tcp:8000 tcp:8000` 是否存在。
-5. 验证通过后，再继续 FCM 接入。
+5. 验证通过后，再补真实厂商控制台配置：华为设备配置 AppGallery Connect 和 Huawei 后端密钥，Google 设备配置 Firebase 服务账号。
 
 后续执行顺序：
 
-1. 第一版真实推送优先接 FCM，跑通服务端到手机的闭环。
+1. 第一版真实推送优先跑通 Huawei Push Kit 和 FCM 两条闭环。
 2. 后端增加定时扫描任务，先覆盖持仓止盈、止损、异动阈值和策略买卖信号。
 3. 真机验证前台、后台、锁屏、App 被清理后的通知到达情况。
-4. 如果 FCM 在当前手机或国内网络不稳定，再接华为、小米、OPPO、vivo 等厂商推送。
+4. 如果后续还有小米、OPPO、vivo 设备，再按现有 provider 插槽补对应厂商实现。
 
 第一版验收标准：
 
@@ -1267,7 +1274,118 @@ debug APK 已安装到真机验证
 
 ### 当前下一步建议
 
-1. 先完成上面的真机页面验证。
-2. 然后接 FCM：补 Firebase 配置、获取真实 FCM token、后端服务端发送 FCM HTTP v1。
-3. 同时保留一个短验证任务：真机复测 3 到 5 只不同港股的新股票回测，确认“App 预刷新 + 后端兜底刷新”对新股稳定。
-4. FCM 跑通后，再做后端定时信号扫描。
+1. 先完成局域网真机页面验证，确认设置页“后端 API”为 `http://192.168.1.4:8000`。
+2. 暂时拿不到 Huawei Push Kit 配置时，不阻塞信号中心建设；先把信号解释、筛选、落库和去重做好。
+3. 然后接外部通知通道，例如 Email、Telegram、短信或 WhatsApp，作为无厂商 Push 配置时的可达提醒方案。
+4. 厂商配置具备后，再补 Huawei Push Kit / FCM 的系统级远程推送。
+5. 同时保留一个短验证任务：真机复测 3 到 5 只不同港股的新股票回测，确认“App 预刷新 + 后端兜底刷新”对新股稳定。
+
+### 信号中心马上任务
+
+当前用户反馈：信号页已有很多策略信号，但不知道对应什么策略、为什么触发、哪些需要关注、哪些不需要关注。
+
+当前结论：
+
+- 现有信号页仍偏“提示列表”，不是完整信号中心。
+- 现有 `TradeSignal` 缺少策略来源、触发条件、当前值、阈值、是否推送、是否已读/忽略等字段。
+- 量化页已有 MA、RSI、MACD 回测策略，但还没有统一转成后端实时扫描信号。
+
+下一步执行顺序：
+
+1. 扩展信号模型：
+   - `source_category`：`risk`、`strategy`、`system`。
+   - `strategy_code`。
+   - `strategy_name`。
+   - `condition_label`。
+   - `trigger_value`。
+   - `threshold_value`。
+   - `dedupe_key`。
+   - `push_candidate`。
+   - `read_status`。
+
+2. 改造信号页展示：
+   - 增加筛选：全部、持仓风控、量化策略、重要、已忽略。
+   - 每条信号显示策略来源和触发条件。
+   - 弱信号只展示，不进入推送候选。
+
+3. 后端新增策略信号扫描：
+   - 第一批复用 MA Cross、RSI Reversal、MACD Trend。
+   - 扫描结果写入 `signal_events`。
+   - 同一股票同一策略同一方向按 dedupe key 去重。
+
+4. 建立信号推送规则：
+   - 止损观察、止盈观察默认推送候选。
+   - MA 金叉/死叉、MACD 翻多/翻空、RSI 超卖回升/高位回落默认推送候选。
+   - 普通日涨跌、数据不足、回测历史记录不默认推送。
+   - 多策略同向共振可以提升为重要级别。
+
+5. 再进入外部通知通道：
+   - Email。
+   - Telegram Bot。
+   - 短信。
+   - WhatsApp Business。
+
+验收标准：
+
+- 用户能从信号页看懂“哪个股票、哪个策略、什么条件触发、当前值和阈值是多少”。
+- 用户能筛掉不关心的信号。
+- 后端能生成策略信号并落库。
+- 信号重复触发不会刷屏。
+- 推送候选和普通展示信号有明确区别。
+
+### 量化 K 线实时性问题
+
+已发现问题：
+
+- 同一股票详情页 K 线可刷新到最新交易日，但量化页买卖点图曾停在旧日期。
+- 原因之一是量化页默认结束日期曾固定为历史日期。
+- 原因之二是后端回测只判断缓存 K 线数量是否足够，没有判断缓存最新日期是否覆盖回测结束日期。
+
+必须保持的修复方向：
+
+1. 量化页默认结束日期使用当前日期。
+2. App 启动回测前按请求日期区间强制刷新 K 线。
+3. 后端回测如果发现缓存最新 K 线早于结束日期，即使缓存数量足够，也必须先刷新。
+4. 后续策略信号扫描也必须按最新 K 线计算，不能使用旧回测结果当作实时信号。
+5. 量化页买卖点图可以继续独立于详情页 K 线组件，但均线指标必须按当前策略参数绘制，例如短/长均线为 5/10 时图表显示 MA5/MA10，不能硬编码 MA5/MA20。
+6. 价格跌破均线和双均线死叉不是同一个信号；后续若需要“收盘价跌破 MA”提醒，新增独立策略条件。
+
+### 马上下一步：价格跌破均线策略
+
+当前用户关心的是详情页已经显示收盘价跌破 MA5/MA10，但量化页 MA Cross 没有出现卖点。原因是 MA Cross 的规则是短均线下穿长均线，不是收盘价跌破均线。
+
+下一步不要修改 MA Cross 语义，应该新增独立策略：
+
+```text
+strategy_code: price_break_ma
+策略名称：价格跌破/站回均线
+```
+
+第一版参数：
+
+```text
+ma_window: 5 / 10 / 20 / 60
+direction: break_down / recover_up / both
+```
+
+第一版触发：
+
+```text
+跌破：上一根收盘价 >= 上一根 MA，当前收盘价 < 当前 MA
+站回：上一根收盘价 <= 上一根 MA，当前收盘价 > 当前 MA
+```
+
+执行顺序：
+
+1. 后端新增 `backend/app/strategies/price_break_ma.py`，复用现有策略接口。
+2. 策略注册到 `backend/app/strategies/__init__.py` 或现有策略注册表。
+3. 后端策略列表暴露参数定义，App 量化页能选择该策略。
+4. 回测结果买卖点图按该策略参数显示对应 MA 线。
+5. 后续信号中心实时扫描复用同一个判断，生成可解释信号。
+
+验收标准：
+
+- 选择 `price_break_ma` 后，可以解释“收盘价跌破 MA10”这类信号。
+- 选择 `ma_cross` 时，仍只解释 MA5/MA10 金叉或死叉。
+- 信号文案包含收盘价、MA 值、周期、方向和触发日期。
+- 推送候选只使用中性“观察信号”，不写投资建议。

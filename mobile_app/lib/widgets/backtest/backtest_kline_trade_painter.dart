@@ -9,8 +9,10 @@ import 'backtest_chart_values.dart';
 class BacktestKlineTradePainter extends CustomPainter {
   const BacktestKlineTradePainter({
     required this.candles,
-    required this.ma5,
-    required this.ma20,
+    required this.shortMa,
+    required this.longMa,
+    required this.shortMaLabel,
+    required this.longMaLabel,
     required this.trades,
     required this.selectedIndex,
     required this.gridColor,
@@ -20,15 +22,17 @@ class BacktestKlineTradePainter extends CustomPainter {
     required this.primaryTextColor,
     required this.upColor,
     required this.downColor,
-    required this.ma5Color,
-    required this.ma20Color,
+    required this.shortMaColor,
+    required this.longMaColor,
     required this.buyColor,
     required this.sellColor,
   });
 
   final List<Candle> candles;
-  final List<double?> ma5;
-  final List<double?> ma20;
+  final List<double?> shortMa;
+  final List<double?> longMa;
+  final String shortMaLabel;
+  final String longMaLabel;
   final List<BacktestTrade> trades;
   final int? selectedIndex;
   final Color gridColor;
@@ -38,8 +42,8 @@ class BacktestKlineTradePainter extends CustomPainter {
   final Color primaryTextColor;
   final Color upColor;
   final Color downColor;
-  final Color ma5Color;
-  final Color ma20Color;
+  final Color shortMaColor;
+  final Color longMaColor;
   final Color buyColor;
   final Color sellColor;
 
@@ -55,16 +59,17 @@ class BacktestKlineTradePainter extends CustomPainter {
 
     final range = BacktestPriceRange.fromCandles(
       candles: candles,
-      maValues: [...ma5.whereType<double>(), ...ma20.whereType<double>()],
+      maValues: [...shortMa.whereType<double>(), ...longMa.whereType<double>()],
       trades: visibleBacktestTrades(candles, trades),
     );
 
-    _drawMaLine(canvas, area, ma20, range, ma20Color);
-    _drawMaLine(canvas, area, ma5, range, ma5Color);
+    _drawMaLine(canvas, area, longMa, range, longMaColor);
+    _drawMaLine(canvas, area, shortMa, range, shortMaColor);
     _drawCandles(canvas, area, range);
     _drawTradeMarkers(canvas, area, range);
     _drawSelection(canvas, area, range);
     _drawLabels(canvas, area, range);
+    _drawMaLegend(canvas);
     _drawInfoPanel(canvas, size, selectedIndex);
   }
 
@@ -380,6 +385,43 @@ class BacktestKlineTradePainter extends CustomPainter {
     );
   }
 
+  void _drawMaLegend(Canvas canvas) {
+    final selected = selectedIndex == null || selectedIndex! >= candles.length
+        ? candles.length - 1
+        : selectedIndex!;
+    final shortValue = selected < 0 || selected >= shortMa.length
+        ? null
+        : shortMa[selected];
+    final longValue = selected < 0 || selected >= longMa.length
+        ? null
+        : longMa[selected];
+    final painter = TextPainter(
+      text: TextSpan(
+        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
+        children: [
+          TextSpan(
+            text: '$shortMaLabel:${_maText(shortValue)}',
+            style: TextStyle(color: shortMaColor),
+          ),
+          const TextSpan(text: '  '),
+          TextSpan(
+            text: '$longMaLabel:${_maText(longValue)}',
+            style: TextStyle(color: longMaColor),
+          ),
+        ],
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+      ellipsis: '...',
+    )..layout(maxWidth: 180);
+    painter.paint(canvas, const Offset(4, 50));
+  }
+
+  String _maText(double? value) {
+    if (value == null) return '--';
+    return value.toStringAsFixed(2);
+  }
+
   List<BacktestTrade> _tradesForCandle(Candle candle) {
     final time = candle.time;
     if (time == null) return const [];
@@ -467,8 +509,10 @@ class BacktestKlineTradePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant BacktestKlineTradePainter oldDelegate) {
     return oldDelegate.candles != candles ||
-        oldDelegate.ma5 != ma5 ||
-        oldDelegate.ma20 != ma20 ||
+        oldDelegate.shortMa != shortMa ||
+        oldDelegate.longMa != longMa ||
+        oldDelegate.shortMaLabel != shortMaLabel ||
+        oldDelegate.longMaLabel != longMaLabel ||
         oldDelegate.trades != trades ||
         oldDelegate.selectedIndex != selectedIndex ||
         oldDelegate.gridColor != gridColor ||
@@ -478,8 +522,8 @@ class BacktestKlineTradePainter extends CustomPainter {
         oldDelegate.primaryTextColor != primaryTextColor ||
         oldDelegate.upColor != upColor ||
         oldDelegate.downColor != downColor ||
-        oldDelegate.ma5Color != ma5Color ||
-        oldDelegate.ma20Color != ma20Color ||
+        oldDelegate.shortMaColor != shortMaColor ||
+        oldDelegate.longMaColor != longMaColor ||
         oldDelegate.buyColor != buyColor ||
         oldDelegate.sellColor != sellColor;
   }

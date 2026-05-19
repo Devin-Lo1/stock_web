@@ -1148,6 +1148,8 @@ backend/app/routers/notifications.py
 - `backend/app/schemas/notifications.py`
 - `backend/app/repositories/notifications.py`
 - `backend/app/routers/notifications.py`
+- `backend/app/services/push_service.py`
+- `backend/app/services/push_providers/fcm.py`
 - `mobile_app/lib/models/notification_models.dart`
 - `mobile_app/lib/repositories/notification_repository.dart`
 - `mobile_app/lib/services/notification_api_service.dart`

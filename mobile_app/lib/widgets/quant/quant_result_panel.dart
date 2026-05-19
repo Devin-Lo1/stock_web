@@ -148,6 +148,8 @@ class QuantResultPanel extends StatelessWidget {
                 child: BacktestKlineTradeChart(
                   candles: candles,
                   trades: result.trades,
+                  shortMaWindow: _chartShortMaWindow(run),
+                  longMaWindow: _chartLongMaWindow(run),
                 ),
               ),
             const SizedBox(height: 14),
@@ -440,6 +442,27 @@ String _parameterText(BacktestRun run, String key) {
   if (value is num) return formatNumberInput(value.toDouble());
   if (value is String && value.isNotEmpty) return value;
   return '--';
+}
+
+int _chartShortMaWindow(BacktestRun run) {
+  if (run.strategyCode != 'ma_cross') return 5;
+  return _intParameter(run, 'short_window', fallback: 5);
+}
+
+int _chartLongMaWindow(BacktestRun run) {
+  if (run.strategyCode != 'ma_cross') return 20;
+  return _intParameter(run, 'long_window', fallback: 20);
+}
+
+int _intParameter(BacktestRun run, String key, {required int fallback}) {
+  final value = run.parameters[key];
+  if (value is int && value > 0) return value;
+  if (value is num && value > 0) return value.round();
+  if (value is String) {
+    final parsed = int.tryParse(value);
+    if (parsed != null && parsed > 0) return parsed;
+  }
+  return fallback;
 }
 
 String? _failureMessage(BacktestRun run) {

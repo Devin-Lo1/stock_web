@@ -42,3 +42,7 @@ ppt_preview/
 .env.*
 !.env.example
 !backend/.env.example
+
+# Local push provider config
+mobile_app/android/app/google-services.json
+mobile_app/android/app/agconnect-services.json

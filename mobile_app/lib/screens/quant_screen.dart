@@ -52,7 +52,7 @@ class _QuantScreenState extends State<QuantScreen> {
   Timer? _stockSearchDebounce;
   int _stockSearchRequestId = 0;
   DateTime _startDate = DateTime(2025, 1, 1);
-  DateTime _endDate = DateTime(2026, 5, 14);
+  DateTime _endDate = _todayDate();
   List<StrategyDefinition> _strategies = const [];
   List<StockSuggestion> _stockSuggestions = const [];
   List<BacktestRun> _recentRuns = const [];
@@ -500,7 +500,7 @@ class _QuantScreenState extends State<QuantScreen> {
       }
       final candles = await widget.onLoadBacktestCandles(
         request.stockCode,
-        period: 'day',
+        period: request.period,
         limit: 1000,
       );
       if (!mounted) return;
@@ -832,6 +832,11 @@ List<Candle> _filterCandles(
     if (time == null) return false;
     return !time.isBefore(start) && !time.isAfter(end);
   }).toList();
+}
+
+DateTime _todayDate() {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, now.day);
 }
 
 class _QuantValidationError implements Exception {

@@ -2,14 +2,13 @@ from fastapi import APIRouter, Query, status
 
 from ..errors import not_found_error
 from ..repositories.notifications import (
-    create_push_record,
     create_signal_event,
     get_notification_device_by_token,
     list_notification_devices,
     list_push_records,
     list_signal_events,
     mark_signal_event_read,
-    upsert_notification_device,
+    upsert_notification_device_with_signal_count,
 )
 from ..schemas import (
     NotificationDevice,
@@ -17,10 +16,10 @@ from ..schemas import (
     NotificationRegistrationResult,
     NotificationTestRequest,
     PushRecord,
-    PushRecordCreate,
     SignalEvent,
     SignalEventCreate,
 )
+from ..services.push_service import dispatch_notification_to_device
 
 router = APIRouter(prefix="/api/v1/notifications", tags=["notifications"])
 
@@ -33,10 +32,13 @@ router = APIRouter(prefix="/api/v1/notifications", tags=["notifications"])
 def api_upsert_notification_device(
     payload: NotificationDeviceUpsert,
 ) -> NotificationRegistrationResult:
-    device = upsert_notification_device(payload)
+    device, latest_signal_count = upsert_notification_device_with_signal_count(
+        payload,
+        signal_limit=20,
+    )
     return NotificationRegistrationResult(
         device=device,
-        latest_signal_count=len(list_signal_events(limit=20)),
+        latest_signal_count=latest_signal_count,
     )
 
 
@@ -109,19 +111,10 @@ def api_create_test_notification(payload: NotificationTestRequest) -> PushRecord
             payload={"device_id": device.id},
         ),
     )
-    status_value = "queued" if device.push_provider == "fcm" else "skipped"
-    error_message = "" if device.push_provider == "fcm" else "真实推送通道尚未配置"
-    return create_push_record(
-        PushRecordCreate(
-            signal_event_id=event.id,
-            device_id=device.id,
-            provider=device.push_provider,
-            status=status_value,
-            request_payload={
-                "title": payload.title,
-                "message": payload.message,
-                "push_token": device.push_token,
-            },
-            error_message=error_message,
-        ),
+    return dispatch_notification_to_device(
+        device=device,
+        event=event,
+        title=payload.title,
+        message=payload.message,
+        data={"source": "notification_test"},
     )

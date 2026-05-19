@@ -13,10 +13,14 @@ class BacktestKlineTradeChart extends StatefulWidget {
     super.key,
     required this.candles,
     required this.trades,
+    this.shortMaWindow = 5,
+    this.longMaWindow = 20,
   });
 
   final List<Candle> candles;
   final List<BacktestTrade> trades;
+  final int shortMaWindow;
+  final int longMaWindow;
 
   @override
   State<BacktestKlineTradeChart> createState() =>
@@ -52,10 +56,12 @@ class _BacktestKlineTradeChartState extends State<BacktestKlineTradeChart> {
       visibleEndIndex: _visibleEndIndex,
     );
     final visibleCandles = candles.sublist(view.start, view.end);
-    final fullMa5 = calculateMovingAverage(candles, 5);
-    final fullMa20 = calculateMovingAverage(candles, 20);
-    final visibleMa5 = fullMa5.sublist(view.start, view.end);
-    final visibleMa20 = fullMa20.sublist(view.start, view.end);
+    final shortWindow = widget.shortMaWindow.clamp(1, 240);
+    final longWindow = widget.longMaWindow.clamp(1, 240);
+    final fullShortMa = calculateMovingAverage(candles, shortWindow);
+    final fullLongMa = calculateMovingAverage(candles, longWindow);
+    final visibleShortMa = fullShortMa.sublist(view.start, view.end);
+    final visibleLongMa = fullLongMa.sublist(view.start, view.end);
     final selectedIndex = _normalizedSelectedIndex(visibleCandles.length);
 
     return LayoutBuilder(
@@ -83,8 +89,10 @@ class _BacktestKlineTradeChartState extends State<BacktestKlineTradeChart> {
             child: CustomPaint(
               painter: BacktestKlineTradePainter(
                 candles: visibleCandles,
-                ma5: visibleMa5,
-                ma20: visibleMa20,
+                shortMa: visibleShortMa,
+                longMa: visibleLongMa,
+                shortMaLabel: 'MA$shortWindow',
+                longMaLabel: 'MA$longWindow',
                 trades: widget.trades,
                 selectedIndex: selectedIndex,
                 gridColor: borderColor(context).withValues(alpha: 0.56),
@@ -96,8 +104,8 @@ class _BacktestKlineTradeChartState extends State<BacktestKlineTradeChart> {
                 primaryTextColor: primaryTextColor(context),
                 upColor: const Color(0xFF12B886),
                 downColor: const Color(0xFFFF3B45),
-                ma5Color: const Color(0xFFE6B450),
-                ma20Color: const Color(0xFFD75AC8),
+                shortMaColor: const Color(0xFFE6B450),
+                longMaColor: const Color(0xFF5BA7D7),
                 buyColor: const Color(0xFF12B886),
                 sellColor: const Color(0xFFFF3B45),
               ),

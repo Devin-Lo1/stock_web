@@ -5,7 +5,16 @@ from pydantic import BaseModel, Field
 
 
 NotificationPlatform = Literal["android", "ios", "web", "unknown"]
-PushProvider = Literal["fcm", "huawei", "xiaomi", "oppo", "vivo", "local", "unknown"]
+PushProvider = Literal[
+    "fcm",
+    "huawei",
+    "xiaomi",
+    "oppo",
+    "vivo",
+    "apns",
+    "local",
+    "unknown",
+]
 PushStatus = Literal["queued", "sent", "failed", "skipped"]
 SignalReadStatus = Literal["unread", "read"]
 

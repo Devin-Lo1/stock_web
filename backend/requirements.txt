@@ -5,3 +5,4 @@ psycopg[binary]>=3.2,<4
 pytest>=8.0,<9
 httpx==0.28.1
 futu-api==10.5.6508
+firebase-admin>=6.6,<8

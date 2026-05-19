@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from ..repositories.backtests import save_backtest_result
 from ..repositories.market_data import list_candles_between, upsert_candles
@@ -132,7 +132,7 @@ def _load_backtest_candles(
         run.start_date,
         run.end_date,
     )
-    if len(candles) >= minimum_candles:
+    if len(candles) >= minimum_candles and _covers_end_date(candles, run.end_date):
         return candles, None
 
     try:
@@ -155,6 +155,13 @@ def _load_backtest_candles(
             run.end_date,
         )
     return candles, None if len(candles) >= minimum_candles else "empty_futu_response"
+
+
+def _covers_end_date(candles: list[Candle], end_date: date) -> bool:
+    if not candles:
+        return False
+    latest_date = max(candle.time.date() for candle in candles)
+    return latest_date >= end_date
 
 
 def _trade_metrics(trades: list[BacktestTrade]) -> dict[str, float | int]:

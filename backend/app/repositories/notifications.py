@@ -120,20 +120,36 @@ def mark_signal_event_read(event_id: str) -> SignalEvent | None:
 def upsert_notification_device(
     payload: NotificationDeviceUpsert,
 ) -> NotificationDevice:
+    device, _ = upsert_notification_device_with_signal_count(payload, signal_limit=0)
+    return device
+
+
+def upsert_notification_device_with_signal_count(
+    payload: NotificationDeviceUpsert,
+    *,
+    signal_limit: int = 20,
+) -> tuple[NotificationDevice, int]:
     now = _now()
-    existing = get_notification_device_by_token(
-        payload.push_provider,
-        payload.push_token,
-    )
-    if existing is None:
-        device = NotificationDevice(
-            id=str(uuid4()),
-            last_seen_at=now,
-            created_at=now,
-            updated_at=now,
-            **payload.model_dump(),
-        )
-        with _connect() as connection:
+    safe_signal_limit = max(0, min(signal_limit, 200))
+    with _connect() as connection:
+        row = connection.execute(
+            """
+            SELECT id, platform, push_provider, push_token, device_name,
+                   app_version, enabled, important_enabled, last_seen_at,
+                   created_at, updated_at
+            FROM notification_devices
+            WHERE push_provider = ? AND push_token = ?
+            """,
+            (payload.push_provider, payload.push_token),
+        ).fetchone()
+        if row is None:
+            device = NotificationDevice(
+                id=str(uuid4()),
+                last_seen_at=now,
+                created_at=now,
+                updated_at=now,
+                **payload.model_dump(),
+            )
             connection.execute(
                 """
                 INSERT INTO notification_devices (
@@ -145,40 +161,55 @@ def upsert_notification_device(
                 """,
                 _notification_device_values(device),
             )
-        return device
-
-    updated = existing.model_copy(
-        update={
-            **payload.model_dump(),
-            "last_seen_at": now,
-            "updated_at": now,
-        },
-    )
-    with _connect() as connection:
-        connection.execute(
-            """
-            UPDATE notification_devices
-            SET platform = ?,
-                device_name = ?,
-                app_version = ?,
-                enabled = ?,
-                important_enabled = ?,
-                last_seen_at = ?,
-                updated_at = ?
-            WHERE id = ?
-            """,
-            (
-                updated.platform,
-                updated.device_name,
-                updated.app_version,
-                1 if updated.enabled else 0,
-                1 if updated.important_enabled else 0,
-                _datetime_to_text(updated.last_seen_at),
-                _datetime_to_text(updated.updated_at),
-                updated.id,
-            ),
-        )
-    return updated
+        else:
+            existing = _row_to_notification_device(row)
+            device = existing.model_copy(
+                update={
+                    **payload.model_dump(),
+                    "last_seen_at": now,
+                    "updated_at": now,
+                },
+            )
+            connection.execute(
+                """
+                UPDATE notification_devices
+                SET platform = ?,
+                    device_name = ?,
+                    app_version = ?,
+                    enabled = ?,
+                    important_enabled = ?,
+                    last_seen_at = ?,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (
+                    device.platform,
+                    device.device_name,
+                    device.app_version,
+                    1 if device.enabled else 0,
+                    1 if device.important_enabled else 0,
+                    _datetime_to_text(device.last_seen_at),
+                    _datetime_to_text(device.updated_at),
+                    device.id,
+                ),
+            )
+        signal_count = 0
+        if safe_signal_limit > 0:
+            count_row = connection.execute(
+                """
+                SELECT COUNT(*) AS signal_count
+                FROM (
+                    SELECT id
+                    FROM signal_events
+                    ORDER BY triggered_at DESC
+                    LIMIT ?
+                ) latest
+                """,
+                (safe_signal_limit,),
+            ).fetchone()
+            if count_row is not None:
+                signal_count = int(count_row["signal_count"])
+    return device, signal_count
 
 
 def get_notification_device_by_token(
