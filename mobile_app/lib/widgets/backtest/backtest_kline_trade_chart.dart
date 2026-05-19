@@ -20,7 +20,7 @@ class BacktestKlineTradeChart extends StatefulWidget {
   final List<Candle> candles;
   final List<BacktestTrade> trades;
   final int shortMaWindow;
-  final int longMaWindow;
+  final int? longMaWindow;
 
   @override
   State<BacktestKlineTradeChart> createState() =>
@@ -56,12 +56,16 @@ class _BacktestKlineTradeChartState extends State<BacktestKlineTradeChart> {
       visibleEndIndex: _visibleEndIndex,
     );
     final visibleCandles = candles.sublist(view.start, view.end);
-    final shortWindow = widget.shortMaWindow.clamp(1, 240);
-    final longWindow = widget.longMaWindow.clamp(1, 240);
+    final shortWindow = widget.shortMaWindow.clamp(1, 240).toInt();
+    final longWindow = widget.longMaWindow?.clamp(1, 240).toInt();
     final fullShortMa = calculateMovingAverage(candles, shortWindow);
-    final fullLongMa = calculateMovingAverage(candles, longWindow);
+    final fullLongMa = longWindow == null
+        ? const <double?>[]
+        : calculateMovingAverage(candles, longWindow);
     final visibleShortMa = fullShortMa.sublist(view.start, view.end);
-    final visibleLongMa = fullLongMa.sublist(view.start, view.end);
+    final visibleLongMa = longWindow == null
+        ? const <double?>[]
+        : fullLongMa.sublist(view.start, view.end);
     final selectedIndex = _normalizedSelectedIndex(visibleCandles.length);
 
     return LayoutBuilder(
@@ -92,7 +96,7 @@ class _BacktestKlineTradeChartState extends State<BacktestKlineTradeChart> {
                 shortMa: visibleShortMa,
                 longMa: visibleLongMa,
                 shortMaLabel: 'MA$shortWindow',
-                longMaLabel: 'MA$longWindow',
+                longMaLabel: longWindow == null ? null : 'MA$longWindow',
                 trades: widget.trades,
                 selectedIndex: selectedIndex,
                 gridColor: borderColor(context).withValues(alpha: 0.56),

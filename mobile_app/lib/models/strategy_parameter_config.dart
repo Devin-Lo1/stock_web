@@ -1,7 +1,14 @@
 import '../utils/formatters.dart';
 import 'strategy_definition.dart';
 
-enum StrategyParameterValueType { positiveInt, boundedDouble }
+enum StrategyParameterValueType { positiveInt, boundedDouble, option }
+
+class StrategyParameterOption {
+  const StrategyParameterOption({required this.value, required this.label});
+
+  final String value;
+  final String label;
+}
 
 class StrategyParameterSpec {
   const StrategyParameterSpec({
@@ -9,12 +16,14 @@ class StrategyParameterSpec {
     required this.label,
     required this.fallback,
     required this.valueType,
+    this.options = const [],
   });
 
   final String key;
   final String label;
   final String fallback;
   final StrategyParameterValueType valueType;
+  final List<StrategyParameterOption> options;
 }
 
 const _maCrossSpecs = [
@@ -74,9 +83,30 @@ const _macdTrendSpecs = [
   ),
 ];
 
+const _priceBreakMaSpecs = [
+  StrategyParameterSpec(
+    key: 'ma_window',
+    label: '均线周期',
+    fallback: '10',
+    valueType: StrategyParameterValueType.positiveInt,
+  ),
+  StrategyParameterSpec(
+    key: 'direction',
+    label: '触发方向',
+    fallback: 'both',
+    valueType: StrategyParameterValueType.option,
+    options: [
+      StrategyParameterOption(value: 'both', label: '双向'),
+      StrategyParameterOption(value: 'break_down', label: '跌破'),
+      StrategyParameterOption(value: 'recover_up', label: '站回'),
+    ],
+  ),
+];
+
 List<StrategyParameterSpec> strategyParameterSpecsFor(String strategyCode) {
   return switch (strategyCode) {
     'macd_trend' => _macdTrendSpecs,
+    'price_break_ma' => _priceBreakMaSpecs,
     'rsi_reversal' => _rsiReversalSpecs,
     _ => _maCrossSpecs,
   };
@@ -87,6 +117,7 @@ Set<String> allStrategyParameterKeys() {
     for (final spec in _maCrossSpecs) spec.key,
     for (final spec in _rsiReversalSpecs) spec.key,
     for (final spec in _macdTrendSpecs) spec.key,
+    for (final spec in _priceBreakMaSpecs) spec.key,
   };
 }
 

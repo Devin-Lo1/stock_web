@@ -604,7 +604,14 @@ class _QuantScreenState extends State<QuantScreen> {
         text,
         spec.label,
       ),
+      StrategyParameterValueType.option => _parseOption(text, spec),
     };
+  }
+
+  Object _parseOption(String text, StrategyParameterSpec spec) {
+    final value = text.trim();
+    if (spec.options.any((option) => option.value == value)) return value;
+    return _QuantValidationError('请选择${spec.label}');
   }
 
   _QuantValidationError? _validateStrategyParameterRelations(
@@ -634,6 +641,21 @@ class _QuantScreenState extends State<QuantScreen> {
       }
       return null;
     }
+
+    if (strategyCode == 'price_break_ma') {
+      final maWindow = parameters['ma_window'];
+      final direction = parameters['direction'];
+      if (maWindow is int && maWindow <= 1) {
+        return const _QuantValidationError('均线周期必须大于 1');
+      }
+      if (direction is! String ||
+          !{'break_down', 'recover_up', 'both'}.contains(direction)) {
+        return const _QuantValidationError('请选择有效触发方向');
+      }
+      return null;
+    }
+
+    if (strategyCode != 'ma_cross') return null;
 
     final shortWindow = parameters['short_window'];
     final longWindow = parameters['long_window'];

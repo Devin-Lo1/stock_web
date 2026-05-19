@@ -32,7 +32,7 @@ class BacktestKlineTradePainter extends CustomPainter {
   final List<double?> shortMa;
   final List<double?> longMa;
   final String shortMaLabel;
-  final String longMaLabel;
+  final String? longMaLabel;
   final List<BacktestTrade> trades;
   final int? selectedIndex;
   final Color gridColor;
@@ -63,7 +63,9 @@ class BacktestKlineTradePainter extends CustomPainter {
       trades: visibleBacktestTrades(candles, trades),
     );
 
-    _drawMaLine(canvas, area, longMa, range, longMaColor);
+    if (longMaLabel != null) {
+      _drawMaLine(canvas, area, longMa, range, longMaColor);
+    }
     _drawMaLine(canvas, area, shortMa, range, shortMaColor);
     _drawCandles(canvas, area, range);
     _drawTradeMarkers(canvas, area, range);
@@ -395,6 +397,7 @@ class BacktestKlineTradePainter extends CustomPainter {
     final longValue = selected < 0 || selected >= longMa.length
         ? null
         : longMa[selected];
+    final longLabel = longMaLabel;
     final painter = TextPainter(
       text: TextSpan(
         style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
@@ -403,11 +406,12 @@ class BacktestKlineTradePainter extends CustomPainter {
             text: '$shortMaLabel:${_maText(shortValue)}',
             style: TextStyle(color: shortMaColor),
           ),
-          const TextSpan(text: '  '),
-          TextSpan(
-            text: '$longMaLabel:${_maText(longValue)}',
-            style: TextStyle(color: longMaColor),
-          ),
+          if (longLabel != null) const TextSpan(text: '  '),
+          if (longLabel != null)
+            TextSpan(
+              text: '$longLabel:${_maText(longValue)}',
+              style: TextStyle(color: longMaColor),
+            ),
         ],
       ),
       textDirection: TextDirection.ltr,

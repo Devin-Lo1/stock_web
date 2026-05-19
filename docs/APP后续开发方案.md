@@ -1126,3 +1126,11 @@ period: day
 - 选择 MA Cross 时仍然只按短均线/长均线穿越触发，不被价格跌破条件污染。
 - 信号页能区分“价格跌破 MA”和“双均线死叉”。
 - 所有信号文案保持中性观察，不写成投资建议。
+
+2026-05-19 实现进展：
+
+- 后端已新增 `backend/app/strategies/price_break_ma.py`，支持收盘价跌破 MA 和重新站回 MA 两类信号。
+- 策略注册表和默认策略种子已加入 `price_break_ma`，默认参数为 `ma_window=10`、`direction=both`。
+- App 量化页已支持 `price_break_ma` 参数：均线周期和触发方向。
+- 量化结果参数快照已能显示均线周期和方向；买卖点图对该策略只显示对应 MA 线。
+- 已补后端和 Flutter 参数配置测试。

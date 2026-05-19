@@ -157,14 +157,55 @@ class _StrategyParameterFields extends StatelessWidget {
             for (final spec in specs)
               SizedBox(
                 width: itemWidth,
-                child: QuantNumberField(
+                child: _StrategyParameterField(
+                  spec: spec,
                   controller: controllers[spec.key]!,
-                  label: spec.label,
                 ),
               ),
           ],
         );
       },
     );
+  }
+}
+
+class _StrategyParameterField extends StatelessWidget {
+  const _StrategyParameterField({required this.spec, required this.controller});
+
+  final StrategyParameterSpec spec;
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    if (spec.valueType != StrategyParameterValueType.option) {
+      return QuantNumberField(controller: controller, label: spec.label);
+    }
+
+    final selectedValue = _selectedOptionValue();
+    return DropdownButtonFormField<String>(
+      key: ValueKey(spec.key),
+      initialValue: selectedValue,
+      isExpanded: true,
+      decoration: InputDecoration(labelText: spec.label),
+      items: [
+        for (final option in spec.options)
+          DropdownMenuItem(
+            value: option.value,
+            child: Text(option.label, overflow: TextOverflow.ellipsis),
+          ),
+      ],
+      onChanged: (value) {
+        if (value != null) controller.text = value;
+      },
+    );
+  }
+
+  String? _selectedOptionValue() {
+    final current = controller.text.trim();
+    if (spec.options.any((option) => option.value == current)) return current;
+    if (spec.options.any((option) => option.value == spec.fallback)) {
+      return spec.fallback;
+    }
+    return spec.options.isEmpty ? null : spec.options.first.value;
   }
 }

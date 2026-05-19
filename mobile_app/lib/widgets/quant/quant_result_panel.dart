@@ -422,6 +422,12 @@ List<_SnapshotItem> _strategyParameterItems(BacktestRun run) {
       _SnapshotItem('信号周期', _parameterText(run, 'signal_window')),
     ];
   }
+  if (run.strategyCode == 'price_break_ma') {
+    return [
+      _SnapshotItem('均线周期', _parameterText(run, 'ma_window')),
+      _SnapshotItem('触发方向', _directionText(_parameterText(run, 'direction'))),
+    ];
+  }
   return [
     _SnapshotItem('短均线', _parameterText(run, 'short_window')),
     _SnapshotItem('长均线', _parameterText(run, 'long_window')),
@@ -432,8 +438,18 @@ String _strategyLabel(String code) {
   return switch (code) {
     'ma_cross' => 'MA Cross',
     'macd_trend' => 'MACD Trend',
+    'price_break_ma' => 'Price Break MA',
     'rsi_reversal' => 'RSI Reversal',
     _ => code,
+  };
+}
+
+String _directionText(String value) {
+  return switch (value) {
+    'break_down' => '跌破',
+    'recover_up' => '站回',
+    'both' => '双向',
+    _ => value,
   };
 }
 
@@ -445,11 +461,15 @@ String _parameterText(BacktestRun run, String key) {
 }
 
 int _chartShortMaWindow(BacktestRun run) {
+  if (run.strategyCode == 'price_break_ma') {
+    return _intParameter(run, 'ma_window', fallback: 10);
+  }
   if (run.strategyCode != 'ma_cross') return 5;
   return _intParameter(run, 'short_window', fallback: 5);
 }
 
-int _chartLongMaWindow(BacktestRun run) {
+int? _chartLongMaWindow(BacktestRun run) {
+  if (run.strategyCode == 'price_break_ma') return null;
   if (run.strategyCode != 'ma_cross') return 20;
   return _intParameter(run, 'long_window', fallback: 20);
 }
@@ -475,6 +495,7 @@ String? _failureMessage(BacktestRun run) {
     'invalid_ma_parameters' => '均线参数不合法，短均线必须小于长均线',
     'invalid_rsi_parameters' => 'RSI 参数不合法，请检查周期和超买超卖线',
     'invalid_macd_parameters' => 'MACD 参数不合法，请检查快线和慢线周期',
+    'invalid_price_break_ma_parameters' => '价格跌破均线参数不合法，请检查均线周期和触发方向',
     'not_enough_candles' => 'K 线数据不足，无法完成回测',
     String value when value.isNotEmpty => value,
     _ => '回测失败，请检查参数和 K 线数据',

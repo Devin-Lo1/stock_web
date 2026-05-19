@@ -1,12 +1,14 @@
 from .base import BacktestStrategy
 from .macd_trend import MacdTrendStrategy
 from .ma_cross import MaCrossStrategy
+from .price_break_ma import PriceBreakMaStrategy
 from .rsi_reversal import RsiReversalStrategy
 
 
 _STRATEGIES: dict[str, BacktestStrategy] = {
     MaCrossStrategy.code: MaCrossStrategy(),
     MacdTrendStrategy.code: MacdTrendStrategy(),
+    PriceBreakMaStrategy.code: PriceBreakMaStrategy(),
     RsiReversalStrategy.code: RsiReversalStrategy(),
 }
 

@@ -29,6 +29,18 @@ void main() {
     ]);
   });
 
+  test('strategyParameterSpecsFor returns price break MA parameters', () {
+    final specs = strategyParameterSpecsFor('price_break_ma');
+
+    expect(specs.map((spec) => spec.key), ['ma_window', 'direction']);
+    expect(specs[1].valueType, StrategyParameterValueType.option);
+    expect(specs[1].options.map((option) => option.value), [
+      'both',
+      'break_down',
+      'recover_up',
+    ]);
+  });
+
   test('strategyParameterDefaultText reads backend defaults', () {
     const strategy = StrategyDefinition(
       id: 'strategy-1',
@@ -61,5 +73,19 @@ void main() {
     expect(strategyParameterDefaultText(strategy, specs[0]), '12');
     expect(strategyParameterDefaultText(strategy, specs[1]), '26');
     expect(strategyParameterDefaultText(strategy, specs[2]), '9');
+  });
+
+  test('strategyParameterDefaultText reads price break MA defaults', () {
+    const strategy = StrategyDefinition(
+      id: 'strategy-3',
+      code: 'price_break_ma',
+      name: 'Price Break MA',
+      description: '',
+      defaultParameters: {'ma_window': 10, 'direction': 'break_down'},
+    );
+    final specs = strategyParameterSpecsFor(strategy.code);
+
+    expect(strategyParameterDefaultText(strategy, specs[0]), '10');
+    expect(strategyParameterDefaultText(strategy, specs[1]), 'break_down');
   });
 }

@@ -217,6 +217,18 @@ def _seed_strategy_definitions(connection: _DatabaseConnection) -> None:
             created_at=_now(),
             updated_at=_now(),
         ),
+        StrategyDefinition(
+            id=str(uuid4()),
+            code="price_break_ma",
+            name="Price Break MA",
+            description="Close price break-down and recovery around a moving average.",
+            default_parameters={
+                "ma_window": 10,
+                "direction": "both",
+            },
+            created_at=_now(),
+            updated_at=_now(),
+        ),
     ]:
         connection.execute(
             """
