@@ -53,6 +53,30 @@ class SignalTile extends StatelessWidget {
                     fontSize: 12,
                   ),
                 ),
+                if (signal.conditionLabel.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    signal.conditionLabel,
+                    style: TextStyle(
+                      color: signal.color,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+                if (signal.message.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    signal.message,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: secondaryTextColor(context),
+                      fontSize: 12,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

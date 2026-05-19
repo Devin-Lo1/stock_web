@@ -1,6 +1,14 @@
 from app import database
 from app.main import app
-from app.schemas import NotificationDeviceUpsert, PushRecordCreate, SignalEventCreate
+from datetime import datetime, timedelta, timezone
+
+from app.schemas import (
+    Candle,
+    NotificationDeviceUpsert,
+    PositionCreate,
+    PushRecordCreate,
+    SignalEventCreate,
+)
 from app.services import push_service
 from fastapi.testclient import TestClient
 
@@ -244,3 +252,53 @@ def test_notification_test_endpoint_skips_reserved_vendor_provider() -> None:
     assert record["status"] == "skipped"
     assert record["provider"] == "xiaomi"
     assert record["error_message"] == "真实推送通道尚未配置: xiaomi"
+
+
+def test_signal_scan_endpoint_creates_explainable_strategy_event() -> None:
+    client = TestClient(app)
+    database.create_position(
+        PositionCreate(
+            market="HK",
+            code="HK.09988",
+            name="阿里巴巴",
+            quantity=100,
+            cost_price=90,
+            currency="HKD",
+        ),
+    )
+    start = datetime(2026, 5, 1, tzinfo=timezone.utc)
+    closes = [10, 10, 10, 10, 10, 8]
+    database.upsert_candles(
+        [
+            Candle(
+                code="HK.09988",
+                market="HK",
+                period="day",
+                time=start + timedelta(days=index),
+                open=close,
+                high=close,
+                low=close,
+                close=close,
+                volume=1000,
+                turnover=close * 1000,
+            )
+            for index, close in enumerate(closes)
+        ],
+    )
+
+    response = client.post("/api/v1/signals/scan?refresh=false")
+    second_response = client.post("/api/v1/signals/scan?refresh=false")
+    events_response = client.get("/api/v1/signals/events")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["created_count"] == 1
+    event = body["events"][0]
+    assert event["source"] == "strategy_scanner"
+    assert event["signal_type"] == "price_break_ma_sell"
+    assert event["payload"]["strategy_code"] == "price_break_ma"
+    assert event["payload"]["condition_label"] == "收盘价跌破 MA5"
+    assert event["trigger_value"] == 8
+    assert event["threshold_value"] > 0
+    assert second_response.json()["created_count"] == 0
+    assert events_response.json()[0]["id"] == event["id"]

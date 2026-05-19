@@ -12,6 +12,7 @@ import '../models/trade_signal.dart';
 import '../repositories/backtest_repository.dart';
 import '../repositories/notification_repository.dart';
 import '../repositories/position_repository.dart';
+import '../repositories/signal_repository.dart';
 import '../services/api_client.dart';
 import '../services/backtest_api_service.dart';
 import '../services/local_signal_service.dart';
@@ -21,6 +22,7 @@ import '../services/position_api_service.dart';
 import '../services/position_storage_service.dart';
 import '../services/push_token_service.dart';
 import '../services/quote_api_service.dart';
+import '../services/signal_api_service.dart';
 import '../sheets/add_position_sheet.dart';
 import '../utils/theme_helpers.dart';
 import 'account_screen.dart';
@@ -52,10 +54,14 @@ class _AppShellState extends State<AppShell> {
   late final BacktestRepository _backtestRepository;
   late final NotificationRepository _notificationRepository;
   late final NotificationService _notificationService;
+  late final SignalRepository _signalRepository;
   List<StockPosition> _positions = List.of(samplePositions);
+  List<TradeSignal> _backendSignals = const [];
   StrategySettings _settings = StrategySettings.defaults;
   final Set<String> _notifiedSignalKeys = <String>{};
   bool _isRefreshing = false;
+  bool _isLoadingSignals = false;
+  bool _isScanningSignals = false;
   BackendConnectionState _backendState = BackendConnectionState.connecting;
   DateTime? _lastUpdatedAt;
   late final String _apiBaseUrl;
@@ -67,6 +73,7 @@ class _AppShellState extends State<AppShell> {
     _apiBaseUrl = apiClient.baseUrl;
     _quoteApiService = QuoteApiService(apiClient);
     _backtestRepository = BacktestRepository(BacktestApiService(apiClient));
+    _signalRepository = SignalRepository(SignalApiService(apiClient));
     _notificationService = NotificationService();
     _notificationRepository = NotificationRepository(
       apiService: NotificationApiService(apiClient),
@@ -79,6 +86,7 @@ class _AppShellState extends State<AppShell> {
     );
     unawaited(_notificationService.initialize());
     _loadStoredPositions();
+    unawaited(_loadSignalEvents(showError: false));
   }
 
   @override
@@ -86,7 +94,8 @@ class _AppShellState extends State<AppShell> {
     final visible = _positions
         .where((position) => position.market == _marketFilter)
         .toList();
-    final signals = buildSignals(visible, _settings);
+    final localSignals = buildSignals(visible, _settings);
+    final signals = _backendSignals.isEmpty ? localSignals : _backendSignals;
     final pages = [
       DashboardScreen(
         positions: visible,
@@ -118,7 +127,14 @@ class _AppShellState extends State<AppShell> {
         repository: _backtestRepository,
         onLoadBacktestCandles: _loadBacktestCandles,
       ),
-      SignalsScreen(signals: signals, onRefresh: _refreshPositions),
+      SignalsScreen(
+        signals: signals,
+        isLoading: _isLoadingSignals,
+        isScanning: _isScanningSignals,
+        usingBackendSignals: _backendSignals.isNotEmpty,
+        onRefresh: _refreshSignalsPage,
+        onScan: _scanSignals,
+      ),
       SettingsScreen(
         settings: _settings,
         displayMode: widget.displayMode,
@@ -283,6 +299,53 @@ class _AppShellState extends State<AppShell> {
       return result.positions;
     } finally {
       if (mounted) setState(() => _isRefreshing = false);
+    }
+  }
+
+  Future<void> _refreshSignalsPage() async {
+    await _refreshPositions();
+    await _loadSignalEvents();
+  }
+
+  Future<void> _loadSignalEvents({bool showError = true}) async {
+    if (_isLoadingSignals) return;
+    setState(() => _isLoadingSignals = true);
+    try {
+      final signals = await _signalRepository.loadSignals(limit: 80);
+      if (!mounted) return;
+      setState(() => _backendSignals = signals);
+    } catch (error) {
+      if (!mounted || !showError) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('信号中心加载失败：${_errorMessage(error)}')),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoadingSignals = false);
+    }
+  }
+
+  Future<void> _scanSignals() async {
+    if (_isScanningSignals) return;
+    setState(() => _isScanningSignals = true);
+    try {
+      final result = await _signalRepository.scanSignals(refresh: true);
+      if (!mounted) return;
+      await _loadSignalEvents(showError: false);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '扫描完成：新增 ${result.createdCount} 条，扫描 ${result.scannedCount} 个策略条件',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('扫描失败：${_errorMessage(error)}')));
+    } finally {
+      if (mounted) setState(() => _isScanningSignals = false);
     }
   }
 

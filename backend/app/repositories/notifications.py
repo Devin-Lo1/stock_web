@@ -49,6 +49,25 @@ def create_signal_event(payload: SignalEventCreate) -> SignalEvent:
     return event
 
 
+def get_signal_event_by_dedupe_key(dedupe_key: str) -> SignalEvent | None:
+    with _connect() as connection:
+        row = connection.execute(
+            """
+            SELECT id, source, code, signal_type, level, title, message,
+                   trigger_value, threshold_value, dedupe_key, payload,
+                   read_status, read_at, triggered_at, created_at, updated_at
+            FROM signal_events
+            WHERE dedupe_key = ?
+            ORDER BY triggered_at DESC
+            LIMIT 1
+            """,
+            (dedupe_key,),
+        ).fetchone()
+    if row is None:
+        return None
+    return _row_to_signal_event(row)
+
+
 def list_signal_events(
     *,
     code: str | None = None,

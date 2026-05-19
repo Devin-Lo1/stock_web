@@ -9,7 +9,7 @@ from .backtests import (
 from .klines import Candle
 from .positions import Position, PositionCreate, PositionUpdate
 from .quotes import QuoteSnapshot
-from .signals import Signal
+from .signals import Signal, SignalScanResult
 from .notifications import (
     NotificationDevice,
     NotificationDeviceUpsert,
@@ -40,6 +40,7 @@ __all__ = [
     "PositionUpdate",
     "QuoteSnapshot",
     "Signal",
+    "SignalScanResult",
     "NotificationDevice",
     "NotificationDeviceUpsert",
     "NotificationPlatform",

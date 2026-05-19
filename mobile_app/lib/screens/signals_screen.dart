@@ -9,11 +9,19 @@ class SignalsScreen extends StatelessWidget {
   const SignalsScreen({
     super.key,
     required this.signals,
+    required this.isLoading,
+    required this.isScanning,
+    required this.usingBackendSignals,
     required this.onRefresh,
+    required this.onScan,
   });
 
   final List<TradeSignal> signals;
+  final bool isLoading;
+  final bool isScanning;
+  final bool usingBackendSignals;
   final Future<void> Function() onRefresh;
+  final Future<void> Function() onScan;
 
   @override
   Widget build(BuildContext context) {
@@ -25,14 +33,46 @@ class SignalsScreen extends StatelessWidget {
         children: [
           PageTitle(
             title: '信号',
-            subtitle: '${signals.length} 条本地策略信号 · 强信号优先提醒',
+            subtitle: usingBackendSignals
+                ? '${signals.length} 条后端策略信号 · 已落库'
+                : '${signals.length} 条本地风控信号 · 待扫描',
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: isScanning ? null : onScan,
+                  icon: isScanning
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.radar_rounded, size: 18),
+                  label: Text(isScanning ? '扫描中' : '扫描信号'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              IconButton.outlined(
+                tooltip: '刷新',
+                onPressed: isLoading ? null : onRefresh,
+                icon: isLoading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_rounded),
+              ),
+            ],
           ),
           const SizedBox(height: 14),
           if (signals.isEmpty)
             const ReadOnlyEmptyState(
               icon: Icons.notifications_none_rounded,
               title: '暂无信号',
-              subtitle: '当持仓触发止盈、止损或当日异动时，这里会自动展示。',
+              subtitle: '扫描后，触发条件的策略信号会显示在这里。',
             )
           else
             ...signals.map(
