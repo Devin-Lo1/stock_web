@@ -4,6 +4,7 @@ import '../models/trade_signal.dart';
 import '../widgets/common/empty_state.dart';
 import '../widgets/common/page_title.dart';
 import '../widgets/signal/signal_tile.dart';
+import '../utils/theme_helpers.dart';
 
 class SignalsScreen extends StatelessWidget {
   const SignalsScreen({
@@ -75,13 +76,173 @@ class SignalsScreen extends StatelessWidget {
               subtitle: '扫描后，触发条件的策略信号会显示在这里。',
             )
           else
-            ...signals.map(
-              (signal) => Padding(
+            ...SignalCategory.values.map(
+              (category) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: SignalTile(signal: signal),
+                child: _SignalCategoryTile(
+                  category: category,
+                  signals: _signalsForCategory(category),
+                ),
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  List<TradeSignal> _signalsForCategory(SignalCategory category) {
+    if (category == SignalCategory.important) {
+      return signals.where((signal) => signal.level == '高').toList();
+    }
+    return signals.where((signal) => signal.category == category).toList();
+  }
+}
+
+class _SignalCategoryTile extends StatelessWidget {
+  const _SignalCategoryTile({required this.category, required this.signals});
+
+  final SignalCategory category;
+  final List<TradeSignal> signals;
+
+  @override
+  Widget build(BuildContext context) {
+    final latest = signals.isEmpty ? null : signals.first;
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: signals.isEmpty
+          ? null
+          : () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (context) => SignalCategoryScreen(
+                    category: category,
+                    signals: signals,
+                  ),
+                ),
+              );
+            },
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cardColor(context),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: borderColor(context)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: category.color.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(category.icon, color: category.color),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          category.title,
+                          style: TextStyle(
+                            color: primaryTextColor(context),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${signals.length}',
+                        style: TextStyle(
+                          color: category.color,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    latest == null
+                        ? category.subtitle
+                        : '${latest.stock} · ${latest.conditionLabel.isEmpty ? latest.type : latest.conditionLabel}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: secondaryTextColor(context),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: signals.isEmpty ? mutedIconColor(context) : category.color,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class SignalCategoryScreen extends StatelessWidget {
+  const SignalCategoryScreen({
+    super.key,
+    required this.category,
+    required this.signals,
+  });
+
+  final SignalCategory category;
+  final List<TradeSignal> signals;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: pageBackgroundColor(context),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  tooltip: '返回',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: PageTitle(
+                    title: category.title,
+                    subtitle: '${signals.length} 条信号 · ${category.subtitle}',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            if (signals.isEmpty)
+              const ReadOnlyEmptyState(
+                icon: Icons.notifications_none_rounded,
+                title: '暂无信号',
+                subtitle: '该分类下暂时没有触发记录。',
+              )
+            else
+              ...signals.map(
+                (signal) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: SignalTile(signal: signal),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
