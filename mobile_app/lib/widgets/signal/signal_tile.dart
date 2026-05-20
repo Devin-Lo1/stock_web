@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/trade_signal.dart';
 import '../../utils/theme_helpers.dart';
 import '../common/app_tag.dart';
+import 'signal_presentation.dart';
 
 class SignalTile extends StatelessWidget {
   const SignalTile({super.key, required this.signal});
@@ -11,6 +12,7 @@ class SignalTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final color = signalColor(signal);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -24,13 +26,10 @@ class SignalTile extends StatelessWidget {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: signal.color.withValues(alpha: 0.15),
+              color: color.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              Icons.notifications_active_outlined,
-              color: signal.color,
-            ),
+            child: Icon(Icons.notifications_active_outlined, color: color),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -58,7 +57,7 @@ class SignalTile extends StatelessWidget {
                   Text(
                     signal.conditionLabel,
                     style: TextStyle(
-                      color: signal.color,
+                      color: color,
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
                     ),

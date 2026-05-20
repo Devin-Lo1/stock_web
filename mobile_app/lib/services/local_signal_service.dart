@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-
 import '../models/stock_position.dart';
 import '../models/strategy_settings.dart';
 import '../models/trade_signal.dart';
@@ -18,7 +16,7 @@ List<TradeSignal> buildSignals(
           stock: '${position.name} ${position.code}',
           time: '持有收益 ${formatPercent(position.profitRate)}',
           level: '高',
-          color: const Color(0xFF12B886),
+          tone: SignalTone.positive,
         ),
       );
     }
@@ -29,7 +27,7 @@ List<TradeSignal> buildSignals(
           stock: '${position.name} ${position.code}',
           time: '持有收益 ${formatPercent(position.profitRate)}',
           level: '高',
-          color: const Color(0xFFFF3B45),
+          tone: SignalTone.negative,
         ),
       );
     }
@@ -40,7 +38,7 @@ List<TradeSignal> buildSignals(
           stock: '${position.name} ${position.code}',
           time: '当日 ${formatPercent(position.dailyProfitRate)}',
           level: '中',
-          color: const Color(0xFF12B886),
+          tone: SignalTone.positive,
         ),
       );
     }
@@ -51,7 +49,7 @@ List<TradeSignal> buildSignals(
           stock: '${position.name} ${position.code}',
           time: '当日 ${formatPercent(position.dailyProfitRate)}',
           level: '中',
-          color: const Color(0xFFFF3B45),
+          tone: SignalTone.negative,
         ),
       );
     }

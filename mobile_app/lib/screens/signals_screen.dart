@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/trade_signal.dart';
 import '../widgets/common/empty_state.dart';
 import '../widgets/common/page_title.dart';
+import '../widgets/signal/signal_presentation.dart';
 import '../widgets/signal/signal_tile.dart';
 import '../utils/theme_helpers.dart';
 
