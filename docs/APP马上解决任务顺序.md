@@ -17,7 +17,7 @@
 - 所有代码改动必须执行 format、analyze、test。
 - 涉及后端改动必须执行 `python -m compileall app`。
 - 涉及真机体验必须重新构建并安装 APK。
-- 当前真机调试采用局域网后端地址 `http://192.168.1.4:8000`。重新打 debug APK 时禁止裸跑 `flutter build apk --debug`，必须传 `--dart-define=API_BASE_URL=http://192.168.1.4:8000`，或直接运行 `.\scripts\build_mobile_lan_debug.ps1`。
+- 当前真机调试采用局域网后端地址。重新打 debug APK 时禁止裸跑 `flutter build apk --debug`，必须直接运行 `.\scripts\build_mobile_lan_debug.ps1` 自动探测当前电脑局域网 IP，或手动传 `--dart-define=API_BASE_URL=http://电脑当前局域网IP:8000`。
 
 ## 1. 当前真实状态
 
@@ -36,10 +36,10 @@ MA 指标
 K 线图
 ```
 
-- 局域网真机调试方式已验证：
+- 局域网真机调试方式已验证，注意电脑换 Wi-Fi、热点或路由器后 IP 会变化，必须重新构建安装 APK：
 
 ```text
-API_BASE_URL=http://192.168.1.4:8000
+API_BASE_URL=http://电脑当前局域网IP:8000
 ```
 
 ## 2. 第一优先级：同步文档中的旧描述
@@ -1274,7 +1274,7 @@ debug APK 已安装到真机验证
 
 ### 当前下一步建议
 
-1. 先完成局域网真机页面验证，确认设置页“后端 API”为 `http://192.168.1.4:8000`。
+1. 先完成局域网真机页面验证，确认设置页“后端 API”为电脑当前局域网地址，例如 `http://当前IP:8000`。
 2. 暂时拿不到 Huawei Push Kit 配置时，不阻塞信号中心建设；先把信号解释、筛选、落库和去重做好。
 3. 然后接外部通知通道，例如 Email、Telegram、短信或 WhatsApp，作为无厂商 Push 配置时的可达提醒方案。
 4. 厂商配置具备后，再补 Huawei Push Kit / FCM 的系统级远程推送。

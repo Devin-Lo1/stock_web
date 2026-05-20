@@ -264,7 +264,8 @@ mutedIconColor(context)
 - 真机调试访问本机后端时必须处理地址问题。
 - 每次切换后端连接方式后，必须重新构建或重新运行 App，确认 `API_BASE_URL` 已经生效。
 - 每次重新插拔手机、重启 ADB、重启电脑后，若使用 USB reverse，必须重新检查端口转发。
-- 项目当前默认采用局域网真机调试。重新构建真机 APK 时禁止裸跑 `flutter build apk --debug`，必须显式传入 `--dart-define=API_BASE_URL=http://电脑局域网IP:8000`，否则 App 会回退到 `http://127.0.0.1:8000`，真机将无法通过局域网连接后端。
+- 项目当前默认采用局域网真机调试。重新构建真机 APK 时禁止裸跑 `flutter build apk --debug`，必须运行 `.\scripts\build_mobile_lan_debug.ps1` 或显式传入 `--dart-define=API_BASE_URL=http://电脑当前局域网IP:8000`，否则 App 会回退到 `http://127.0.0.1:8000`，真机将无法通过局域网连接后端。
+- 电脑切换 Wi-Fi、热点、路由器或网卡后，局域网 IP 可能变化；必须重新构建并安装 APK。`build_mobile_lan_debug.ps1` 默认会自动探测当前带默认网关的 IPv4 地址。
 - 真机 APK 安装后必须到 App 设置页核对“后端 API”显示的地址；如果不是当前电脑局域网地址，本次 APK 视为构建错误，必须重新构建安装。
 
 真机 USB 调试推荐：
@@ -280,13 +281,13 @@ D:\Android\Sdk\platform-tools\adb.exe reverse --list
 D:\flutter\bin\flutter.bat build apk --debug --dart-define=API_BASE_URL=http://电脑局域网IP:8000
 ```
 
-当前局域网调试示例：
+当前局域网调试示例，IP 必须按电脑当前网络实际值替换：
 
 ```powershell
-D:\flutter\bin\flutter.bat build apk --debug --dart-define=API_BASE_URL=http://192.168.1.4:8000
+D:\flutter\bin\flutter.bat build apk --debug --dart-define=API_BASE_URL=http://电脑当前局域网IP:8000
 ```
 
-推荐使用仓库脚本，避免漏传 `API_BASE_URL`：
+推荐使用仓库脚本，自动探测当前局域网 IP，避免漏传 `API_BASE_URL`：
 
 ```powershell
 .\scripts\build_mobile_lan_debug.ps1
@@ -398,8 +399,9 @@ D:\flutter\bin\flutter.bat test
 如果改动涉及 APK 或真机体验，还必须运行：
 
 ```powershell
-D:\flutter\bin\flutter.bat build apk --debug --dart-define=API_BASE_URL=http://192.168.1.4:8000
-D:\Android\Sdk\platform-tools\adb.exe -s PQY0221B24008957 install -r build\app\outputs\flutter-apk\app-debug.apk
+cd C:\Users\58229\Desktop\stock_web
+.\scripts\build_mobile_lan_debug.ps1
+D:\Android\Sdk\platform-tools\adb.exe -s PQY0221B24008957 install -r mobile_app\build\app\outputs\flutter-apk\app-debug.apk
 ```
 
 ### 8.2 后端每次代码修改后必须运行
