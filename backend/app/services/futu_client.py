@@ -148,11 +148,20 @@ def _read_float(row: Any, key: str) -> float:
 
 
 def _market_from_code(code: str) -> str:
-    return "US" if code.startswith("US.") else "HK"
+    market = code.split(".", 1)[0].upper() if "." in code else ""
+    if market in {"HK", "US", "SH", "SZ"}:
+        return market
+    raise FutuOpenDError(f"Unsupported market code: {code}")
 
 
 def _currency_from_code(code: str) -> str:
-    return "USD" if code.startswith("US.") else "HKD"
+    market = _market_from_code(code)
+    return {
+        "HK": "HKD",
+        "US": "USD",
+        "SH": "CNY",
+        "SZ": "CNY",
+    }[market]
 
 
 def _normalize_period(period: str) -> str:

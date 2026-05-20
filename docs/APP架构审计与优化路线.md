@@ -204,7 +204,7 @@ docs 当前最大问题不是内容少，而是历史记录太多、入口失效
 1. 修正 `backend/app/services/futu_client.py`：
    - `US.` -> `US` / `USD`
    - `HK.` -> `HK` / `HKD`
-   - `SH.`、`SZ.` -> `CN` 或 `A` / `CNY`
+   - `SH.`、`SZ.` -> `SH`、`SZ` / `CNY`
 2. `stock_search.py` 复用 Futu host/port 常量，不再重复写死。
 3. 补充后端单元测试。
 
@@ -297,4 +297,3 @@ D:\flutter\bin\dart.bat format lib test
 D:\flutter\bin\flutter.bat analyze
 D:\flutter\bin\flutter.bat test
 ```
-

@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .futu_import import get_futu_sdk
-from .futu_client import FutuDependencyError, FutuOpenDError
+from .futu_client import FUTU_HOST, FUTU_PORT, FutuDependencyError, FutuOpenDError
 from ..schemas import StockSearchResult
 
 
@@ -83,7 +83,7 @@ def _get_cached_items(include_derivatives: bool) -> list[_StockSearchItem]:
     if sdk is None:
         raise FutuDependencyError("futu-api is not installed")
 
-    quote_context = sdk.OpenQuoteContext(host="127.0.0.1", port=11111)
+    quote_context = sdk.OpenQuoteContext(host=FUTU_HOST, port=FUTU_PORT)
     try:
         next_items: list[_StockSearchItem] = []
         stock_types = _stock_types(sdk, include_derivatives)
