@@ -1048,6 +1048,16 @@ backend/app/schemas/backtests.py
 
 股票搜索服务。
 
+### `backend/app/services/signal_scan_config.py`
+
+后端策略信号扫描配置。
+
+职责：
+
+- 定义 `SignalScanConfig`。
+- 提供默认扫描策略和参数列表。
+- 让 `signal_scanner.py` 专注扫描流程，不直接硬编码“扫哪些策略”。
+
 ## 14. 后续新增功能应放哪里
 
 ### 新增页面
@@ -1135,9 +1145,9 @@ mobile_app/lib/models/notification_models.dart
 
 ```text
 backend/app/schemas/notifications.py
-backend/app/models/notification_models.py
 backend/app/repositories/notifications.py
-backend/app/services/signal_scan_service.py
+backend/app/services/signal_scanner.py
+backend/app/services/signal_scan_config.py
 backend/app/services/push_service.py
 backend/app/services/push_providers/fcm.py
 backend/app/routers/notifications.py
@@ -1148,6 +1158,8 @@ backend/app/routers/notifications.py
 - `backend/app/schemas/notifications.py`
 - `backend/app/repositories/notifications.py`
 - `backend/app/routers/notifications.py`
+- `backend/app/services/signal_scanner.py`
+- `backend/app/services/signal_scan_config.py`
 - `backend/app/services/push_service.py`
 - `backend/app/services/push_providers/fcm.py`
 - `mobile_app/lib/models/notification_models.dart`
@@ -1162,7 +1174,8 @@ backend/app/routers/notifications.py
 - `notification_service.dart` 继续负责 App 内本地通知展示。
 - `push_token_service.dart` 负责获取、刷新和上报设备 token。
 - `notification_repository.dart` 负责通知设置、测试通知、设备注册接口，不在页面里直接拼 HTTP。
-- `signal_scan_service.py` 负责后端扫描持仓和行情并生成信号事件。
+- `signal_scanner.py` 负责后端扫描持仓和行情并生成信号事件。
+- `signal_scan_config.py` 负责提供后端扫描策略配置，后续可迁移到数据库和 App 设置。
 - `push_service.py` 负责编排推送、去重、重试和记录结果。
 - `push_providers/` 下按通道拆实现，第一版优先 `fcm.py`，后续再加厂商推送。
 - 信号必须先落库再推送，推送失败不能导致信号丢失。

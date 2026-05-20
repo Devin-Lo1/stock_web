@@ -224,6 +224,14 @@ docs 当前最大问题不是内容少，而是历史记录太多、入口失效
 3. 第二阶段再接数据库配置。
 4. `signal_events` 继续结构化字段，减少重要信息只藏在 payload 中。
 
+2026-05-20 第一阶段进展：
+
+- 已新增 `backend/app/services/signal_scan_config.py`。
+- `signal_scanner.py` 不再直接维护默认扫描策略列表，只读取 `list_signal_scan_configs()`。
+- 默认扫描配置仍保持原行为：`price_break_ma` MA5/10/20、MA Cross 5/20、RSI 14/30/70、MACD 12/26/9。
+- 已补测试证明 MA Cross 可通过替换配置使用短 3、长 7，不需要改扫描主流程。
+- 下一步如果继续做配置化，应把这些配置迁移到数据库，并提供 App 开关和参数编辑入口。
+
 验收：
 
 - 新增策略时不需要改扫描器主体流程。

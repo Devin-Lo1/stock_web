@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
@@ -14,16 +13,13 @@ from ..services.futu_client import (
     FutuOpenDError,
     request_history_klines,
 )
+from ..services.signal_scan_config import (
+    SignalScanConfig,
+    list_signal_scan_configs,
+)
 from ..strategies import get_strategy
 from ..strategies.base import StrategyConfigurationError, StrategySignal
 from ..strategies.factors import macd, moving_average, relative_strength_index
-
-
-@dataclass(frozen=True)
-class _ScanConfig:
-    strategy_code: str
-    strategy_name: str
-    parameters: dict[str, object]
 
 
 def scan_strategy_signals(*, refresh: bool = False) -> SignalScanResult:
@@ -46,7 +42,7 @@ def scan_strategy_signals(*, refresh: bool = False) -> SignalScanResult:
             skipped_count += 1
             continue
 
-        for config in _scan_configs():
+        for config in list_signal_scan_configs():
             strategy = get_strategy(config.strategy_code)
             if strategy is None:
                 skipped_count += 1
@@ -127,41 +123,6 @@ def _load_scan_candles(
     return list_candles(position.code, "day", 260), None
 
 
-def _scan_configs() -> list[_ScanConfig]:
-    return [
-        _ScanConfig(
-            strategy_code="price_break_ma",
-            strategy_name="Price Break MA",
-            parameters={"ma_window": 5, "direction": "both"},
-        ),
-        _ScanConfig(
-            strategy_code="price_break_ma",
-            strategy_name="Price Break MA",
-            parameters={"ma_window": 10, "direction": "both"},
-        ),
-        _ScanConfig(
-            strategy_code="price_break_ma",
-            strategy_name="Price Break MA",
-            parameters={"ma_window": 20, "direction": "both"},
-        ),
-        _ScanConfig(
-            strategy_code="ma_cross",
-            strategy_name="MA Cross",
-            parameters={"short_window": 5, "long_window": 20},
-        ),
-        _ScanConfig(
-            strategy_code="rsi_reversal",
-            strategy_name="RSI Reversal",
-            parameters={"rsi_window": 14, "oversold": 30, "overbought": 70},
-        ),
-        _ScanConfig(
-            strategy_code="macd_trend",
-            strategy_name="MACD Trend",
-            parameters={"fast_window": 12, "slow_window": 26, "signal_window": 9},
-        ),
-    ]
-
-
 def _latest_signal(signals: list[StrategySignal], latest_index: int) -> StrategySignal | None:
     for signal in reversed(signals):
         if signal.index == latest_index:
@@ -174,7 +135,7 @@ def _latest_signal(signals: list[StrategySignal], latest_index: int) -> Strategy
 def _event_payload(
     position: Position,
     candles: list[Candle],
-    config: _ScanConfig,
+    config: SignalScanConfig,
     signal: StrategySignal,
 ) -> SignalEventCreate:
     latest = candles[signal.index]
@@ -222,7 +183,7 @@ def _event_payload(
 
 def _condition_values(
     candles: list[Candle],
-    config: _ScanConfig,
+    config: SignalScanConfig,
     signal: StrategySignal,
 ) -> tuple[str, float, float]:
     closes = [candle.close for candle in candles]
