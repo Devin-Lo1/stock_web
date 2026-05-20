@@ -9,6 +9,7 @@ extension SignalCategoryPresentation on SignalCategory {
       SignalCategory.strategy => '量化策略',
       SignalCategory.risk => '风控提醒',
       SignalCategory.system => '系统通知',
+      SignalCategory.ignored => '已忽略',
     };
   }
 
@@ -18,6 +19,7 @@ extension SignalCategoryPresentation on SignalCategory {
       SignalCategory.strategy => 'MA、RSI、MACD 等策略触发',
       SignalCategory.risk => '止盈、止损和当日异动',
       SignalCategory.system => '连接、推送和任务状态',
+      SignalCategory.ignored => '手动忽略的信号记录',
     };
   }
 
@@ -27,6 +29,7 @@ extension SignalCategoryPresentation on SignalCategory {
       SignalCategory.strategy => Icons.science_rounded,
       SignalCategory.risk => Icons.shield_rounded,
       SignalCategory.system => Icons.settings_suggest_rounded,
+      SignalCategory.ignored => Icons.visibility_off_rounded,
     };
   }
 
@@ -36,6 +39,7 @@ extension SignalCategoryPresentation on SignalCategory {
       SignalCategory.strategy => const Color(0xFF38BDF8),
       SignalCategory.risk => const Color(0xFFE6B450),
       SignalCategory.system => const Color(0xFF8B9CB3),
+      SignalCategory.ignored => const Color(0xFF7C8798),
     };
   }
 }

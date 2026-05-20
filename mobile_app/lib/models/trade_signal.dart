@@ -14,6 +14,7 @@ class TradeSignal {
     this.thresholdValue,
     this.pushCandidate = false,
     this.sourceCategory = '',
+    this.readStatus = 'unread',
   });
 
   final String id;
@@ -30,10 +31,12 @@ class TradeSignal {
   final double? thresholdValue;
   final bool pushCandidate;
   final String sourceCategory;
+  final String readStatus;
 
   String get notificationKey => id.isNotEmpty ? id : '$type|$stock';
 
   SignalCategory get category {
+    if (readStatus == 'ignored') return SignalCategory.ignored;
     if (sourceCategory == 'strategy' || strategyName.isNotEmpty) {
       return SignalCategory.strategy;
     }
@@ -67,11 +70,12 @@ class TradeSignal {
       thresholdValue: _readDouble(json['threshold_value']),
       pushCandidate: payload['push_candidate'] as bool? ?? false,
       sourceCategory: payload['source_category'] as String? ?? '',
+      readStatus: json['read_status'] as String? ?? 'unread',
     );
   }
 }
 
-enum SignalCategory { important, strategy, risk, system }
+enum SignalCategory { important, strategy, risk, system, ignored }
 
 enum SignalTone { positive, negative, warning, info }
 

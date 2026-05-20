@@ -23,6 +23,7 @@ from .repositories.notifications import (
     list_notification_devices,
     list_push_records,
     list_signal_events,
+    mark_signal_event_ignored,
     mark_signal_event_read,
     upsert_notification_device,
 )
@@ -68,6 +69,7 @@ __all__ = [
     "create_signal_event",
     "list_signal_events",
     "mark_signal_event_read",
+    "mark_signal_event_ignored",
     "upsert_notification_device",
     "get_notification_device_by_token",
     "list_notification_devices",

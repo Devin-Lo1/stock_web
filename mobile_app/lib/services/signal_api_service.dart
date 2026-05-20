@@ -7,10 +7,29 @@ class SignalApiService {
 
   final ApiClient _apiClient;
 
-  Future<List<TradeSignal>> fetchSignalEvents({int limit = 50}) async {
+  Future<List<TradeSignal>> fetchSignalEvents({
+    int limit = 50,
+    String? code,
+    String? readStatus,
+    String? level,
+    String? sourceCategory,
+    String? strategyCode,
+    bool? pushCandidate,
+  }) async {
     final decoded = await _apiClient.get(
       '/api/v1/signals/events',
-      query: {'limit': limit.toString()},
+      query: {
+        'limit': limit.toString(),
+        if (code != null && code.isNotEmpty) 'code': code,
+        if (readStatus != null && readStatus.isNotEmpty)
+          'read_status': readStatus,
+        if (level != null && level.isNotEmpty) 'level': level,
+        if (sourceCategory != null && sourceCategory.isNotEmpty)
+          'source_category': sourceCategory,
+        if (strategyCode != null && strategyCode.isNotEmpty)
+          'strategy_code': strategyCode,
+        if (pushCandidate != null) 'push_candidate': pushCandidate.toString(),
+      },
     );
     return (decoded as List? ?? const [])
         .whereType<Map<String, dynamic>>()

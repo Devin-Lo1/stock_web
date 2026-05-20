@@ -1,7 +1,11 @@
 from fastapi import APIRouter, Query, status
 
 from ..mock_store import list_signals
-from ..repositories.notifications import list_signal_events
+from ..repositories.notifications import (
+    list_signal_events,
+    mark_signal_event_ignored,
+    mark_signal_event_read,
+)
 from ..repositories.signal_scan_configs import (
     create_signal_scan_config,
     list_signal_scan_configs,
@@ -32,9 +36,37 @@ def api_list_signals() -> list[Signal]:
 def api_list_signal_events(
     code: str | None = Query(default=None),
     read_status: str | None = Query(default=None),
+    level: str | None = Query(default=None),
+    source_category: str | None = Query(default=None),
+    strategy_code: str | None = Query(default=None),
+    push_candidate: bool | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
 ) -> list[SignalEvent]:
-    return list_signal_events(code=code, read_status=read_status, limit=limit)
+    return list_signal_events(
+        code=code,
+        read_status=read_status,
+        level=level,
+        source_category=source_category,
+        strategy_code=strategy_code,
+        push_candidate=push_candidate,
+        limit=limit,
+    )
+
+
+@router.put("/events/{event_id}/read", response_model=SignalEvent)
+def api_mark_signal_event_read(event_id: str) -> SignalEvent:
+    event = mark_signal_event_read(event_id)
+    if event is None:
+        raise not_found_error("信号事件不存在", event_id=event_id)
+    return event
+
+
+@router.put("/events/{event_id}/ignore", response_model=SignalEvent)
+def api_mark_signal_event_ignored(event_id: str) -> SignalEvent:
+    event = mark_signal_event_ignored(event_id)
+    if event is None:
+        raise not_found_error("信号事件不存在", event_id=event_id)
+    return event
 
 
 @router.get("/configs", response_model=list[SignalScanConfig])

@@ -134,6 +134,7 @@ class _AppShellState extends State<AppShell> {
         usingBackendSignals: _backendSignals.isNotEmpty,
         onRefresh: _refreshSignalsPage,
         onScan: _scanSignals,
+        onLoadCategory: _backendSignals.isEmpty ? null : _loadSignalCategory,
       ),
       SettingsScreen(
         settings: _settings,
@@ -347,6 +348,31 @@ class _AppShellState extends State<AppShell> {
     } finally {
       if (mounted) setState(() => _isScanningSignals = false);
     }
+  }
+
+  Future<List<TradeSignal>> _loadSignalCategory(SignalCategory category) {
+    return switch (category) {
+      SignalCategory.important => _signalRepository.loadSignals(
+        limit: 100,
+        level: 'important',
+      ),
+      SignalCategory.strategy => _signalRepository.loadSignals(
+        limit: 100,
+        sourceCategory: 'strategy',
+      ),
+      SignalCategory.risk => _signalRepository.loadSignals(
+        limit: 100,
+        sourceCategory: 'risk',
+      ),
+      SignalCategory.system => _signalRepository.loadSignals(
+        limit: 100,
+        sourceCategory: 'system',
+      ),
+      SignalCategory.ignored => _signalRepository.loadSignals(
+        limit: 100,
+        readStatus: 'ignored',
+      ),
+    };
   }
 
   Future<void> _savePositions() {

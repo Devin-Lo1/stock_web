@@ -251,6 +251,21 @@ docs 当前最大问题不是内容少，而是历史记录太多、入口失效
 
 ### 阶段 4：AppShell 拆控制器
 
+2026-05-21 筛选分类进展：
+
+- 后端 `GET /api/v1/signals/events` 已支持 `source_category`、`strategy_code`、`level`、`push_candidate`、`read_status`、`code`、`limit` 筛选。
+- 后端已新增：
+  - `PUT /api/v1/signals/events/{event_id}/read`
+  - `PUT /api/v1/signals/events/{event_id}/ignore`
+- `read_status` 已支持 `unread`、`read`、`ignored`。
+- App 信号分类页点击分类后，已可按分类调用后端筛选接口。
+- 当前分类映射：
+  - 重要信号：`level=important`
+  - 量化策略：`source_category=strategy`
+  - 风控提醒：`source_category=risk`
+  - 系统通知：`source_category=system`
+  - 已忽略：`read_status=ignored`
+
 目标：降低入口状态复杂度。
 
 建议拆分：

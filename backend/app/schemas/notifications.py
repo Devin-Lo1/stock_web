@@ -16,7 +16,7 @@ PushProvider = Literal[
     "unknown",
 ]
 PushStatus = Literal["queued", "sent", "failed", "skipped"]
-SignalReadStatus = Literal["unread", "read"]
+SignalReadStatus = Literal["unread", "read", "ignored"]
 
 
 class SignalEventCreate(BaseModel):

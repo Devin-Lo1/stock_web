@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/trade_signal.dart';
@@ -16,6 +18,7 @@ class SignalsScreen extends StatelessWidget {
     required this.usingBackendSignals,
     required this.onRefresh,
     required this.onScan,
+    this.onLoadCategory,
   });
 
   final List<TradeSignal> signals;
@@ -24,6 +27,8 @@ class SignalsScreen extends StatelessWidget {
   final bool usingBackendSignals;
   final Future<void> Function() onRefresh;
   final Future<void> Function() onScan;
+  final Future<List<TradeSignal>> Function(SignalCategory category)?
+  onLoadCategory;
 
   @override
   Widget build(BuildContext context) {
@@ -83,6 +88,7 @@ class SignalsScreen extends StatelessWidget {
                 child: _SignalCategoryTile(
                   category: category,
                   signals: _signalsForCategory(category),
+                  onLoadCategory: onLoadCategory,
                 ),
               ),
             ),
@@ -95,22 +101,31 @@ class SignalsScreen extends StatelessWidget {
     if (category == SignalCategory.important) {
       return signals.where((signal) => signal.level == '高').toList();
     }
+    if (category == SignalCategory.ignored) {
+      return signals.where((signal) => signal.readStatus == 'ignored').toList();
+    }
     return signals.where((signal) => signal.category == category).toList();
   }
 }
 
 class _SignalCategoryTile extends StatelessWidget {
-  const _SignalCategoryTile({required this.category, required this.signals});
+  const _SignalCategoryTile({
+    required this.category,
+    required this.signals,
+    required this.onLoadCategory,
+  });
 
   final SignalCategory category;
   final List<TradeSignal> signals;
+  final Future<List<TradeSignal>> Function(SignalCategory category)?
+  onLoadCategory;
 
   @override
   Widget build(BuildContext context) {
     final latest = signals.isEmpty ? null : signals.first;
     return InkWell(
       borderRadius: BorderRadius.circular(8),
-      onTap: signals.isEmpty
+      onTap: signals.isEmpty && onLoadCategory == null
           ? null
           : () {
               Navigator.of(context).push(
@@ -118,6 +133,7 @@ class _SignalCategoryTile extends StatelessWidget {
                   builder: (context) => SignalCategoryScreen(
                     category: category,
                     signals: signals,
+                    onLoadSignals: onLoadCategory,
                   ),
                 ),
               );
@@ -199,10 +215,72 @@ class SignalCategoryScreen extends StatelessWidget {
     super.key,
     required this.category,
     required this.signals,
+    this.onLoadSignals,
   });
 
   final SignalCategory category;
   final List<TradeSignal> signals;
+  final Future<List<TradeSignal>> Function(SignalCategory category)?
+  onLoadSignals;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SignalCategoryScaffold(
+      category: category,
+      initialSignals: signals,
+      onLoadSignals: onLoadSignals,
+    );
+  }
+}
+
+class _SignalCategoryScaffold extends StatefulWidget {
+  const _SignalCategoryScaffold({
+    required this.category,
+    required this.initialSignals,
+    required this.onLoadSignals,
+  });
+
+  final SignalCategory category;
+  final List<TradeSignal> initialSignals;
+  final Future<List<TradeSignal>> Function(SignalCategory category)?
+  onLoadSignals;
+
+  @override
+  State<_SignalCategoryScaffold> createState() =>
+      _SignalCategoryScaffoldState();
+}
+
+class _SignalCategoryScaffoldState extends State<_SignalCategoryScaffold> {
+  late List<TradeSignal> _signals = widget.initialSignals;
+  bool _isLoading = false;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.onLoadSignals != null) {
+      unawaited(_loadSignals());
+    }
+  }
+
+  Future<void> _loadSignals() async {
+    final loader = widget.onLoadSignals;
+    if (loader == null) return;
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final signals = await loader(widget.category);
+      if (!mounted) return;
+      setState(() => _signals = signals);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -222,21 +300,32 @@ class SignalCategoryScreen extends StatelessWidget {
                 const SizedBox(width: 4),
                 Expanded(
                   child: PageTitle(
-                    title: category.title,
-                    subtitle: '${signals.length} 条信号 · ${category.subtitle}',
+                    title: widget.category.title,
+                    subtitle:
+                        '${_signals.length} 条信号 · ${widget.category.subtitle}',
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 14),
-            if (signals.isEmpty)
+            if (_isLoading)
+              const Center(child: CircularProgressIndicator(strokeWidth: 2))
+            else if (_error != null)
+              EmptyState(
+                icon: Icons.error_outline_rounded,
+                title: '加载失败',
+                subtitle: '请刷新后重试。',
+                actionLabel: '重试',
+                onAction: _loadSignals,
+              )
+            else if (_signals.isEmpty)
               const ReadOnlyEmptyState(
                 icon: Icons.notifications_none_rounded,
                 title: '暂无信号',
                 subtitle: '该分类下暂时没有触发记录。',
               )
             else
-              ...signals.map(
+              ..._signals.map(
                 (signal) => Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: SignalTile(signal: signal),

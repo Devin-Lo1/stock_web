@@ -302,3 +302,69 @@ def test_signal_scan_endpoint_creates_explainable_strategy_event() -> None:
     assert event["threshold_value"] > 0
     assert second_response.json()["created_count"] == 0
     assert events_response.json()[0]["id"] == event["id"]
+
+
+def test_signal_events_endpoint_filters_categories_and_ignored_status() -> None:
+    client = TestClient(app)
+    strategy = database.create_signal_event(
+        SignalEventCreate(
+            source="strategy_scanner",
+            code="HK.09988",
+            signal_type="ma_cross_buy",
+            level="important",
+            title="阿里巴巴触发 MA Cross 观察",
+            message="MA3 上穿 MA7",
+            trigger_value=12,
+            threshold_value=11,
+            dedupe_key="HK.09988:ma_cross:buy:2026-05-20",
+            payload={
+                "source_category": "strategy",
+                "strategy_code": "ma_cross",
+                "push_candidate": True,
+            },
+            triggered_at=datetime(2026, 5, 20, tzinfo=timezone.utc),
+        ),
+    )
+    risk = database.create_signal_event(
+        SignalEventCreate(
+            source="risk",
+            code="HK.00700",
+            signal_type="stop_loss_watch",
+            level="warning",
+            title="腾讯控股触发风控观察",
+            message="接近止损线",
+            dedupe_key="HK.00700:risk:2026-05-20",
+            payload={"source_category": "risk", "push_candidate": False},
+            triggered_at=datetime(2026, 5, 20, tzinfo=timezone.utc),
+        ),
+    )
+    system = database.create_signal_event(
+        SignalEventCreate(
+            source="test",
+            code="TEST",
+            signal_type="notification_test",
+            level="info",
+            title="测试提醒",
+            message="通知链路测试",
+            dedupe_key="TEST:system:2026-05-20",
+            payload={"source_category": "system", "push_candidate": False},
+            triggered_at=datetime(2026, 5, 20, tzinfo=timezone.utc),
+        ),
+    )
+
+    ignored_response = client.put(f"/api/v1/signals/events/{risk.id}/ignore")
+    strategy_response = client.get(
+        "/api/v1/signals/events?source_category=strategy&strategy_code=ma_cross",
+    )
+    important_response = client.get("/api/v1/signals/events?level=important")
+    push_response = client.get("/api/v1/signals/events?push_candidate=true")
+    system_response = client.get("/api/v1/signals/events?source_category=system")
+    ignored_list_response = client.get("/api/v1/signals/events?read_status=ignored")
+
+    assert ignored_response.status_code == 200
+    assert ignored_response.json()["read_status"] == "ignored"
+    assert [item["id"] for item in strategy_response.json()] == [strategy.id]
+    assert [item["id"] for item in important_response.json()] == [strategy.id]
+    assert [item["id"] for item in push_response.json()] == [strategy.id]
+    assert [item["id"] for item in system_response.json()] == [system.id]
+    assert [item["id"] for item in ignored_list_response.json()] == [risk.id]

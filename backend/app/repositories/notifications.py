@@ -72,6 +72,10 @@ def list_signal_events(
     *,
     code: str | None = None,
     read_status: str | None = None,
+    level: str | None = None,
+    source_category: str | None = None,
+    strategy_code: str | None = None,
+    push_candidate: bool | None = None,
     limit: int = 50,
 ) -> list[SignalEvent]:
     clauses: list[str] = []
@@ -82,6 +86,9 @@ def list_signal_events(
     if read_status:
         clauses.append("read_status = ?")
         parameters.append(read_status)
+    if level:
+        clauses.append("level = ?")
+        parameters.append(level)
     where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     safe_limit = max(1, min(limit, 200))
     with _connect() as connection:
@@ -93,14 +100,34 @@ def list_signal_events(
             FROM signal_events
             {where_sql}
             ORDER BY triggered_at DESC
-            LIMIT ?
             """,
-            (*parameters, safe_limit),
+            tuple(parameters),
         ).fetchall()
-    return [_row_to_signal_event(row) for row in rows]
+    events = [_row_to_signal_event(row) for row in rows]
+    return [
+        event
+        for event in events
+        if _matches_payload_filters(
+            event,
+            source_category=source_category,
+            strategy_code=strategy_code,
+            push_candidate=push_candidate,
+        )
+    ][:safe_limit]
 
 
 def mark_signal_event_read(event_id: str) -> SignalEvent | None:
+    return _mark_signal_event_status(event_id, "read")
+
+
+def mark_signal_event_ignored(event_id: str) -> SignalEvent | None:
+    return _mark_signal_event_status(event_id, "ignored")
+
+
+def _mark_signal_event_status(
+    event_id: str,
+    read_status: str,
+) -> SignalEvent | None:
     now = _now()
     with _connect() as connection:
         row = connection.execute(
@@ -121,7 +148,7 @@ def mark_signal_event_read(event_id: str) -> SignalEvent | None:
                 updated_at = ?
             WHERE id = ?
             """,
-            ("read", _datetime_to_text(now), _datetime_to_text(now), event_id),
+            (read_status, _datetime_to_text(now), _datetime_to_text(now), event_id),
         )
         updated = connection.execute(
             """
@@ -134,6 +161,37 @@ def mark_signal_event_read(event_id: str) -> SignalEvent | None:
             (event_id,),
         ).fetchone()
     return _row_to_signal_event(updated)
+
+
+def _matches_payload_filters(
+    event: SignalEvent,
+    *,
+    source_category: str | None,
+    strategy_code: str | None,
+    push_candidate: bool | None,
+) -> bool:
+    if source_category and _event_source_category(event) != source_category:
+        return False
+    if strategy_code:
+        value = str(event.payload.get("strategy_code", "")).strip()
+        if value != strategy_code:
+            return False
+    if push_candidate is not None:
+        value = event.payload.get("push_candidate", False)
+        if bool(value) is not push_candidate:
+            return False
+    return True
+
+
+def _event_source_category(event: SignalEvent) -> str:
+    value = str(event.payload.get("source_category", "")).strip()
+    if value:
+        return value
+    if event.source == "test" or event.code == "TEST":
+        return "system"
+    if event.source == "strategy_scanner":
+        return "strategy"
+    return ""
 
 
 def upsert_notification_device(

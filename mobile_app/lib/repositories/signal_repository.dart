@@ -7,8 +7,24 @@ class SignalRepository {
 
   final SignalApiService _apiService;
 
-  Future<List<TradeSignal>> loadSignals({int limit = 50}) {
-    return _apiService.fetchSignalEvents(limit: limit);
+  Future<List<TradeSignal>> loadSignals({
+    int limit = 50,
+    String? code,
+    String? readStatus,
+    String? level,
+    String? sourceCategory,
+    String? strategyCode,
+    bool? pushCandidate,
+  }) {
+    return _apiService.fetchSignalEvents(
+      limit: limit,
+      code: code,
+      readStatus: readStatus,
+      level: level,
+      sourceCategory: sourceCategory,
+      strategyCode: strategyCode,
+      pushCandidate: pushCandidate,
+    );
   }
 
   Future<SignalScanResult> scanSignals({bool refresh = false}) {

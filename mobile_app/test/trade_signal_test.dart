@@ -37,6 +37,7 @@ void main() {
       'code': 'TEST',
       'signal_type': 'notification_test',
       'level': 'info',
+      'read_status': 'ignored',
       'title': '测试提醒',
       'message': '通知链路测试',
       'triggered_at': '2026-05-20T00:00:00Z',
@@ -44,6 +45,7 @@ void main() {
     });
 
     expect(signal.tone, SignalTone.info);
-    expect(signal.category, SignalCategory.system);
+    expect(signal.readStatus, 'ignored');
+    expect(signal.category, SignalCategory.ignored);
   });
 }

@@ -1242,6 +1242,8 @@ K 线接口：
 - `GET /api/v1/signals`
 - `GET /api/v1/signals/events`
 - `POST /api/v1/signals/scan`
+- `PUT /api/v1/signals/events/{event_id}/read`
+- `PUT /api/v1/signals/events/{event_id}/ignore`
 - `GET /api/v1/signals/configs`
 - `POST /api/v1/signals/configs`
 - `PUT /api/v1/signals/configs/{config_id}`
