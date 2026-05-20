@@ -1240,6 +1240,12 @@ K 线接口：
 信号接口：
 
 - `GET /api/v1/signals`
+- `GET /api/v1/signals/events`
+- `POST /api/v1/signals/scan`
+- `GET /api/v1/signals/configs`
+- `POST /api/v1/signals/configs`
+- `PUT /api/v1/signals/configs/{config_id}`
+- `POST /api/v1/signals/configs/reset-defaults`
 
 ### `backend/app/routers/stocks.py`
 

@@ -230,7 +230,19 @@ docs 当前最大问题不是内容少，而是历史记录太多、入口失效
 - `signal_scanner.py` 不再直接维护默认扫描策略列表，只读取 `list_signal_scan_configs()`。
 - 默认扫描配置仍保持原行为：`price_break_ma` MA5/10/20、MA Cross 5/20、RSI 14/30/70、MACD 12/26/9。
 - 已补测试证明 MA Cross 可通过替换配置使用短 3、长 7，不需要改扫描主流程。
-- 下一步如果继续做配置化，应把这些配置迁移到数据库，并提供 App 开关和参数编辑入口。
+
+2026-05-20 第二阶段进展：
+
+- 已新增 `signal_scan_configs` 数据表，并在默认初始化时 seed 默认扫描配置。
+- 已新增 `backend/app/repositories/signal_scan_configs.py`，扫描配置读写进入 repository。
+- 已新增扫描配置 API：
+  - `GET /api/v1/signals/configs`
+  - `POST /api/v1/signals/configs`
+  - `PUT /api/v1/signals/configs/{config_id}`
+  - `POST /api/v1/signals/configs/reset-defaults`
+- `signal_scanner.py` 现在优先读取数据库配置；测试库无配置时仍 fallback 到默认配置，保证测试和空库可用。
+- 已补测试覆盖默认配置、持久化配置、MA Cross 3/7、自定义配置创建、启停和重置默认配置。
+- 下一步前端可以基于这些接口做设置页，不需要再改扫描主流程。
 
 验收：
 

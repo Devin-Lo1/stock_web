@@ -24,7 +24,13 @@ from .notifications import (
     SignalEventCreate,
     SignalReadStatus,
 )
-from .strategies import StrategyDefinition, StrategyDefinitionCreate
+from .strategies import (
+    SignalScanConfig,
+    SignalScanConfigCreate,
+    SignalScanConfigUpdate,
+    StrategyDefinition,
+    StrategyDefinitionCreate,
+)
 from .stocks import StockSearchResult
 
 __all__ = [
@@ -53,6 +59,9 @@ __all__ = [
     "SignalEvent",
     "SignalEventCreate",
     "SignalReadStatus",
+    "SignalScanConfig",
+    "SignalScanConfigCreate",
+    "SignalScanConfigUpdate",
     "StrategyDefinition",
     "StrategyDefinitionCreate",
     "StockSearchResult",

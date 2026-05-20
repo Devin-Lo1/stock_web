@@ -33,6 +33,11 @@ from .repositories.positions import (
     list_positions,
     update_position,
 )
+from .repositories.signal_scan_configs import (
+    create_signal_scan_config,
+    list_signal_scan_configs,
+    update_signal_scan_config,
+)
 from .repositories.strategies import (
     create_strategy_definition,
     list_strategy_definitions,
@@ -68,4 +73,7 @@ __all__ = [
     "list_notification_devices",
     "create_push_record",
     "list_push_records",
+    "list_signal_scan_configs",
+    "create_signal_scan_config",
+    "update_signal_scan_config",
 ]

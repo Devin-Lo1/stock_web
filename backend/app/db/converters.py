@@ -13,6 +13,7 @@ from ..schemas import (
     PushRecord,
     QuoteSnapshot,
     SignalEvent,
+    SignalScanConfig,
     StrategyDefinition,
 )
 
@@ -83,6 +84,20 @@ def _strategy_definition_values(
         _json_to_text(strategy.default_parameters),
         _datetime_to_text(strategy.created_at),
         _datetime_to_text(strategy.updated_at),
+    )
+
+
+def _signal_scan_config_values(config: SignalScanConfig) -> tuple[object, ...]:
+    return (
+        config.id,
+        config.strategy_code,
+        config.strategy_name,
+        _json_to_text(config.parameters),
+        _bool_to_int(config.enabled),
+        _bool_to_int(config.push_candidate),
+        config.sort_order,
+        _datetime_to_text(config.created_at),
+        _datetime_to_text(config.updated_at),
     )
 
 
@@ -245,6 +260,22 @@ def _row_to_strategy_definition(
         name=row["name"],
         description=row["description"],
         default_parameters=_json_from_text(row["default_parameters"]),
+        created_at=_text_to_datetime(row["created_at"]),
+        updated_at=_text_to_datetime(row["updated_at"]),
+    )
+
+
+def _row_to_signal_scan_config(
+    row: sqlite3.Row | dict[str, Any],
+) -> SignalScanConfig:
+    return SignalScanConfig(
+        id=row["id"],
+        strategy_code=row["strategy_code"],
+        strategy_name=row["strategy_name"],
+        parameters=_json_from_text(row["parameters"]),
+        enabled=_int_to_bool(row["enabled"]),
+        push_candidate=_int_to_bool(row["push_candidate"]),
+        sort_order=row["sort_order"],
         created_at=_text_to_datetime(row["created_at"]),
         updated_at=_text_to_datetime(row["updated_at"]),
     )

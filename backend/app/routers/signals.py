@@ -1,8 +1,23 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, status
 
 from ..mock_store import list_signals
 from ..repositories.notifications import list_signal_events
-from ..schemas import Signal, SignalEvent, SignalScanResult
+from ..repositories.signal_scan_configs import (
+    create_signal_scan_config,
+    list_signal_scan_configs,
+    replace_signal_scan_configs,
+    update_signal_scan_config,
+)
+from ..errors import not_found_error
+from ..schemas import (
+    Signal,
+    SignalEvent,
+    SignalScanConfig,
+    SignalScanConfigCreate,
+    SignalScanConfigUpdate,
+    SignalScanResult,
+)
+from ..services.signal_scan_config import default_signal_scan_configs
 from ..services.signal_scanner import scan_strategy_signals
 
 router = APIRouter(prefix="/api/v1/signals", tags=["signals"])
@@ -20,6 +35,40 @@ def api_list_signal_events(
     limit: int = Query(default=50, ge=1, le=200),
 ) -> list[SignalEvent]:
     return list_signal_events(code=code, read_status=read_status, limit=limit)
+
+
+@router.get("/configs", response_model=list[SignalScanConfig])
+def api_list_signal_scan_configs(
+    enabled_only: bool = Query(default=False),
+) -> list[SignalScanConfig]:
+    return list_signal_scan_configs(enabled_only=enabled_only)
+
+
+@router.post(
+    "/configs",
+    response_model=SignalScanConfig,
+    status_code=status.HTTP_201_CREATED,
+)
+def api_create_signal_scan_config(
+    payload: SignalScanConfigCreate,
+) -> SignalScanConfig:
+    return create_signal_scan_config(payload)
+
+
+@router.put("/configs/{config_id}", response_model=SignalScanConfig)
+def api_update_signal_scan_config(
+    config_id: str,
+    payload: SignalScanConfigUpdate,
+) -> SignalScanConfig:
+    config = update_signal_scan_config(config_id, payload)
+    if config is None:
+        raise not_found_error("扫描配置不存在", config_id=config_id)
+    return config
+
+
+@router.post("/configs/reset-defaults", response_model=list[SignalScanConfig])
+def api_reset_signal_scan_configs() -> list[SignalScanConfig]:
+    return replace_signal_scan_configs(default_signal_scan_configs())
 
 
 @router.post("/scan", response_model=SignalScanResult)

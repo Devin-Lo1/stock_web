@@ -1,12 +1,20 @@
 from uuid import uuid4
 
-from ..schemas import Position, PositionCreate, QuoteSnapshot, StrategyDefinition
+from ..schemas import (
+    Position,
+    PositionCreate,
+    QuoteSnapshot,
+    SignalScanConfig,
+    StrategyDefinition,
+)
+from ..services.signal_scan_config import default_signal_scan_configs
 from .core import _DatabaseConnection
 from .converters import (
     _datetime_to_text,
     _now,
     _position_values,
     _quote_values,
+    _signal_scan_config_values,
     _strategy_definition_values,
 )
 
@@ -240,4 +248,25 @@ def _seed_strategy_definitions(connection: _DatabaseConnection) -> None:
             ON CONFLICT(code) DO NOTHING
             """,
             _strategy_definition_values(strategy),
+        )
+
+
+def _seed_signal_scan_configs(connection: _DatabaseConnection) -> None:
+    for config_id, payload in default_signal_scan_configs():
+        config = SignalScanConfig(
+            id=config_id,
+            created_at=_now(),
+            updated_at=_now(),
+            **payload.model_dump(),
+        )
+        connection.execute(
+            """
+            INSERT INTO signal_scan_configs (
+                id, strategy_code, strategy_name, parameters, enabled,
+                push_candidate, sort_order, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO NOTHING
+            """,
+            _signal_scan_config_values(config),
         )

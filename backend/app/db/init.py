@@ -1,5 +1,11 @@
 from .core import DATABASE_PATH, _connect, _ensure_column, _first_column, _uses_postgres
-from .seed import _repair_position_names, _seed_positions, _seed_quotes, _seed_strategy_definitions
+from .seed import (
+    _repair_position_names,
+    _seed_positions,
+    _seed_quotes,
+    _seed_signal_scan_configs,
+    _seed_strategy_definitions,
+)
 
 
 def init_database(*, seed_defaults: bool = True) -> None:
@@ -119,6 +125,27 @@ def init_database(*, seed_defaults: bool = True) -> None:
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )
+            """,
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS signal_scan_configs (
+                id TEXT PRIMARY KEY,
+                strategy_code TEXT NOT NULL,
+                strategy_name TEXT NOT NULL,
+                parameters TEXT NOT NULL,
+                enabled INTEGER NOT NULL,
+                push_candidate INTEGER NOT NULL,
+                sort_order INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """,
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_signal_scan_configs_enabled_order
+            ON signal_scan_configs (enabled, sort_order)
             """,
         )
         _ensure_column(connection, "backtest_runs", "name", "TEXT NOT NULL DEFAULT ''")
@@ -264,3 +291,8 @@ def init_database(*, seed_defaults: bool = True) -> None:
             _seed_quotes(connection)
         if seed_defaults:
             _seed_strategy_definitions(connection)
+            scan_config_count = _first_column(
+                connection.execute("SELECT COUNT(*) FROM signal_scan_configs").fetchone(),
+            )
+            if scan_config_count == 0:
+                _seed_signal_scan_configs(connection)
