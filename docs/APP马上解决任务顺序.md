@@ -1,13 +1,13 @@
 # App 马上解决任务顺序
 
-最后更新：2026-05-13
+最后更新：2026-05-20
 
 本文档用于交接“下一位开发者马上应该做什么”。它不是长期规划文档，而是当前版本之后最优先的执行清单。
 
 当前 Git 基线：
 
 ```text
-8b77fa4 优化K线数据刷新与图表交互
+b4a17f7 chore: detect LAN API address for debug APK
 ```
 
 当前工作区要求：
@@ -18,6 +18,35 @@
 - 涉及后端改动必须执行 `python -m compileall app`。
 - 涉及真机体验必须重新构建并安装 APK。
 - 当前真机调试采用局域网后端地址。重新打 debug APK 时禁止裸跑 `flutter build apk --debug`，必须直接运行 `.\scripts\build_mobile_lan_debug.ps1` 自动探测当前电脑局域网 IP，或手动传 `--dart-define=API_BASE_URL=http://电脑当前局域网IP:8000`。
+
+## 0. 2026-05-20 当前马上任务
+
+当前已经完成一次完整架构审计，结果记录在：
+
+```text
+docs/APP架构审计与优化路线.md
+```
+
+后续马上按该文档分阶段优化。当前第一步：
+
+```text
+信号模型和 UI 解耦
+```
+
+第一轮只做低风险结构优化：
+
+- 新增信号分类 UI helper。
+- 从 `mobile_app/lib/models/trade_signal.dart` 移出分类标题、图标、颜色等 UI 展示逻辑。
+- 保持当前信号页视觉和行为不变。
+- 完成后运行 Flutter format、analyze、test。
+
+后续阶段依次处理：
+
+- Futu `SH.`、`SZ.` 市场和币种映射。
+- `signal_scanner.py` 扫描配置化。
+- `app_shell.dart` 状态控制器拆分。
+- `quant_screen.dart` 参数校验和历史/搜索控制器拆分。
+- docs 中旧 IP、旧文件名和历史“下一步”描述清理。
 
 ## 1. 当前真实状态
 
