@@ -14,8 +14,11 @@ from ..schemas import (
     SignalScanResult,
     StrategyMonitor,
     StrategyMonitorCreate,
+    StrategyMonitorSchedulerStatus,
+    StrategyMonitorSchedulerUpdate,
     StrategyMonitorUpdate,
 )
+from ..services.strategy_monitor_scheduler import get_strategy_monitor_scheduler
 from ..services.strategy_monitor_scanner import scan_strategy_monitors
 from ..strategies import get_strategy
 
@@ -62,6 +65,23 @@ def api_scan_strategy_monitors(
     force: bool = Query(default=False),
 ) -> SignalScanResult:
     return scan_strategy_monitors(refresh=refresh, force=force)
+
+
+@router.get("/monitors/scheduler/status", response_model=StrategyMonitorSchedulerStatus)
+def api_strategy_monitor_scheduler_status() -> StrategyMonitorSchedulerStatus:
+    return get_strategy_monitor_scheduler().status()
+
+
+@router.post("/monitors/scheduler/start", response_model=StrategyMonitorSchedulerStatus)
+async def api_start_strategy_monitor_scheduler(
+    payload: StrategyMonitorSchedulerUpdate | None = None,
+) -> StrategyMonitorSchedulerStatus:
+    return await get_strategy_monitor_scheduler().start(payload)
+
+
+@router.post("/monitors/scheduler/stop", response_model=StrategyMonitorSchedulerStatus)
+async def api_stop_strategy_monitor_scheduler() -> StrategyMonitorSchedulerStatus:
+    return await get_strategy_monitor_scheduler().stop()
 
 
 @router.get("/monitors/{monitor_id}", response_model=StrategyMonitor)

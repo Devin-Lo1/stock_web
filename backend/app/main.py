@@ -1,9 +1,26 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 from .db.init import init_database
 from .routers import backtests, futu, health, klines, notifications, positions, quotes, signals
 from .routers import stocks, strategies
+from .services.strategy_monitor_scheduler import (
+    start_strategy_monitor_scheduler_from_env,
+    stop_strategy_monitor_scheduler,
+)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_database()
+    await start_strategy_monitor_scheduler_from_env()
+    try:
+        yield
+    finally:
+        await stop_strategy_monitor_scheduler()
+
 
 class UTF8JSONResponse(JSONResponse):
     media_type = "application/json; charset=utf-8"
@@ -14,12 +31,8 @@ app = FastAPI(
     description="Backend API for the Android stock signal MVP.",
     version="0.1.0",
     default_response_class=UTF8JSONResponse,
+    lifespan=lifespan,
 )
-
-
-@app.on_event("startup")
-def startup() -> None:
-    init_database()
 
 
 app.include_router(health.router)

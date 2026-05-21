@@ -4,7 +4,17 @@ from fastapi.testclient import TestClient
 
 from app import database
 from app.main import app
-from app.schemas import Candle, StrategyMonitorCreate, StrategyMonitorUpdate
+from app.schemas import (
+    Candle,
+    StrategyMonitorCreate,
+    StrategyMonitorSchedulerUpdate,
+    StrategyMonitorUpdate,
+)
+from app.services.strategy_monitor_scheduler import (
+    StrategyMonitorScheduler,
+    configure_strategy_monitor_scheduler_from_env,
+    get_strategy_monitor_scheduler,
+)
 from app.services.strategy_monitor_scanner import scan_strategy_monitors
 
 
@@ -146,3 +156,91 @@ def test_strategy_monitor_create_rejects_unknown_strategy() -> None:
 
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == "STRATEGY_NOT_SUPPORTED"
+
+
+def test_strategy_monitor_scheduler_run_once_records_result(monkeypatch) -> None:
+    scheduler = StrategyMonitorScheduler(
+        enabled_by_env=False,
+        poll_interval_seconds=10,
+        refresh=False,
+    )
+
+    def fake_scan_strategy_monitors(*, refresh: bool, force: bool):
+        assert refresh is False
+        assert force is True
+        return scan_strategy_monitors(refresh=False, force=True)
+
+    monkeypatch.setattr(
+        "app.services.strategy_monitor_scheduler.scan_strategy_monitors",
+        fake_scan_strategy_monitors,
+    )
+
+    import asyncio
+
+    result = asyncio.run(scheduler.run_once(force=True))
+    status = scheduler.status()
+
+    assert result is not None
+    assert status.last_run_at is not None
+    assert status.last_error is None
+    assert status.last_result["scanned_count"] == 0
+    assert status.running is False
+
+
+def test_strategy_monitor_scheduler_reads_environment(monkeypatch) -> None:
+    scheduler = get_strategy_monitor_scheduler()
+    original = scheduler.status()
+    monkeypatch.setenv("STRATEGY_MONITOR_SCHEDULER_ENABLED", "true")
+    monkeypatch.setenv("STRATEGY_MONITOR_SCHEDULER_INTERVAL_SECONDS", "5")
+    monkeypatch.setenv("STRATEGY_MONITOR_SCHEDULER_REFRESH", "true")
+
+    configure_strategy_monitor_scheduler_from_env()
+    status = scheduler.status()
+
+    assert status.enabled_by_env is True
+    assert status.poll_interval_seconds == 10
+    assert status.refresh is True
+
+    scheduler.enabled_by_env = original.enabled_by_env
+    scheduler.poll_interval_seconds = original.poll_interval_seconds
+    scheduler.refresh = original.refresh
+
+
+def test_strategy_monitor_scheduler_endpoints_start_stop() -> None:
+    client = TestClient(app)
+
+    try:
+        start_response = client.post(
+            "/api/v1/strategies/monitors/scheduler/start",
+            json={"poll_interval_seconds": 10, "refresh": False},
+        )
+        status_response = client.get("/api/v1/strategies/monitors/scheduler/status")
+    finally:
+        stop_response = client.post("/api/v1/strategies/monitors/scheduler/stop")
+
+    assert start_response.status_code == 200
+    assert start_response.json()["running"] is True
+    assert status_response.status_code == 200
+    assert status_response.json()["poll_interval_seconds"] == 10
+    assert stop_response.status_code == 200
+    assert stop_response.json()["running"] is False
+
+
+def test_strategy_monitor_scheduler_can_be_configured_without_starting() -> None:
+    scheduler = StrategyMonitorScheduler(
+        enabled_by_env=False,
+        poll_interval_seconds=60,
+        refresh=False,
+    )
+
+    scheduler.configure(
+        StrategyMonitorSchedulerUpdate(
+            poll_interval_seconds=30,
+            refresh=True,
+        ),
+    )
+
+    status = scheduler.status()
+    assert status.running is False
+    assert status.poll_interval_seconds == 30
+    assert status.refresh is True

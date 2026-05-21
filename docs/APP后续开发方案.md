@@ -617,12 +617,15 @@ backend /health: ok
 - 新增 `backend/app/services/strategy_monitor_scanner.py`，手动扫描已启用监控，复用现有策略模块计算信号。
 - 策略监控扫描结果写入 `signal_events`，不直接推送页面内存状态。
 - 新增 `GET/POST/PUT/DELETE /api/v1/strategies/monitors` 和 `POST /api/v1/strategies/monitors/scan`。
+- 新增 `backend/app/services/strategy_monitor_scheduler.py`，可随后端启动自动轮询扫描，也可通过 API 手动启动、停止和查看状态。
+- `backend/app/main.py` 已从 `on_event` 迁移到 lifespan，启动时初始化数据库和 scheduler，关闭时停止 scheduler。
+- `backend/.env.example` 已补充 `STRATEGY_MONITOR_SCHEDULER_ENABLED`、`STRATEGY_MONITOR_SCHEDULER_INTERVAL_SECONDS`、`STRATEGY_MONITOR_SCHEDULER_REFRESH`。
 
 下一步：
 
-1. 增加后台定时扫描任务，优先复用 `strategy_monitor_scanner.py`。
-2. 把监控产生的推送候选接入多通道推送分发。
-3. 前端再接策略监控选择入口、持仓详情监控状态和券商式持仓表。
+1. 把监控产生的推送候选接入多通道推送分发。
+2. 前端再接策略监控选择入口、持仓详情监控状态和券商式持仓表。
+3. 后续生产部署如果需要多进程或多实例，应把 scheduler 迁移到 APScheduler/Celery/独立 worker，避免多个 API 进程重复扫描。
 
 ### 2026-05-16 历史回测复盘体验补充
 

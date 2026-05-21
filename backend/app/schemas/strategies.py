@@ -85,3 +85,21 @@ class StrategyMonitor(StrategyMonitorBase):
     last_signal_event_id: str | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class StrategyMonitorSchedulerUpdate(BaseModel):
+    poll_interval_seconds: int | None = Field(default=None, ge=10, le=3600)
+    refresh: bool | None = None
+
+
+class StrategyMonitorSchedulerStatus(BaseModel):
+    enabled_by_env: bool
+    running: bool
+    scanning: bool
+    poll_interval_seconds: int
+    refresh: bool
+    last_started_at: datetime | None = None
+    last_stopped_at: datetime | None = None
+    last_run_at: datetime | None = None
+    last_error: str | None = None
+    last_result: dict[str, Any] = Field(default_factory=dict)

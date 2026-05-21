@@ -385,6 +385,14 @@ D:\flutter\bin\flutter.bat build apk --release --dart-define=API_BASE_URL=https:
 - 信号扫描必须在后端完成，扫描股票池第一阶段优先使用当前持仓和关注列表，后续再扩展到场内 ETF/基金观察池。
 - 扫描结果必须先落库到 `signal_events`，再由 App 拉取展示；推送只消费已落库信号，不直接消费页面内存信号。
 
+### 7.7 后台策略监控
+
+- 后台策略监控必须复用 `backend/app/services/strategy_monitor_scanner.py` 和 `backend/app/strategies/` 下的策略语义，不得另写一套买卖判断。
+- scheduler 只能负责调度、状态记录和启动停止，不得承担数据库 SQL、策略计算或推送分发。
+- 本地开发默认不自动启动 scheduler，必须通过 `STRATEGY_MONITOR_SCHEDULER_ENABLED` 明确打开，避免开发调试时反复写入信号。
+- scheduler 扫描结果必须先落库到 `signal_events`，推送服务只能消费已落库信号。
+- 多进程或多实例部署前必须迁移到独立 worker、APScheduler 持久化任务或 Celery，避免多个 API 进程重复扫描同一批监控。
+
 ## 8. 验证强约束
 
 ### 8.1 Flutter 每次代码修改后必须运行

@@ -886,6 +886,7 @@ FastAPI 入口。
 当前包含：
 
 - UTF-8 JSON 响应头配置。
+- lifespan 启动/关闭生命周期。
 - 系统健康检查。
 - 持仓 API。
 - 行情 API。
@@ -1081,6 +1082,18 @@ backend/app/routers/backtests.py
 - 按监控 ID、策略、参数、方向和 K 线时间生成去重 key。
 - 先写入 `signal_events`，再更新监控扫描状态。
 - 遵守扫描间隔和冷却时间，避免盘中反复触发刷屏。
+
+### `backend/app/services/strategy_monitor_scheduler.py`
+
+策略监控后台调度服务。
+
+职责：
+
+- 按固定轮询间隔触发 `strategy_monitor_scanner.py`。
+- 通过环境变量控制是否随后端启动自动运行。
+- 通过 API 支持状态查询、启动和停止。
+- 保存最近运行时间、最近结果和最近错误，便于 App 或运维页面展示。
+- 第一版使用轻量 asyncio 后台任务，后续迁移 APScheduler/Celery 时应保留当前 service 边界。
 
 ### `backend/app/repositories/market_data.py`
 
@@ -1308,7 +1321,7 @@ backend/app/routers/futu.py
 
 - 创建 FastAPI app。
 - 设置 UTF-8 JSON response。
-- 启动时初始化数据库。
+- 通过 lifespan 初始化数据库和策略监控 scheduler。
 - 注册 routers。
 
 不应继续把具体业务接口写进 `main.py`。
@@ -1396,6 +1409,20 @@ K 线接口：
 - `GET /api/v1/futu/health`
 - `GET /api/v1/futu/quote`
 - `GET /api/v1/futu/kline-quota`
+
+### `backend/app/routers/strategies.py`
+
+策略定义和策略监控接口：
+
+- `GET /api/v1/strategies`
+- `GET /api/v1/strategies/monitors`
+- `POST /api/v1/strategies/monitors`
+- `PUT /api/v1/strategies/monitors/{monitor_id}`
+- `DELETE /api/v1/strategies/monitors/{monitor_id}`
+- `POST /api/v1/strategies/monitors/scan`
+- `GET /api/v1/strategies/monitors/scheduler/status`
+- `POST /api/v1/strategies/monitors/scheduler/start`
+- `POST /api/v1/strategies/monitors/scheduler/stop`
 
 后续新增策略和回测时，应继续按领域新增：
 
@@ -1752,7 +1779,13 @@ backend/data/stock_mvp.sqlite3
 
 ### `backend/.env.example`
 
-提供本地开发环境变量模板。当前包含 `DATABASE_URL` 示例，用于连接本地 PostgreSQL。
+提供本地开发环境变量模板。当前包含 `DATABASE_URL`、推送通道配置和策略监控 scheduler 配置。
+
+策略监控 scheduler 相关变量：
+
+- `STRATEGY_MONITOR_SCHEDULER_ENABLED`
+- `STRATEGY_MONITOR_SCHEDULER_INTERVAL_SECONDS`
+- `STRATEGY_MONITOR_SCHEDULER_REFRESH`
 
 ### `backend/app/database.py`
 

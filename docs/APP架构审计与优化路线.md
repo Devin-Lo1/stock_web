@@ -41,7 +41,7 @@ D:\flutter\bin\flutter.bat test
 
 已知警告：
 
-- `backend/app/main.py` 使用 `@app.on_event("startup")`，FastAPI 已提示该写法过期，后续应迁移到 lifespan。
+- `backend/app/main.py` 已从 `@app.on_event` 迁移到 lifespan，原 FastAPI 过期警告已处理。
 
 ## 2. 当前代码结构结论
 
