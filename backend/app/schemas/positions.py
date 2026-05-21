@@ -32,6 +32,9 @@ class PositionUpdate(BaseModel):
 
 class Position(PositionBase):
     id: str
+    avg_cost_price: float = 0
+    adjusted_cost_price: float = 0
+    realized_profit: float = 0
     created_at: datetime
     updated_at: datetime
 

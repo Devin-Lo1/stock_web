@@ -15,7 +15,8 @@ def list_positions() -> list[Position]:
     with _connect() as connection:
         rows = connection.execute(
             """
-            SELECT id, market, code, name, quantity, cost_price, currency,
+            SELECT id, market, code, name, quantity, cost_price,
+                   avg_cost_price, adjusted_cost_price, realized_profit, currency,
                    created_at, updated_at
             FROM positions
             ORDER BY created_at ASC
@@ -28,6 +29,9 @@ def create_position(payload: PositionCreate) -> Position:
     now = _now()
     position = Position(
         id=str(uuid4()),
+        avg_cost_price=payload.cost_price,
+        adjusted_cost_price=payload.cost_price,
+        realized_profit=0,
         created_at=now,
         updated_at=now,
         **payload.model_dump(),
@@ -46,10 +50,11 @@ def create_position(payload: PositionCreate) -> Position:
         connection.execute(
             """
             INSERT INTO positions (
-                id, market, code, name, quantity, cost_price, currency,
+                id, market, code, name, quantity, cost_price,
+                avg_cost_price, adjusted_cost_price, realized_profit, currency,
                 created_at, updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             _position_values(position),
         )
@@ -64,6 +69,14 @@ def update_position(position_id: str, payload: PositionUpdate) -> Position | Non
         return None
 
     update_data = payload.model_dump(exclude_unset=True)
+    if "quantity" in update_data or "cost_price" in update_data:
+        next_quantity = float(update_data.get("quantity", current.quantity))
+        next_cost_price = float(update_data.get("cost_price", current.cost_price))
+        if next_quantity <= 0:
+            next_cost_price = 0
+        update_data["cost_price"] = next_cost_price
+        update_data["avg_cost_price"] = next_cost_price
+        update_data["adjusted_cost_price"] = next_cost_price
     updated = current.model_copy(
         update={
             **update_data,
@@ -79,6 +92,9 @@ def update_position(position_id: str, payload: PositionUpdate) -> Position | Non
                 name = ?,
                 quantity = ?,
                 cost_price = ?,
+                avg_cost_price = ?,
+                adjusted_cost_price = ?,
+                realized_profit = ?,
                 currency = ?,
                 updated_at = ?
             WHERE id = ?
@@ -89,6 +105,9 @@ def update_position(position_id: str, payload: PositionUpdate) -> Position | Non
                 updated.name,
                 updated.quantity,
                 updated.cost_price,
+                updated.avg_cost_price,
+                updated.adjusted_cost_price,
+                updated.realized_profit,
                 updated.currency,
                 _datetime_to_text(updated.updated_at),
                 updated.id,
@@ -110,7 +129,8 @@ def get_position(position_id: str) -> Position | None:
     with _connect() as connection:
         row = connection.execute(
             """
-            SELECT id, market, code, name, quantity, cost_price, currency,
+            SELECT id, market, code, name, quantity, cost_price,
+                   avg_cost_price, adjusted_cost_price, realized_profit, currency,
                    created_at, updated_at
             FROM positions
             WHERE id = ?

@@ -21,10 +21,35 @@ def init_database(*, seed_defaults: bool = True) -> None:
                 name TEXT NOT NULL,
                 quantity REAL NOT NULL,
                 cost_price REAL NOT NULL,
+                avg_cost_price REAL NOT NULL DEFAULT 0,
+                adjusted_cost_price REAL NOT NULL DEFAULT 0,
+                realized_profit REAL NOT NULL DEFAULT 0,
                 currency TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )
+            """,
+        )
+        _ensure_column(connection, "positions", "avg_cost_price", "REAL NOT NULL DEFAULT 0")
+        _ensure_column(
+            connection,
+            "positions",
+            "adjusted_cost_price",
+            "REAL NOT NULL DEFAULT 0",
+        )
+        _ensure_column(connection, "positions", "realized_profit", "REAL NOT NULL DEFAULT 0")
+        connection.execute(
+            """
+            UPDATE positions
+            SET avg_cost_price = cost_price
+            WHERE quantity > 0 AND avg_cost_price = 0 AND cost_price != 0
+            """,
+        )
+        connection.execute(
+            """
+            UPDATE positions
+            SET adjusted_cost_price = cost_price
+            WHERE quantity > 0 AND adjusted_cost_price = 0 AND cost_price != 0
             """,
         )
         connection.execute(

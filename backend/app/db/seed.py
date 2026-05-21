@@ -65,10 +65,11 @@ def _seed_positions(connection: _DatabaseConnection) -> None:
         connection.execute(
             """
             INSERT INTO positions (
-                id, market, code, name, quantity, cost_price, currency,
+                id, market, code, name, quantity, cost_price,
+                avg_cost_price, adjusted_cost_price, realized_profit, currency,
                 created_at, updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             _position_values(position),
         )

@@ -119,10 +119,13 @@ def _apply_trade_to_position(
 def _apply_open_trade(position: Position, trade: PositionTrade) -> Position:
     if position.quantity > 0:
         raise PositionTradeError("open trade is only allowed for an empty position")
+    cost_price = _cost_price(trade.quantity, trade.price, trade.fee)
     return position.model_copy(
         update={
             "quantity": trade.quantity,
-            "cost_price": _cost_price(trade.quantity, trade.price, trade.fee),
+            "cost_price": cost_price,
+            "avg_cost_price": cost_price,
+            "adjusted_cost_price": cost_price,
             "updated_at": trade.created_at,
         },
     )
@@ -130,12 +133,17 @@ def _apply_open_trade(position: Position, trade: PositionTrade) -> Position:
 
 def _apply_add_trade(position: Position, trade: PositionTrade) -> Position:
     new_quantity = position.quantity + trade.quantity
-    current_cost = position.quantity * position.cost_price
+    current_avg_cost = position.quantity * _avg_cost_price(position)
+    current_adjusted_cost = position.quantity * _adjusted_cost_price(position)
     added_cost = trade.quantity * trade.price + trade.fee
+    avg_cost_price = (current_avg_cost + added_cost) / new_quantity
+    adjusted_cost_price = (current_adjusted_cost + added_cost) / new_quantity
     return position.model_copy(
         update={
             "quantity": new_quantity,
-            "cost_price": (current_cost + added_cost) / new_quantity,
+            "cost_price": _display_cost_price(adjusted_cost_price),
+            "avg_cost_price": avg_cost_price,
+            "adjusted_cost_price": adjusted_cost_price,
             "updated_at": trade.created_at,
         },
     )
@@ -144,10 +152,20 @@ def _apply_add_trade(position: Position, trade: PositionTrade) -> Position:
 def _apply_reduce_trade(position: Position, trade: PositionTrade) -> Position:
     _ensure_can_reduce(position, trade.quantity)
     new_quantity = position.quantity - trade.quantity
+    realized_profit = position.realized_profit + _realized_profit(position, trade)
+    adjusted_cost_price = _remaining_adjusted_cost_price(
+        position,
+        trade,
+        new_quantity,
+    )
+    cost_price = _display_cost_price(adjusted_cost_price) if new_quantity > 0 else 0
     return position.model_copy(
         update={
             "quantity": new_quantity,
-            "cost_price": position.cost_price if new_quantity > 0 else 0,
+            "cost_price": cost_price,
+            "avg_cost_price": _avg_cost_price(position) if new_quantity > 0 else 0,
+            "adjusted_cost_price": adjusted_cost_price if new_quantity > 0 else 0,
+            "realized_profit": realized_profit,
             "updated_at": trade.created_at,
         },
     )
@@ -157,10 +175,14 @@ def _apply_close_trade(position: Position, trade: PositionTrade) -> Position:
     _ensure_can_reduce(position, trade.quantity)
     if abs(position.quantity - trade.quantity) > 1e-9:
         raise PositionTradeError("close trade quantity must equal current position")
+    realized_profit = position.realized_profit + _realized_profit(position, trade)
     return position.model_copy(
         update={
             "quantity": 0,
             "cost_price": 0,
+            "avg_cost_price": 0,
+            "adjusted_cost_price": 0,
+            "realized_profit": realized_profit,
             "updated_at": trade.created_at,
         },
     )
@@ -177,6 +199,36 @@ def _cost_price(quantity: float, price: float, fee: float) -> float:
     return (quantity * price + fee) / quantity
 
 
+def _avg_cost_price(position: Position) -> float:
+    return position.avg_cost_price or position.cost_price
+
+
+def _adjusted_cost_price(position: Position) -> float:
+    return position.adjusted_cost_price or position.cost_price
+
+
+def _realized_profit(position: Position, trade: PositionTrade) -> float:
+    net_proceeds = trade.quantity * trade.price - trade.fee
+    cost_basis = trade.quantity * _avg_cost_price(position)
+    return net_proceeds - cost_basis
+
+
+def _remaining_adjusted_cost_price(
+    position: Position,
+    trade: PositionTrade,
+    new_quantity: float,
+) -> float:
+    if new_quantity <= 0:
+        return 0
+    current_adjusted_cost = position.quantity * _adjusted_cost_price(position)
+    net_proceeds = trade.quantity * trade.price - trade.fee
+    return (current_adjusted_cost - net_proceeds) / new_quantity
+
+
+def _display_cost_price(adjusted_cost_price: float) -> float:
+    return max(0, adjusted_cost_price)
+
+
 def _update_position_snapshot(
     connection: _DatabaseConnection,
     position: Position,
@@ -186,12 +238,18 @@ def _update_position_snapshot(
         UPDATE positions
         SET quantity = ?,
             cost_price = ?,
+            avg_cost_price = ?,
+            adjusted_cost_price = ?,
+            realized_profit = ?,
             updated_at = ?
         WHERE id = ?
         """,
         (
             position.quantity,
             position.cost_price,
+            position.avg_cost_price,
+            position.adjusted_cost_price,
+            position.realized_profit,
             _datetime_to_text(position.updated_at),
             position.id,
         ),

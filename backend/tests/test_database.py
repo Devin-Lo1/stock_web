@@ -36,6 +36,8 @@ def test_position_crud() -> None:
     assert updated is not None
     assert updated.quantity == 200
     assert updated.cost_price == 360
+    assert updated.avg_cost_price == 360
+    assert updated.adjusted_cost_price == 360
     assert updated.updated_at >= created.updated_at
 
     assert database.delete_position(created.id) is True
@@ -78,7 +80,11 @@ def test_position_trade_history_persists_after_position_delete() -> None:
     updated = database.get_position(created.id)
     assert updated is not None
     assert updated.quantity == 150
-    assert updated.cost_price == pytest.approx((100 * 350 + 50 * 360 + 1.2) / 150)
+    expected_cost = (100 * 350 + 50 * 360 + 1.2) / 150
+    assert updated.cost_price == pytest.approx(expected_cost)
+    assert updated.avg_cost_price == pytest.approx(expected_cost)
+    assert updated.adjusted_cost_price == pytest.approx(expected_cost)
+    assert updated.realized_profit == 0
 
     assert database.delete_position(created.id) is True
     remaining = database.list_position_trades(position_id=created.id)
@@ -122,7 +128,10 @@ def test_position_trade_endpoints() -> None:
     assert {item["action"] for item in code_response.json()} == {"open", "reduce"}
     current_position = client.get("/api/v1/positions").json()[0]
     assert current_position["quantity"] == 8
-    assert current_position["cost_price"] == 100
+    assert current_position["avg_cost_price"] == 100
+    assert current_position["adjusted_cost_price"] == pytest.approx(95.0625)
+    assert current_position["cost_price"] == pytest.approx(95.0625)
+    assert current_position["realized_profit"] == pytest.approx(39.5)
 
 
 def test_position_trade_close_updates_position_snapshot() -> None:
@@ -153,6 +162,9 @@ def test_position_trade_close_updates_position_snapshot() -> None:
     assert close_response.status_code == 201
     assert current_position["quantity"] == 0
     assert current_position["cost_price"] == 0
+    assert current_position["avg_cost_price"] == 0
+    assert current_position["adjusted_cost_price"] == 0
+    assert current_position["realized_profit"] == pytest.approx(500)
 
 
 def test_position_trade_rejects_over_reduce() -> None:

@@ -30,6 +30,9 @@ def _position_values(position: Position) -> tuple[object, ...]:
         position.name,
         position.quantity,
         position.cost_price,
+        position.avg_cost_price,
+        position.adjusted_cost_price,
+        position.realized_profit,
         position.currency,
         _datetime_to_text(position.created_at),
         _datetime_to_text(position.updated_at),
@@ -229,6 +232,13 @@ def _row_to_position(row: sqlite3.Row | dict[str, Any]) -> Position:
         name=row["name"],
         quantity=row["quantity"],
         cost_price=row["cost_price"],
+        avg_cost_price=_position_metric(row, "avg_cost_price", row["cost_price"]),
+        adjusted_cost_price=_position_metric(
+            row,
+            "adjusted_cost_price",
+            row["cost_price"],
+        ),
+        realized_profit=_position_metric(row, "realized_profit", 0),
         currency=row["currency"],
         created_at=_text_to_datetime(row["created_at"]),
         updated_at=_text_to_datetime(row["updated_at"]),
@@ -468,3 +478,16 @@ def _json_from_text(value: str | dict[str, Any]) -> dict[str, Any]:
     if isinstance(value, dict):
         return value
     return json.loads(value)
+
+
+def _position_metric(
+    row: sqlite3.Row | dict[str, Any],
+    key: str,
+    default: float,
+) -> float:
+    if key not in row.keys():
+        return float(default)
+    value = row[key]
+    if value is None:
+        return float(default)
+    return float(value)

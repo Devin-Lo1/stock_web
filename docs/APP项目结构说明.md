@@ -1025,8 +1025,15 @@ backend/app/routers/backtests.py
 
 - `open`：仅允许空仓建仓。
 - `add`：增加数量，并按加权平均更新成本。
-- `reduce`：减少数量，成本价不变；超过当前持仓数量返回错误。
+- `reduce`：减少数量，真实平均成本不变，券商式摊薄成本按卖出净收入重新摊薄；超过当前持仓数量返回错误。
 - `close`：必须等于当前持仓数量，清仓后数量和成本归零。
+
+成本字段口径：
+
+- `cost_price`：兼容旧 App 字段，当前等于非负的券商式摊薄成本。
+- `avg_cost_price`：真实平均买入成本，加仓会变，减仓不变。
+- `adjusted_cost_price`：券商式摊薄成本，加仓、减仓都会变，可用于持仓表显示。
+- `realized_profit`：已实现盈亏，减仓和清仓时累计。
 
 ### `backend/app/repositories/market_data.py`
 
