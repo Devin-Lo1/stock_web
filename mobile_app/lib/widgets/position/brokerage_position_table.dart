@@ -79,33 +79,10 @@ class _TableToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
       child: Row(
-        children: [
-          _PillButton(label: '持仓($count)', isSelected: true),
-          const SizedBox(width: 8),
-          const _PillButton(label: '订单(0)', isSelected: false),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-            decoration: BoxDecoration(
-              border: Border.all(color: accent.withValues(alpha: 0.75)),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '合资格融资证券名单',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: accent,
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-        ],
+        children: [_PillButton(label: '持仓($count)', isSelected: true)],
       ),
     );
   }
