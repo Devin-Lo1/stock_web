@@ -25,6 +25,7 @@ TABLES = (
     "strategy_definitions",
     "klines",
     "quote_snapshots",
+    "position_snapshots",
     "position_trades",
     "positions",
 )

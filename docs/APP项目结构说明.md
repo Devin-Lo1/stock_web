@@ -1035,6 +1035,29 @@ backend/app/routers/backtests.py
 - `adjusted_cost_price`：券商式摊薄成本，加仓、减仓都会变，可用于持仓表显示。
 - `realized_profit`：已实现盈亏，减仓和清仓时累计。
 
+### `backend/app/repositories/position_snapshots.py`
+
+持仓收益快照数据库读写。
+
+职责：
+
+- `save_position_snapshots`
+- `list_position_snapshots`
+- `list_latest_position_snapshots`
+
+收益快照用于券商式持仓表和单股收益曲线。
+
+### `backend/app/services/position_snapshots.py`
+
+持仓收益快照计算服务。
+
+职责：
+
+- 读取当前持仓。
+- 读取当前行情。
+- 计算市值、今日盈亏、持仓盈亏、总收益、持仓占比。
+- 写入 `position_snapshots`。
+
 ### `backend/app/repositories/market_data.py`
 
 行情和 K 线数据库读写。
@@ -1284,8 +1307,13 @@ backend/app/routers/futu.py
 - `GET /api/v1/positions/trades`
 - `GET /api/v1/positions/{position_id}/trades`
 - `POST /api/v1/positions/{position_id}/trades`
+- `GET /api/v1/positions/snapshots`
+- `GET /api/v1/positions/snapshots/latest`
+- `POST /api/v1/positions/snapshots/capture`
+- `GET /api/v1/positions/{position_id}/snapshots`
 
 交易记录接口用于建仓、加仓、减仓、清仓历史；当前持仓快照仍由 `positions` 表维护。
+收益快照接口用于生成和读取券商式持仓表指标。
 
 ### `backend/app/routers/quotes.py`
 
@@ -1385,6 +1413,7 @@ from app.schemas import Position, Candle
 - `Position`
 - `PositionTradeCreate`
 - `PositionTrade`
+- `PositionSnapshot`
 
 `PositionTrade` 的 `action` 当前支持：
 

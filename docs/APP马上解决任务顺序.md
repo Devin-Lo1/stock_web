@@ -1550,11 +1550,27 @@ App 建议新增：
   - `adjusted_cost_price`：券商式摊薄成本。
   - `realized_profit`：已实现盈亏。
   - `cost_price`：兼容旧 App 字段，当前等于非负的券商式摊薄成本。
+- 后端已新增 `position_snapshots` 表和收益快照接口：
+  - `GET /api/v1/positions/snapshots`
+  - `GET /api/v1/positions/snapshots/latest`
+  - `POST /api/v1/positions/snapshots/capture`
+  - `GET /api/v1/positions/{position_id}/snapshots`
+- 收益快照当前已计算：
+  - 当前价格。
+  - 昨收。
+  - 市值。
+  - 今日盈亏。
+  - 今日盈亏率。
+  - 持仓盈亏。
+  - 持仓盈亏率。
+  - 总收益。
+  - 总收益率。
+  - 持仓占比。
 
 下一步继续：
 
-1. 新增 `position_snapshots` 收益快照表和接口。
-2. 增加交易记录的已实现收益统计。
+1. 增加交易记录的已实现收益详情统计。
+2. 增加策略监控绑定表。
 3. 再接 App 券商式持仓表和交易记录页面。
 
 ### 场内基金/ETF 后续任务

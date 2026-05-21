@@ -38,6 +38,11 @@ from .repositories.position_trades import (
     create_position_trade_for_position,
     list_position_trades,
 )
+from .repositories.position_snapshots import (
+    list_latest_position_snapshots,
+    list_position_snapshots,
+    save_position_snapshots,
+)
 from .repositories.signal_scan_configs import (
     create_signal_scan_config,
     list_signal_scan_configs,
@@ -58,6 +63,9 @@ __all__ = [
     "get_position",
     "list_position_trades",
     "create_position_trade_for_position",
+    "list_position_snapshots",
+    "list_latest_position_snapshots",
+    "save_position_snapshots",
     "get_quotes",
     "upsert_quote",
     "list_candles",

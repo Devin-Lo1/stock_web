@@ -10,6 +10,7 @@ from .klines import Candle
 from .positions import (
     Position,
     PositionCreate,
+    PositionSnapshot,
     PositionTrade,
     PositionTradeAction,
     PositionTradeCreate,
@@ -50,6 +51,7 @@ __all__ = [
     "Candle",
     "Position",
     "PositionCreate",
+    "PositionSnapshot",
     "PositionTrade",
     "PositionTradeAction",
     "PositionTradeCreate",

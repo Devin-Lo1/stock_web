@@ -63,3 +63,28 @@ class PositionTrade(BaseModel):
     note: str = ""
     created_at: datetime
     updated_at: datetime
+
+
+class PositionSnapshot(BaseModel):
+    id: str
+    position_id: str
+    market: Market
+    code: str
+    name: str
+    currency: str
+    quantity: float
+    avg_cost_price: float
+    adjusted_cost_price: float
+    realized_profit: float
+    current_price: float
+    previous_close: float
+    market_value: float
+    day_profit: float
+    day_profit_rate: float
+    holding_profit: float
+    holding_profit_rate: float
+    total_profit: float
+    total_profit_rate: float
+    position_weight: float
+    snapshot_time: datetime
+    created_at: datetime

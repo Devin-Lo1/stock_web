@@ -195,6 +195,107 @@ def test_position_trade_rejects_over_reduce() -> None:
     assert response.json()["detail"]["code"] == "POSITION_TRADE_INVALID"
 
 
+def test_position_snapshot_capture_and_latest_endpoint() -> None:
+    client = TestClient(app)
+    position_response = client.post(
+        "/api/v1/positions",
+        json={
+            "market": "HK",
+            "code": "HK.00700",
+            "name": "Tencent",
+            "quantity": 100,
+            "cost_price": 10,
+            "currency": "HKD",
+        },
+    )
+    database.upsert_quote(
+        QuoteSnapshot(
+            code="HK.00700",
+            market="HK",
+            currency="HKD",
+            current_price=15,
+            previous_close=14,
+            open=14.2,
+            high=15.5,
+            low=13.8,
+            volume=1000,
+            turnover=15000,
+            change=1,
+            change_rate=7.14,
+            quote_time=datetime(2026, 5, 21, tzinfo=timezone.utc),
+        ),
+    )
+
+    capture_response = client.post("/api/v1/positions/snapshots/capture")
+    latest_response = client.get("/api/v1/positions/snapshots/latest")
+    by_position_response = client.get(
+        f"/api/v1/positions/{position_response.json()['id']}/snapshots",
+    )
+
+    assert capture_response.status_code == 200
+    snapshot = capture_response.json()[0]
+    assert snapshot["market_value"] == 1500
+    assert snapshot["day_profit"] == 100
+    assert snapshot["day_profit_rate"] == pytest.approx(7.142857142857142)
+    assert snapshot["holding_profit"] == 500
+    assert snapshot["holding_profit_rate"] == 50
+    assert snapshot["total_profit"] == 500
+    assert snapshot["position_weight"] == 100
+    assert latest_response.json()[0]["id"] == snapshot["id"]
+    assert by_position_response.json()[0]["id"] == snapshot["id"]
+
+
+def test_position_snapshot_uses_adjusted_cost_and_realized_profit() -> None:
+    client = TestClient(app)
+    position_response = client.post(
+        "/api/v1/positions",
+        json={
+            "market": "US",
+            "code": "US.MU",
+            "name": "Micron",
+            "quantity": 100,
+            "cost_price": 10,
+            "currency": "USD",
+        },
+    )
+    position_id = position_response.json()["id"]
+    client.post(
+        f"/api/v1/positions/{position_id}/trades",
+        json={
+            "action": "reduce",
+            "quantity": 50,
+            "price": 15,
+        },
+    )
+    database.upsert_quote(
+        QuoteSnapshot(
+            code="US.MU",
+            market="US",
+            currency="USD",
+            current_price=16,
+            previous_close=15,
+            open=15,
+            high=16.2,
+            low=14.8,
+            volume=1000,
+            turnover=16000,
+            change=1,
+            change_rate=6.67,
+            quote_time=datetime(2026, 5, 21, tzinfo=timezone.utc),
+        ),
+    )
+
+    snapshot = client.post("/api/v1/positions/snapshots/capture").json()[0]
+
+    assert snapshot["quantity"] == 50
+    assert snapshot["avg_cost_price"] == 10
+    assert snapshot["adjusted_cost_price"] == 5
+    assert snapshot["realized_profit"] == 250
+    assert snapshot["market_value"] == 800
+    assert snapshot["holding_profit"] == 550
+    assert snapshot["total_profit"] == 800
+
+
 def test_quote_upsert_and_get() -> None:
     quote_time = datetime(2026, 5, 14, 1, 0, tzinfo=timezone.utc)
     quote = QuoteSnapshot(

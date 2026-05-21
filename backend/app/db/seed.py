@@ -58,6 +58,9 @@ def _seed_positions(connection: _DatabaseConnection) -> None:
         now = _now()
         position = Position(
             id=str(uuid4()),
+            avg_cost_price=payload.cost_price,
+            adjusted_cost_price=payload.cost_price,
+            realized_profit=0,
             created_at=now,
             updated_at=now,
             **payload.model_dump(),

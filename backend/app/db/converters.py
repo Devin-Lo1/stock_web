@@ -10,6 +10,7 @@ from ..schemas import (
     Candle,
     NotificationDevice,
     Position,
+    PositionSnapshot,
     PositionTrade,
     PushRecord,
     QuoteSnapshot,
@@ -55,6 +56,33 @@ def _position_trade_values(trade: PositionTrade) -> tuple[object, ...]:
         trade.note,
         _datetime_to_text(trade.created_at),
         _datetime_to_text(trade.updated_at),
+    )
+
+
+def _position_snapshot_values(snapshot: PositionSnapshot) -> tuple[object, ...]:
+    return (
+        snapshot.id,
+        snapshot.position_id,
+        snapshot.market,
+        snapshot.code,
+        snapshot.name,
+        snapshot.currency,
+        snapshot.quantity,
+        snapshot.avg_cost_price,
+        snapshot.adjusted_cost_price,
+        snapshot.realized_profit,
+        snapshot.current_price,
+        snapshot.previous_close,
+        snapshot.market_value,
+        snapshot.day_profit,
+        snapshot.day_profit_rate,
+        snapshot.holding_profit,
+        snapshot.holding_profit_rate,
+        snapshot.total_profit,
+        snapshot.total_profit_rate,
+        snapshot.position_weight,
+        _datetime_to_text(snapshot.snapshot_time),
+        _datetime_to_text(snapshot.created_at),
     )
 
 
@@ -261,6 +289,33 @@ def _row_to_position_trade(row: sqlite3.Row | dict[str, Any]) -> PositionTrade:
         note=row["note"],
         created_at=_text_to_datetime(row["created_at"]),
         updated_at=_text_to_datetime(row["updated_at"]),
+    )
+
+
+def _row_to_position_snapshot(row: sqlite3.Row | dict[str, Any]) -> PositionSnapshot:
+    return PositionSnapshot(
+        id=row["id"],
+        position_id=row["position_id"],
+        market=row["market"],
+        code=row["code"],
+        name=row["name"],
+        currency=row["currency"],
+        quantity=row["quantity"],
+        avg_cost_price=row["avg_cost_price"],
+        adjusted_cost_price=row["adjusted_cost_price"],
+        realized_profit=row["realized_profit"],
+        current_price=row["current_price"],
+        previous_close=row["previous_close"],
+        market_value=row["market_value"],
+        day_profit=row["day_profit"],
+        day_profit_rate=row["day_profit_rate"],
+        holding_profit=row["holding_profit"],
+        holding_profit_rate=row["holding_profit_rate"],
+        total_profit=row["total_profit"],
+        total_profit_rate=row["total_profit_rate"],
+        position_weight=row["position_weight"],
+        snapshot_time=_text_to_datetime(row["snapshot_time"]),
+        created_at=_text_to_datetime(row["created_at"]),
     )
 
 

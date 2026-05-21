@@ -86,6 +86,46 @@ def init_database(*, seed_defaults: bool = True) -> None:
         )
         connection.execute(
             """
+            CREATE TABLE IF NOT EXISTS position_snapshots (
+                id TEXT PRIMARY KEY,
+                position_id TEXT NOT NULL,
+                market TEXT NOT NULL,
+                code TEXT NOT NULL,
+                name TEXT NOT NULL,
+                currency TEXT NOT NULL,
+                quantity REAL NOT NULL,
+                avg_cost_price REAL NOT NULL,
+                adjusted_cost_price REAL NOT NULL,
+                realized_profit REAL NOT NULL,
+                current_price REAL NOT NULL,
+                previous_close REAL NOT NULL,
+                market_value REAL NOT NULL,
+                day_profit REAL NOT NULL,
+                day_profit_rate REAL NOT NULL,
+                holding_profit REAL NOT NULL,
+                holding_profit_rate REAL NOT NULL,
+                total_profit REAL NOT NULL,
+                total_profit_rate REAL NOT NULL,
+                position_weight REAL NOT NULL,
+                snapshot_time TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """,
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_position_snapshots_position_time
+            ON position_snapshots (position_id, snapshot_time DESC)
+            """,
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_position_snapshots_code_time
+            ON position_snapshots (code, snapshot_time DESC)
+            """,
+        )
+        connection.execute(
+            """
             CREATE TABLE IF NOT EXISTS quote_snapshots (
                 code TEXT PRIMARY KEY,
                 market TEXT NOT NULL,
