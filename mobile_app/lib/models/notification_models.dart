@@ -60,27 +60,50 @@ class NotificationRegistrationResult {
 class PushRecord {
   const PushRecord({
     required this.id,
+    required this.signalEventId,
+    required this.deviceId,
     required this.status,
     required this.provider,
     required this.errorMessage,
+    required this.attemptCount,
+    required this.sentAt,
     required this.createdAt,
   });
 
   final String id;
+  final String? signalEventId;
+  final String deviceId;
   final String status;
   final String provider;
   final String errorMessage;
+  final int attemptCount;
+  final DateTime? sentAt;
   final DateTime createdAt;
 
   factory PushRecord.fromJson(Map<String, dynamic> json) {
     return PushRecord(
       id: json['id'] as String? ?? '',
+      signalEventId: _nullableString(json['signal_event_id']),
+      deviceId: json['device_id'] as String? ?? '',
       status: json['status'] as String? ?? '',
       provider: json['provider'] as String? ?? 'unknown',
       errorMessage: json['error_message'] as String? ?? '',
+      attemptCount: (json['attempt_count'] as num?)?.toInt() ?? 0,
+      sentAt: _readDateTime(json['sent_at']),
       createdAt:
           DateTime.tryParse(json['created_at'] as String? ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
     );
   }
+}
+
+DateTime? _readDateTime(Object? value) {
+  if (value is String && value.isNotEmpty) return DateTime.tryParse(value);
+  return null;
+}
+
+String? _nullableString(Object? value) {
+  if (value is! String) return null;
+  final trimmed = value.trim();
+  return trimmed.isEmpty ? null : trimmed;
 }

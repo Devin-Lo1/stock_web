@@ -35,4 +35,16 @@ class NotificationRepository {
       message: '通知设置页已成功连接后端。',
     );
   }
+
+  Future<List<PushRecord>> loadPushRecords({
+    String? signalEventId,
+    String? deviceId,
+    int limit = 50,
+  }) {
+    return _apiService.fetchPushRecords(
+      signalEventId: signalEventId,
+      deviceId: deviceId,
+      limit: limit,
+    );
+  }
 }

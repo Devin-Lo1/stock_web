@@ -3,12 +3,18 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../models/signal_scan_config.dart';
+import '../models/stock_position.dart';
 import '../models/trade_signal.dart';
+import '../repositories/backtest_repository.dart';
+import '../repositories/notification_repository.dart';
+import '../repositories/strategy_monitor_repository.dart';
 import '../widgets/common/empty_state.dart';
 import '../widgets/common/page_title.dart';
 import '../widgets/signal/signal_presentation.dart';
 import '../widgets/signal/signal_tile.dart';
 import '../utils/theme_helpers.dart';
+import 'push_records_screen.dart';
+import 'strategy_monitor_screen.dart';
 
 class SignalsScreen extends StatelessWidget {
   const SignalsScreen({
@@ -17,8 +23,12 @@ class SignalsScreen extends StatelessWidget {
     required this.isLoading,
     required this.isScanning,
     required this.usingBackendSignals,
+    required this.positions,
     required this.onRefresh,
     required this.onScan,
+    required this.backtestRepository,
+    required this.strategyMonitorRepository,
+    required this.notificationRepository,
     this.onLoadCategory,
     this.onLoadConfigs,
     this.onUpdateConfig,
@@ -28,8 +38,12 @@ class SignalsScreen extends StatelessWidget {
   final bool isLoading;
   final bool isScanning;
   final bool usingBackendSignals;
+  final List<StockPosition> positions;
   final Future<void> Function() onRefresh;
   final Future<void> Function() onScan;
+  final BacktestRepository backtestRepository;
+  final StrategyMonitorRepository strategyMonitorRepository;
+  final NotificationRepository notificationRepository;
   final Future<List<TradeSignal>> Function(SignalCategory category)?
   onLoadCategory;
   final Future<List<SignalScanConfig>> Function()? onLoadConfigs;
@@ -82,7 +96,12 @@ class SignalsScreen extends StatelessWidget {
                       )
                     : const Icon(Icons.refresh_rounded),
               ),
-              const SizedBox(width: 10),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
               IconButton.outlined(
                 tooltip: '信号设置',
                 onPressed: onLoadConfigs == null || onUpdateConfig == null
@@ -98,6 +117,36 @@ class SignalsScreen extends StatelessWidget {
                         );
                       },
                 icon: const Icon(Icons.tune_rounded),
+              ),
+              const SizedBox(width: 10),
+              IconButton.outlined(
+                tooltip: '策略监控',
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (context) => StrategyMonitorScreen(
+                        positions: positions,
+                        backtestRepository: backtestRepository,
+                        monitorRepository: strategyMonitorRepository,
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.rule_rounded),
+              ),
+              const SizedBox(width: 10),
+              IconButton.outlined(
+                tooltip: '推送记录',
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (context) => PushRecordsScreen(
+                        notificationRepository: notificationRepository,
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.fact_check_rounded),
               ),
             ],
           ),

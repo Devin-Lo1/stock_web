@@ -13,6 +13,7 @@ import '../repositories/backtest_repository.dart';
 import '../repositories/notification_repository.dart';
 import '../repositories/position_repository.dart';
 import '../repositories/signal_repository.dart';
+import '../repositories/strategy_monitor_repository.dart';
 import '../services/api_client.dart';
 import '../services/backtest_api_service.dart';
 import '../services/local_signal_service.dart';
@@ -23,6 +24,7 @@ import '../services/position_storage_service.dart';
 import '../services/push_token_service.dart';
 import '../services/quote_api_service.dart';
 import '../services/signal_api_service.dart';
+import '../services/strategy_monitor_api_service.dart';
 import '../sheets/add_position_sheet.dart';
 import '../utils/theme_helpers.dart';
 import 'account_screen.dart';
@@ -55,6 +57,7 @@ class _AppShellState extends State<AppShell> {
   late final NotificationRepository _notificationRepository;
   late final NotificationService _notificationService;
   late final SignalRepository _signalRepository;
+  late final StrategyMonitorRepository _strategyMonitorRepository;
   List<StockPosition> _positions = List.of(samplePositions);
   List<TradeSignal> _backendSignals = const [];
   StrategySettings _settings = StrategySettings.defaults;
@@ -74,6 +77,9 @@ class _AppShellState extends State<AppShell> {
     _quoteApiService = QuoteApiService(apiClient);
     _backtestRepository = BacktestRepository(BacktestApiService(apiClient));
     _signalRepository = SignalRepository(SignalApiService(apiClient));
+    _strategyMonitorRepository = StrategyMonitorRepository(
+      StrategyMonitorApiService(apiClient),
+    );
     _notificationService = NotificationService();
     _notificationRepository = NotificationRepository(
       apiService: NotificationApiService(apiClient),
@@ -132,8 +138,12 @@ class _AppShellState extends State<AppShell> {
         isLoading: _isLoadingSignals,
         isScanning: _isScanningSignals,
         usingBackendSignals: _backendSignals.isNotEmpty,
+        positions: visible,
         onRefresh: _refreshSignalsPage,
         onScan: _scanSignals,
+        backtestRepository: _backtestRepository,
+        strategyMonitorRepository: _strategyMonitorRepository,
+        notificationRepository: _notificationRepository,
         onLoadCategory: _backendSignals.isEmpty ? null : _loadSignalCategory,
         onLoadConfigs: _signalRepository.loadScanConfigs,
         onUpdateConfig: _signalRepository.updateScanConfig,

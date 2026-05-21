@@ -41,4 +41,27 @@ class NotificationApiService {
     });
     return PushRecord.fromJson((json as Map<String, dynamic>?) ?? const {});
   }
+
+  Future<List<PushRecord>> fetchPushRecords({
+    String? signalEventId,
+    String? deviceId,
+    int limit = 50,
+  }) async {
+    final query = <String, String>{'limit': '$limit'};
+    if (signalEventId != null && signalEventId.trim().isNotEmpty) {
+      query['signal_event_id'] = signalEventId.trim();
+    }
+    if (deviceId != null && deviceId.trim().isNotEmpty) {
+      query['device_id'] = deviceId.trim();
+    }
+    final decoded = await _apiClient.get(
+      '/api/v1/notifications/push-records',
+      query: query,
+    );
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(PushRecord.fromJson)
+        .toList();
+  }
 }

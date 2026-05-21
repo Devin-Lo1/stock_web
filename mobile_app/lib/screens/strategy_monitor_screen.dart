@@ -1,0 +1,1052 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+
+import '../models/stock_position.dart';
+import '../models/strategy_definition.dart';
+import '../models/strategy_monitor.dart';
+import '../models/strategy_parameter_config.dart';
+import '../repositories/backtest_repository.dart';
+import '../repositories/strategy_monitor_repository.dart';
+import '../utils/theme_helpers.dart';
+import '../widgets/common/empty_state.dart';
+import '../widgets/common/page_title.dart';
+
+class StrategyMonitorScreen extends StatefulWidget {
+  const StrategyMonitorScreen({
+    super.key,
+    required this.positions,
+    required this.backtestRepository,
+    required this.monitorRepository,
+  });
+
+  final List<StockPosition> positions;
+  final BacktestRepository backtestRepository;
+  final StrategyMonitorRepository monitorRepository;
+
+  @override
+  State<StrategyMonitorScreen> createState() => _StrategyMonitorScreenState();
+}
+
+class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
+  final _intervalController = TextEditingController(text: '15');
+  final _cooldownController = TextEditingController(text: '120');
+  final _schedulerIntervalController = TextEditingController(text: '60');
+  final Set<String> _updatingIds = <String>{};
+  final Map<String, String> _parameterValues = <String, String>{};
+
+  List<StrategyDefinition> _strategies = const [];
+  List<StrategyMonitor> _monitors = const [];
+  StrategyMonitorSchedulerStatus? _schedulerStatus;
+  StockPosition? _selectedPosition;
+  StrategyDefinition? _selectedStrategy;
+  String _period = 'day';
+  bool _enabled = true;
+  bool _pushCandidate = true;
+  bool _schedulerRefresh = false;
+  bool _isLoading = true;
+  bool _isCreating = false;
+  bool _isSchedulerUpdating = false;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedPosition = widget.positions.isEmpty
+        ? null
+        : widget.positions.first;
+    unawaited(_load());
+  }
+
+  @override
+  void didUpdateWidget(covariant StrategyMonitorScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.positions.isEmpty) {
+      _selectedPosition = null;
+      return;
+    }
+    if (_selectedPosition == null ||
+        !widget.positions.any((item) => item.code == _selectedPosition!.code)) {
+      _selectedPosition = widget.positions.first;
+    }
+  }
+
+  @override
+  void dispose() {
+    _intervalController.dispose();
+    _cooldownController.dispose();
+    _schedulerIntervalController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final result = await Future.wait<Object>([
+        widget.backtestRepository.loadStrategies(),
+        widget.monitorRepository.loadMonitors(limit: 200),
+        widget.monitorRepository.loadSchedulerStatus(),
+      ]);
+      if (!mounted) return;
+      final strategies = result[0] as List<StrategyDefinition>;
+      final schedulerStatus = result[2] as StrategyMonitorSchedulerStatus;
+      setState(() {
+        _strategies = strategies;
+        _monitors = result[1] as List<StrategyMonitor>;
+        _schedulerStatus = schedulerStatus;
+        _schedulerRefresh = schedulerStatus.refresh;
+        _schedulerIntervalController.text =
+            '${schedulerStatus.pollIntervalSeconds}';
+        _selectedStrategy = strategies.isEmpty ? null : strategies.first;
+        _seedParameterValues();
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _seedParameterValues() {
+    final strategy = _selectedStrategy;
+    if (strategy == null) return;
+    for (final spec in strategyParameterSpecsFor(strategy.code)) {
+      _parameterValues[spec.key] = strategyParameterDefaultText(strategy, spec);
+    }
+  }
+
+  void _selectStrategy(String code) {
+    final strategy = _strategies.firstWhere(
+      (item) => item.code == code,
+      orElse: () => _strategies.first,
+    );
+    setState(() {
+      _selectedStrategy = strategy;
+      _parameterValues.clear();
+      _seedParameterValues();
+    });
+  }
+
+  Future<void> _createMonitor() async {
+    final position = _selectedPosition;
+    final strategy = _selectedStrategy;
+    if (position == null || strategy == null || _isCreating) return;
+
+    final interval = _positiveInt(_intervalController.text);
+    final cooldown = _nonNegativeInt(_cooldownController.text);
+    final parameters = _readParameters(strategy);
+    if (interval == null || cooldown == null || parameters == null) {
+      _showSnack('请检查扫描间隔、冷却时间和策略参数。');
+      return;
+    }
+
+    setState(() => _isCreating = true);
+    try {
+      final monitor = await widget.monitorRepository.createMonitor(
+        StrategyMonitorCreateRequest(
+          positionId: position.id,
+          market: _marketFromCode(position.code),
+          code: position.code,
+          name: position.name,
+          strategyCode: strategy.code,
+          strategyName: strategy.name,
+          parameters: parameters,
+          period: _period,
+          scanIntervalMinutes: interval,
+          cooldownMinutes: cooldown,
+          enabled: _enabled,
+          pushCandidate: _pushCandidate,
+        ),
+      );
+      if (!mounted) return;
+      setState(() => _monitors = [monitor, ..._monitors]);
+      _showSnack('策略监控已创建。');
+    } catch (error) {
+      if (!mounted) return;
+      _showSnack('创建失败：$error');
+    } finally {
+      if (mounted) setState(() => _isCreating = false);
+    }
+  }
+
+  Future<void> _updateMonitor(
+    StrategyMonitor monitor, {
+    bool? enabled,
+    bool? pushCandidate,
+  }) async {
+    setState(() => _updatingIds.add(monitor.id));
+    try {
+      final updated = await widget.monitorRepository.updateMonitor(
+        monitor.id,
+        enabled: enabled,
+        pushCandidate: pushCandidate,
+      );
+      if (!mounted) return;
+      setState(() => _replaceMonitor(updated));
+    } catch (error) {
+      if (!mounted) return;
+      _showSnack('保存失败：$error');
+    } finally {
+      if (mounted) setState(() => _updatingIds.remove(monitor.id));
+    }
+  }
+
+  Future<void> _deleteMonitor(StrategyMonitor monitor) async {
+    setState(() => _updatingIds.add(monitor.id));
+    try {
+      await widget.monitorRepository.deleteMonitor(monitor.id);
+      if (!mounted) return;
+      setState(() {
+        _monitors = _monitors.where((item) => item.id != monitor.id).toList();
+      });
+    } catch (error) {
+      if (!mounted) return;
+      _showSnack('删除失败：$error');
+    } finally {
+      if (mounted) setState(() => _updatingIds.remove(monitor.id));
+    }
+  }
+
+  Future<void> _startScheduler() async {
+    if (_isSchedulerUpdating) return;
+    final interval = _schedulerIntervalSeconds();
+    if (interval == null) {
+      _showSnack('调度间隔需要在 10 到 3600 秒之间。');
+      return;
+    }
+    setState(() => _isSchedulerUpdating = true);
+    try {
+      final status = await widget.monitorRepository.startScheduler(
+        pollIntervalSeconds: interval,
+        refresh: _schedulerRefresh,
+      );
+      if (!mounted) return;
+      _applySchedulerStatus(status);
+    } catch (error) {
+      if (!mounted) return;
+      _showSnack('调度器启动失败：$error');
+    } finally {
+      if (mounted) setState(() => _isSchedulerUpdating = false);
+    }
+  }
+
+  Future<void> _stopScheduler() async {
+    if (_isSchedulerUpdating) return;
+    setState(() => _isSchedulerUpdating = true);
+    try {
+      final status = await widget.monitorRepository.stopScheduler();
+      if (!mounted) return;
+      _applySchedulerStatus(status);
+    } catch (error) {
+      if (!mounted) return;
+      _showSnack('调度器停止失败：$error');
+    } finally {
+      if (mounted) setState(() => _isSchedulerUpdating = false);
+    }
+  }
+
+  int? _schedulerIntervalSeconds() {
+    final value = int.tryParse(_schedulerIntervalController.text.trim());
+    if (value == null || value < 10 || value > 3600) return null;
+    return value;
+  }
+
+  void _applySchedulerStatus(StrategyMonitorSchedulerStatus status) {
+    setState(() {
+      _schedulerStatus = status;
+      _schedulerRefresh = status.refresh;
+      _schedulerIntervalController.text = '${status.pollIntervalSeconds}';
+    });
+  }
+
+  void _replaceMonitor(StrategyMonitor updated) {
+    final index = _monitors.indexWhere((item) => item.id == updated.id);
+    if (index == -1) return;
+    _monitors = [
+      ..._monitors.take(index),
+      updated,
+      ..._monitors.skip(index + 1),
+    ];
+  }
+
+  Map<String, Object?>? _readParameters(StrategyDefinition strategy) {
+    final parameters = <String, Object?>{};
+    for (final spec in strategyParameterSpecsFor(strategy.code)) {
+      final raw = (_parameterValues[spec.key] ?? spec.fallback).trim();
+      switch (spec.valueType) {
+        case StrategyParameterValueType.positiveInt:
+          final value = _positiveInt(raw);
+          if (value == null) return null;
+          parameters[spec.key] = value;
+        case StrategyParameterValueType.boundedDouble:
+          final value = double.tryParse(raw);
+          if (value == null || !value.isFinite) return null;
+          parameters[spec.key] = value;
+        case StrategyParameterValueType.option:
+          if (raw.isEmpty) return null;
+          parameters[spec.key] = raw;
+      }
+    }
+    return parameters;
+  }
+
+  int? _positiveInt(String raw) {
+    final value = int.tryParse(raw.trim());
+    if (value == null || value < 1) return null;
+    return value;
+  }
+
+  int? _nonNegativeInt(String raw) {
+    final value = int.tryParse(raw.trim());
+    if (value == null || value < 0) return null;
+    return value;
+  }
+
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: pageBackgroundColor(context),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _load,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
+            children: [
+              Row(
+                children: [
+                  IconButton(
+                    tooltip: '返回',
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.arrow_back_rounded),
+                  ),
+                  const SizedBox(width: 4),
+                  const Expanded(
+                    child: PageTitle(title: '策略监控', subtitle: '选择股票、策略和推送候选'),
+                  ),
+                  IconButton.outlined(
+                    tooltip: '刷新',
+                    onPressed: _isLoading ? null : _load,
+                    icon: _isLoading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              if (_isLoading)
+                const Center(child: CircularProgressIndicator(strokeWidth: 2))
+              else if (_error != null)
+                EmptyState(
+                  icon: Icons.error_outline_rounded,
+                  title: '加载失败',
+                  subtitle: '请刷新后重试。',
+                  actionLabel: '重试',
+                  onAction: _load,
+                )
+              else ...[
+                _SchedulerStatusPanel(
+                  status: _schedulerStatus,
+                  intervalController: _schedulerIntervalController,
+                  refresh: _schedulerRefresh,
+                  isUpdating: _isSchedulerUpdating,
+                  onRefreshChanged: (value) =>
+                      setState(() => _schedulerRefresh = value),
+                  onStart: _startScheduler,
+                  onStop: _stopScheduler,
+                ),
+                const SizedBox(height: 16),
+                _MonitorCreatePanel(
+                  positions: widget.positions,
+                  strategies: _strategies,
+                  selectedPosition: _selectedPosition,
+                  selectedStrategy: _selectedStrategy,
+                  period: _period,
+                  enabled: _enabled,
+                  pushCandidate: _pushCandidate,
+                  intervalController: _intervalController,
+                  cooldownController: _cooldownController,
+                  parameterValues: _parameterValues,
+                  isCreating: _isCreating,
+                  onPositionChanged: (code) {
+                    setState(() {
+                      _selectedPosition = widget.positions.firstWhere(
+                        (item) => item.code == code,
+                      );
+                    });
+                  },
+                  onStrategyChanged: _selectStrategy,
+                  onPeriodChanged: (value) => setState(() => _period = value),
+                  onEnabledChanged: (value) => setState(() => _enabled = value),
+                  onPushChanged: (value) =>
+                      setState(() => _pushCandidate = value),
+                  onParameterChanged: (key, value) {
+                    setState(() => _parameterValues[key] = value);
+                  },
+                  onCreate: _createMonitor,
+                ),
+                const SizedBox(height: 16),
+                if (_monitors.isEmpty)
+                  const ReadOnlyEmptyState(
+                    icon: Icons.rule_rounded,
+                    title: '暂无策略监控',
+                    subtitle: '创建后，后端会按监控配置扫描并生成信号。',
+                  )
+                else
+                  ..._monitors.map(
+                    (monitor) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _MonitorTile(
+                        monitor: monitor,
+                        isUpdating: _updatingIds.contains(monitor.id),
+                        onEnabledChanged: (value) =>
+                            _updateMonitor(monitor, enabled: value),
+                        onPushChanged: monitor.enabled
+                            ? (value) =>
+                                  _updateMonitor(monitor, pushCandidate: value)
+                            : null,
+                        onDelete: () => _deleteMonitor(monitor),
+                      ),
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SchedulerStatusPanel extends StatelessWidget {
+  const _SchedulerStatusPanel({
+    required this.status,
+    required this.intervalController,
+    required this.refresh,
+    required this.isUpdating,
+    required this.onRefreshChanged,
+    required this.onStart,
+    required this.onStop,
+  });
+
+  final StrategyMonitorSchedulerStatus? status;
+  final TextEditingController intervalController;
+  final bool refresh;
+  final bool isUpdating;
+  final ValueChanged<bool> onRefreshChanged;
+  final VoidCallback onStart;
+  final VoidCallback onStop;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = status;
+    final running = current?.running ?? false;
+    final scanning = current?.scanning ?? false;
+    final statusColor = running
+        ? const Color(0xFF20C997)
+        : secondaryTextColor(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cardColor(context),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '调度器状态',
+                  style: TextStyle(
+                    color: primaryTextColor(context),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              if (isUpdating)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _InfoChip(
+                label: running ? '运行中' : '已停止',
+                icon: Icons.power_settings_new_rounded,
+                color: statusColor,
+              ),
+              _InfoChip(
+                label: scanning ? '扫描中' : '空闲',
+                icon: Icons.radar_rounded,
+              ),
+              _InfoChip(
+                label: current?.enabledByEnv == true ? '环境自启' : '手动控制',
+                icon: Icons.settings_power_rounded,
+              ),
+              _InfoChip(
+                label: refresh ? '刷新行情' : '使用缓存',
+                icon: Icons.sync_rounded,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: intervalController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: '轮询间隔(秒)',
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: SwitchListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('刷新行情'),
+                  value: refresh,
+                  onChanged: isUpdating ? null : onRefreshChanged,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '上次运行：${_timeLabel(current?.lastRunAt)} · ${_schedulerResultLabel(current)}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: secondaryTextColor(context), fontSize: 12),
+          ),
+          if (current?.lastError != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              '错误：${current!.lastError}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFFFF4D67),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: isUpdating ? null : onStart,
+                  icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                  label: Text(running ? '应用配置' : '启动'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              IconButton.outlined(
+                tooltip: '停止',
+                onPressed: isUpdating || !running ? null : onStop,
+                icon: const Icon(Icons.stop_rounded),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MonitorCreatePanel extends StatelessWidget {
+  const _MonitorCreatePanel({
+    required this.positions,
+    required this.strategies,
+    required this.selectedPosition,
+    required this.selectedStrategy,
+    required this.period,
+    required this.enabled,
+    required this.pushCandidate,
+    required this.intervalController,
+    required this.cooldownController,
+    required this.parameterValues,
+    required this.isCreating,
+    required this.onPositionChanged,
+    required this.onStrategyChanged,
+    required this.onPeriodChanged,
+    required this.onEnabledChanged,
+    required this.onPushChanged,
+    required this.onParameterChanged,
+    required this.onCreate,
+  });
+
+  final List<StockPosition> positions;
+  final List<StrategyDefinition> strategies;
+  final StockPosition? selectedPosition;
+  final StrategyDefinition? selectedStrategy;
+  final String period;
+  final bool enabled;
+  final bool pushCandidate;
+  final TextEditingController intervalController;
+  final TextEditingController cooldownController;
+  final Map<String, String> parameterValues;
+  final bool isCreating;
+  final ValueChanged<String> onPositionChanged;
+  final ValueChanged<String> onStrategyChanged;
+  final ValueChanged<String> onPeriodChanged;
+  final ValueChanged<bool> onEnabledChanged;
+  final ValueChanged<bool> onPushChanged;
+  final void Function(String key, String value) onParameterChanged;
+  final VoidCallback onCreate;
+
+  @override
+  Widget build(BuildContext context) {
+    final strategy = selectedStrategy;
+    final specs = strategy == null
+        ? const <StrategyParameterSpec>[]
+        : strategyParameterSpecsFor(strategy.code);
+    final canCreate =
+        selectedPosition != null && strategy != null && !isCreating;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cardColor(context),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '新增监控',
+            style: TextStyle(
+              color: primaryTextColor(context),
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: selectedPosition?.code,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: '股票',
+              isDense: true,
+              border: OutlineInputBorder(),
+            ),
+            items: positions
+                .map(
+                  (position) => DropdownMenuItem(
+                    value: position.code,
+                    child: Text(
+                      '${position.name} · ${position.code}',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: positions.isEmpty
+                ? null
+                : (value) {
+                    if (value != null) onPositionChanged(value);
+                  },
+          ),
+          const SizedBox(height: 10),
+          DropdownButtonFormField<String>(
+            initialValue: selectedStrategy?.code,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: '策略',
+              isDense: true,
+              border: OutlineInputBorder(),
+            ),
+            items: strategies
+                .map(
+                  (strategy) => DropdownMenuItem(
+                    value: strategy.code,
+                    child: Text(strategy.name, overflow: TextOverflow.ellipsis),
+                  ),
+                )
+                .toList(),
+            onChanged: strategies.isEmpty
+                ? null
+                : (value) {
+                    if (value != null) onStrategyChanged(value);
+                  },
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  initialValue: period,
+                  decoration: const InputDecoration(
+                    labelText: '周期',
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'day', child: Text('日K')),
+                    DropdownMenuItem(value: '60m', child: Text('60分钟')),
+                    DropdownMenuItem(value: '1m', child: Text('1分钟')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) onPeriodChanged(value);
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: intervalController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: '间隔(分钟)',
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: cooldownController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: '冷却(分钟)',
+              isDense: true,
+              border: OutlineInputBorder(),
+            ),
+          ),
+          if (specs.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ...specs.map(
+              (spec) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _ParameterField(
+                  key: ValueKey('${strategy!.code}:${spec.key}'),
+                  spec: spec,
+                  value: parameterValues[spec.key] ?? spec.fallback,
+                  onChanged: (value) => onParameterChanged(spec.key, value),
+                ),
+              ),
+            ),
+          ],
+          Row(
+            children: [
+              Expanded(
+                child: SwitchListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('启用'),
+                  value: enabled,
+                  onChanged: onEnabledChanged,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: SwitchListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('推送'),
+                  value: pushCandidate,
+                  onChanged: enabled ? onPushChanged : null,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: canCreate ? onCreate : null,
+              icon: isCreating
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.add_task_rounded, size: 18),
+              label: const Text('创建监控'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ParameterField extends StatelessWidget {
+  const _ParameterField({
+    super.key,
+    required this.spec,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final StrategyParameterSpec spec;
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    if (spec.valueType == StrategyParameterValueType.option) {
+      return DropdownButtonFormField<String>(
+        initialValue: spec.options.any((option) => option.value == value)
+            ? value
+            : spec.fallback,
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: spec.label,
+          isDense: true,
+          border: const OutlineInputBorder(),
+        ),
+        items: spec.options
+            .map(
+              (option) => DropdownMenuItem(
+                value: option.value,
+                child: Text(option.label),
+              ),
+            )
+            .toList(),
+        onChanged: (value) {
+          if (value != null) onChanged(value);
+        },
+      );
+    }
+    return TextFormField(
+      initialValue: value,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      decoration: InputDecoration(
+        labelText: spec.label,
+        isDense: true,
+        border: const OutlineInputBorder(),
+      ),
+      onChanged: onChanged,
+    );
+  }
+}
+
+class _MonitorTile extends StatelessWidget {
+  const _MonitorTile({
+    required this.monitor,
+    required this.isUpdating,
+    required this.onEnabledChanged,
+    required this.onPushChanged,
+    required this.onDelete,
+  });
+
+  final StrategyMonitor monitor;
+  final bool isUpdating;
+  final ValueChanged<bool> onEnabledChanged;
+  final ValueChanged<bool>? onPushChanged;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final statusColor = monitor.enabled
+        ? const Color(0xFF20C997)
+        : secondaryTextColor(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cardColor(context),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  monitor.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: primaryTextColor(context),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              if (isUpdating)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                IconButton(
+                  tooltip: '删除',
+                  onPressed: onDelete,
+                  icon: const Icon(Icons.delete_outline_rounded),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${monitor.code} · ${monitor.strategyName} · ${monitor.parameterLabel}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: secondaryTextColor(context), fontSize: 12),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _InfoChip(
+                label: _periodLabel(monitor.period),
+                icon: Icons.timeline_rounded,
+              ),
+              _InfoChip(
+                label: '${monitor.scanIntervalMinutes}分钟',
+                icon: Icons.schedule_rounded,
+              ),
+              _InfoChip(
+                label: monitor.pushCandidate ? '推送候选' : '不推送',
+                icon: Icons.notifications_rounded,
+              ),
+              _InfoChip(
+                label: monitor.enabled ? '启用中' : '已停用',
+                icon: Icons.circle,
+                color: statusColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '上次扫描：${_timeLabel(monitor.lastScannedAt)} · 上次触发：${_timeLabel(monitor.lastTriggeredAt)}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: secondaryTextColor(context), fontSize: 12),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: SwitchListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('启用'),
+                  value: monitor.enabled,
+                  onChanged: isUpdating ? null : onEnabledChanged,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: SwitchListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('推送'),
+                  value: monitor.pushCandidate,
+                  onChanged: isUpdating ? null : onPushChanged,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  const _InfoChip({required this.label, required this.icon, this.color});
+
+  final String label;
+  final IconData icon;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = color ?? secondaryTextColor(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: foreground.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: foreground),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: foreground,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _marketFromCode(String code) {
+  final upper = code.toUpperCase();
+  if (upper.startsWith('US.')) return 'US';
+  if (upper.startsWith('SH.')) return 'SH';
+  if (upper.startsWith('SZ.')) return 'SZ';
+  return 'HK';
+}
+
+String _periodLabel(String period) {
+  return switch (period) {
+    '1m' => '1分钟',
+    '60m' => '60分钟',
+    _ => '日K',
+  };
+}
+
+String _timeLabel(DateTime? value) {
+  if (value == null) return '未执行';
+  final local = value.toLocal();
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$month/$day $hour:$minute';
+}
+
+String _schedulerResultLabel(StrategyMonitorSchedulerStatus? status) {
+  final result = status?.lastResult ?? const <String, Object?>{};
+  if (result.isEmpty) return '暂无扫描结果';
+  final scanned = result['scanned_count'] ?? 0;
+  final created = result['created_count'] ?? 0;
+  final skipped = result['skipped_count'] ?? 0;
+  final errors = result['error_count'] ?? 0;
+  return '扫描 $scanned · 新增 $created · 跳过 $skipped · 错误 $errors';
+}
