@@ -113,10 +113,27 @@ lib/
 
 - 持仓基础字段。
 - 行情字段。
+- 后端成本字段：真实平均成本、券商式摊薄成本、已实现盈亏。
+- 后端收益快照字段：市值、今日盈亏、持仓盈亏、总收益、持仓占比。
 - 收益计算属性。
 - 展示格式化属性。
 
 开发持仓、收益、列表、详情页时经常会用到。
+
+券商式持仓表展示后端 `position_snapshots` 计算结果；后端快照不可用时只显示未同步/空值，不再静默退回 App 端即时计算核心收益指标。
+
+### `lib/models/position_snapshot.dart`
+
+持仓收益快照模型。
+
+对应后端：
+
+```text
+POST /api/v1/positions/snapshots/capture
+GET  /api/v1/positions/snapshots/latest
+```
+
+用于承接后端计算后的市值、今日盈亏、持仓盈亏、总收益、持仓占比和成本口径。
 
 ### `lib/models/quote_snapshot.dart`
 
@@ -333,6 +350,8 @@ GET /api/v1/stocks/search
 - 创建持仓。
 - 更新持仓。
 - 删除持仓。
+- 触发后端持仓快照计算。
+- 读取最新持仓快照。
 - 后端 JSON 与 `StockPosition` 转换。
 
 ### `lib/services/quote_api_service.dart`

@@ -8,6 +8,9 @@ class StockPosition {
     required this.code,
     required this.quantity,
     required this.costPrice,
+    this.avgCostPrice = 0,
+    this.adjustedCostPrice = 0,
+    this.realizedProfit = 0,
     required this.currentPrice,
     required this.previousClose,
     this.openPrice = 0,
@@ -20,6 +23,15 @@ class StockPosition {
     this.lotSize = 0,
     required this.changeRate,
     required this.signal,
+    this.snapshotMarketValue,
+    this.snapshotDayProfit,
+    this.snapshotDayProfitRate,
+    this.snapshotHoldingProfit,
+    this.snapshotHoldingProfitRate,
+    this.snapshotTotalProfit,
+    this.snapshotTotalProfitRate,
+    this.snapshotPositionWeight,
+    this.snapshotTime,
   });
 
   final String? id;
@@ -27,6 +39,9 @@ class StockPosition {
   final String code;
   final double quantity;
   final double costPrice;
+  final double avgCostPrice;
+  final double adjustedCostPrice;
+  final double realizedProfit;
   final double currentPrice;
   final double previousClose;
   final double openPrice;
@@ -39,6 +54,15 @@ class StockPosition {
   final double lotSize;
   final double changeRate;
   final String signal;
+  final double? snapshotMarketValue;
+  final double? snapshotDayProfit;
+  final double? snapshotDayProfitRate;
+  final double? snapshotHoldingProfit;
+  final double? snapshotHoldingProfitRate;
+  final double? snapshotTotalProfit;
+  final double? snapshotTotalProfitRate;
+  final double? snapshotPositionWeight;
+  final DateTime? snapshotTime;
 
   factory StockPosition.fromJson(Map<String, dynamic> json) {
     return StockPosition(
@@ -47,6 +71,9 @@ class StockPosition {
       code: json['code'] as String? ?? '',
       quantity: (json['quantity'] as num?)?.toDouble() ?? 0,
       costPrice: (json['costPrice'] as num?)?.toDouble() ?? 0,
+      avgCostPrice: (json['avgCostPrice'] as num?)?.toDouble() ?? 0,
+      adjustedCostPrice: (json['adjustedCostPrice'] as num?)?.toDouble() ?? 0,
+      realizedProfit: (json['realizedProfit'] as num?)?.toDouble() ?? 0,
       currentPrice: (json['currentPrice'] as num?)?.toDouble() ?? 0,
       previousClose: (json['previousClose'] as num?)?.toDouble() ?? 0,
       openPrice: (json['openPrice'] as num?)?.toDouble() ?? 0,
@@ -59,6 +86,20 @@ class StockPosition {
       lotSize: (json['lotSize'] as num?)?.toDouble() ?? 0,
       changeRate: (json['changeRate'] as num?)?.toDouble() ?? 0,
       signal: json['signal'] as String? ?? '',
+      snapshotMarketValue: (json['snapshotMarketValue'] as num?)?.toDouble(),
+      snapshotDayProfit: (json['snapshotDayProfit'] as num?)?.toDouble(),
+      snapshotDayProfitRate: (json['snapshotDayProfitRate'] as num?)
+          ?.toDouble(),
+      snapshotHoldingProfit: (json['snapshotHoldingProfit'] as num?)
+          ?.toDouble(),
+      snapshotHoldingProfitRate: (json['snapshotHoldingProfitRate'] as num?)
+          ?.toDouble(),
+      snapshotTotalProfit: (json['snapshotTotalProfit'] as num?)?.toDouble(),
+      snapshotTotalProfitRate: (json['snapshotTotalProfitRate'] as num?)
+          ?.toDouble(),
+      snapshotPositionWeight: (json['snapshotPositionWeight'] as num?)
+          ?.toDouble(),
+      snapshotTime: DateTime.tryParse(json['snapshotTime'] as String? ?? ''),
     );
   }
 
@@ -69,6 +110,9 @@ class StockPosition {
       'code': code,
       'quantity': quantity,
       'costPrice': costPrice,
+      'avgCostPrice': avgCostPrice,
+      'adjustedCostPrice': adjustedCostPrice,
+      'realizedProfit': realizedProfit,
       'currentPrice': currentPrice,
       'previousClose': previousClose,
       'openPrice': openPrice,
@@ -81,6 +125,22 @@ class StockPosition {
       'lotSize': lotSize,
       'changeRate': changeRate,
       'signal': signal,
+      if (snapshotMarketValue != null)
+        'snapshotMarketValue': snapshotMarketValue,
+      if (snapshotDayProfit != null) 'snapshotDayProfit': snapshotDayProfit,
+      if (snapshotDayProfitRate != null)
+        'snapshotDayProfitRate': snapshotDayProfitRate,
+      if (snapshotHoldingProfit != null)
+        'snapshotHoldingProfit': snapshotHoldingProfit,
+      if (snapshotHoldingProfitRate != null)
+        'snapshotHoldingProfitRate': snapshotHoldingProfitRate,
+      if (snapshotTotalProfit != null)
+        'snapshotTotalProfit': snapshotTotalProfit,
+      if (snapshotTotalProfitRate != null)
+        'snapshotTotalProfitRate': snapshotTotalProfitRate,
+      if (snapshotPositionWeight != null)
+        'snapshotPositionWeight': snapshotPositionWeight,
+      if (snapshotTime != null) 'snapshotTime': snapshotTime!.toIso8601String(),
     };
   }
 
@@ -90,14 +150,37 @@ class StockPosition {
     return MarketFilter.hk;
   }
 
-  double get costValue => quantity * costPrice;
-  double get marketValue => quantity * currentPrice;
-  double get profit => marketValue - costValue;
-  double get dailyProfit => (currentPrice - previousClose) * quantity;
-  double get dailyProfitRate => previousClose == 0
-      ? 0
-      : (currentPrice - previousClose) / previousClose * 100;
-  double get profitRate => costValue == 0 ? 0 : profit / costValue * 100;
+  double get effectiveAdjustedCostPrice =>
+      adjustedCostPrice == 0 ? costPrice : adjustedCostPrice;
+  bool get hasBackendMetrics =>
+      snapshotMarketValue != null &&
+      snapshotDayProfit != null &&
+      snapshotDayProfitRate != null &&
+      snapshotHoldingProfit != null &&
+      snapshotHoldingProfitRate != null &&
+      snapshotPositionWeight != null;
+  double? get backendMarketValue => snapshotMarketValue;
+  double? get backendDayProfit => snapshotDayProfit;
+  double? get backendDayProfitRate => snapshotDayProfitRate;
+  double? get backendHoldingProfit => snapshotHoldingProfit;
+  double? get backendHoldingProfitRate => snapshotHoldingProfitRate;
+  double? get backendPositionWeight => snapshotPositionWeight;
+  double get costValue => quantity * effectiveAdjustedCostPrice;
+  double get marketValue => snapshotMarketValue ?? quantity * currentPrice;
+  double get profit => snapshotHoldingProfit ?? marketValue - costValue;
+  double get dailyProfit =>
+      snapshotDayProfit ?? (currentPrice - previousClose) * quantity;
+  double get dailyProfitRate =>
+      snapshotDayProfitRate ??
+      (previousClose == 0
+          ? 0
+          : (currentPrice - previousClose) / previousClose * 100);
+  double get profitRate =>
+      snapshotHoldingProfitRate ??
+      (costValue == 0 ? 0 : profit / costValue * 100);
+  double get totalProfit => snapshotTotalProfit ?? realizedProfit + profit;
+  double get totalProfitRate => snapshotTotalProfitRate ?? profitRate;
+  double get positionWeight => snapshotPositionWeight ?? 0;
   bool get isUp => profit >= 0;
   String get price => formatHkd(currentPrice, showSign: false, decimals: 2);
   String get shortPrice =>

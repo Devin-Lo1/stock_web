@@ -36,18 +36,30 @@ class PositionsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalProfit = positions.fold<double>(
-      0,
-      (sum, position) => sum + position.profit,
-    );
-    final totalMarketValue = positions.fold<double>(
-      0,
-      (sum, position) => sum + position.marketValue,
-    );
-    final totalDailyProfit = positions.fold<double>(
-      0,
-      (sum, position) => sum + position.dailyProfit,
-    );
+    final hasBackendMetrics =
+        positions.isNotEmpty &&
+        positions.every((position) => position.hasBackendMetrics);
+    final totalProfit = hasBackendMetrics
+        ? positions.fold<double>(
+            0,
+            (sum, position) => sum + position.backendHoldingProfit!,
+          )
+        : 0.0;
+    final totalMarketValue = hasBackendMetrics
+        ? positions.fold<double>(
+            0,
+            (sum, position) => sum + position.backendMarketValue!,
+          )
+        : 0.0;
+    final totalDailyProfit = hasBackendMetrics
+        ? positions.fold<double>(
+            0,
+            (sum, position) => sum + position.backendDayProfit!,
+          )
+        : 0.0;
+    final summaryProfitText = hasBackendMetrics
+        ? formatHkd(totalProfit)
+        : '后端收益未同步';
 
     return RefreshIndicator(
       onRefresh: onRefresh,
@@ -60,8 +72,7 @@ class PositionsScreen extends StatelessWidget {
           if (index == 0) {
             return PageTitle(
               title: '持仓',
-              subtitle:
-                  '${positions.length} 只股票 · 总盈亏 ${formatHkd(totalProfit)}',
+              subtitle: '${positions.length} 只股票 · 总盈亏 $summaryProfitText',
               action: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -95,6 +106,7 @@ class PositionsScreen extends StatelessWidget {
               totalProfit: totalProfit,
               totalDailyProfit: totalDailyProfit,
               positionCount: positions.length,
+              hasBackendMetrics: hasBackendMetrics,
             );
           }
           return BrokeragePositionTable(
@@ -143,6 +155,7 @@ class _PositionAccountSummary extends StatelessWidget {
     required this.totalProfit,
     required this.totalDailyProfit,
     required this.positionCount,
+    required this.hasBackendMetrics,
   });
 
   final MarketFilter selectedMarket;
@@ -150,6 +163,7 @@ class _PositionAccountSummary extends StatelessWidget {
   final double totalProfit;
   final double totalDailyProfit;
   final int positionCount;
+  final bool hasBackendMetrics;
 
   @override
   Widget build(BuildContext context) {
@@ -172,25 +186,42 @@ class _PositionAccountSummary extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (!hasBackendMetrics) ...[
+            Text(
+              '后端持仓收益快照未同步',
+              style: TextStyle(
+                color: secondaryTextColor(context),
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: _SummaryMetric(
                   label: '$marketLabel($currency)',
-                  value: _formatSummaryMoney(
-                    selectedMarket,
-                    totalMarketValue,
-                    signed: false,
-                  ),
+                  value: hasBackendMetrics
+                      ? _formatSummaryMoney(
+                          selectedMarket,
+                          totalMarketValue,
+                          signed: false,
+                        )
+                      : '--',
                 ),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: _SummaryMetric(
                   label: '持仓盈亏',
-                  value: _formatSummaryMoney(selectedMarket, totalProfit),
-                  subValue: formatPercent(profitRate),
+                  value: hasBackendMetrics
+                      ? _formatSummaryMoney(selectedMarket, totalProfit)
+                      : '--',
+                  subValue: hasBackendMetrics
+                      ? formatPercent(profitRate)
+                      : null,
                   color: _profitColor(totalProfit),
                   crossAxisAlignment: CrossAxisAlignment.end,
                 ),
@@ -203,8 +234,10 @@ class _PositionAccountSummary extends StatelessWidget {
               Expanded(
                 child: _SummaryMetric(
                   label: '今日盈亏',
-                  value: _formatSummaryMoney(selectedMarket, totalDailyProfit),
-                  subValue: formatPercent(dailyRate),
+                  value: hasBackendMetrics
+                      ? _formatSummaryMoney(selectedMarket, totalDailyProfit)
+                      : '--',
+                  subValue: hasBackendMetrics ? formatPercent(dailyRate) : null,
                   color: _profitColor(totalDailyProfit),
                 ),
               ),
@@ -256,14 +289,24 @@ class _SummaryMetric extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: valueColor,
-            fontSize: 22,
-            fontWeight: FontWeight.w900,
+        Align(
+          alignment: crossAxisAlignment == CrossAxisAlignment.end
+              ? Alignment.centerRight
+              : Alignment.centerLeft,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: crossAxisAlignment == CrossAxisAlignment.end
+                ? Alignment.centerRight
+                : Alignment.centerLeft,
+            child: Text(
+              value,
+              maxLines: 1,
+              style: TextStyle(
+                color: valueColor,
+                fontSize: 19,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
           ),
         ),
         if (subValue != null) ...[
@@ -290,10 +333,10 @@ String _formatSummaryMoney(
   bool signed = true,
 }) {
   final prefix = market == MarketFilter.us ? 'US\$' : 'HK\$';
-  if (!signed) return '$prefix ${value.abs().toStringAsFixed(2)}';
-  if (value == 0) return '$prefix 0.00';
+  if (!signed) return '$prefix${value.abs().toStringAsFixed(2)}';
+  if (value == 0) return '${prefix}0.00';
   final sign = value > 0 ? '+' : '-';
-  return '$sign$prefix ${value.abs().toStringAsFixed(2)}';
+  return '$sign$prefix${value.abs().toStringAsFixed(2)}';
 }
 
 Color _profitColor(double value) {

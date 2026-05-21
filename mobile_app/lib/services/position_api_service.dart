@@ -1,3 +1,4 @@
+import '../models/position_snapshot.dart';
 import '../models/stock_position.dart';
 import 'api_client.dart';
 
@@ -37,6 +38,27 @@ class PositionApiService {
   Future<void> deletePosition(String positionId) {
     return _apiClient.delete('/api/v1/positions/$positionId');
   }
+
+  Future<List<PositionSnapshot>> capturePositionSnapshots() async {
+    final decoded = await _apiClient.post(
+      '/api/v1/positions/snapshots/capture',
+      const {},
+    );
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(PositionSnapshot.fromJson)
+        .toList();
+  }
+
+  Future<List<PositionSnapshot>> fetchLatestPositionSnapshots() async {
+    final decoded = await _apiClient.get('/api/v1/positions/snapshots/latest');
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(PositionSnapshot.fromJson)
+        .toList();
+  }
 }
 
 StockPosition _positionFromBackendJson(Map<String, dynamic> json) {
@@ -46,6 +68,9 @@ StockPosition _positionFromBackendJson(Map<String, dynamic> json) {
     code: json['code'] as String? ?? '',
     quantity: (json['quantity'] as num?)?.toDouble() ?? 0,
     costPrice: (json['cost_price'] as num?)?.toDouble() ?? 0,
+    avgCostPrice: (json['avg_cost_price'] as num?)?.toDouble() ?? 0,
+    adjustedCostPrice: (json['adjusted_cost_price'] as num?)?.toDouble() ?? 0,
+    realizedProfit: (json['realized_profit'] as num?)?.toDouble() ?? 0,
     currentPrice: (json['current_price'] as num?)?.toDouble() ?? 0,
     previousClose: (json['previous_close'] as num?)?.toDouble() ?? 0,
     changeRate: (json['change_rate'] as num?)?.toDouble() ?? 0,

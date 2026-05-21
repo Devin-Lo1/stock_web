@@ -16,11 +16,6 @@ class BrokeragePositionTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalMarketValue = positions.fold<double>(
-      0,
-      (sum, position) => sum + position.marketValue,
-    );
-
     return Container(
       decoration: BoxDecoration(
         color: cardColor(context),
@@ -36,7 +31,7 @@ class BrokeragePositionTable extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
-                width: 118,
+                width: 112,
                 child: Column(
                   children: [
                     const _FixedHeaderCell(),
@@ -54,14 +49,13 @@ class BrokeragePositionTable extends StatelessWidget {
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: SizedBox(
-                    width: 540,
+                    width: 520,
                     child: Column(
                       children: [
                         const _MetricHeaderRow(),
                         ...positions.map(
                           (position) => _MetricRow(
                             position: position,
-                            totalMarketValue: totalMarketValue,
                             onTap: () => onPositionTap(position),
                           ),
                         ),
@@ -95,7 +89,7 @@ class _TableToolbar extends StatelessWidget {
           const _PillButton(label: '订单(0)', isSelected: false),
           const Spacer(),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
             decoration: BoxDecoration(
               border: Border.all(color: accent.withValues(alpha: 0.75)),
               borderRadius: BorderRadius.circular(8),
@@ -106,7 +100,7 @@ class _TableToolbar extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: accent,
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w900,
               ),
             ),
@@ -127,7 +121,7 @@ class _PillButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: isSelected
             ? accent.withValues(alpha: 0.08)
@@ -142,7 +136,7 @@ class _PillButton extends StatelessWidget {
         label,
         style: TextStyle(
           color: isSelected ? accent : secondaryTextColor(context),
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: FontWeight.w900,
         ),
       ),
@@ -158,12 +152,12 @@ class _FixedHeaderCell extends StatelessWidget {
     return Container(
       height: 38,
       alignment: Alignment.centerLeft,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Text(
         '名称',
         style: TextStyle(
           color: secondaryTextColor(context),
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: FontWeight.w800,
         ),
       ),
@@ -199,7 +193,7 @@ class _MetricHeaderCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 108,
+      width: 104,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
@@ -211,7 +205,7 @@ class _MetricHeaderCell extends StatelessWidget {
               textAlign: TextAlign.right,
               style: TextStyle(
                 color: secondaryTextColor(context),
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -242,7 +236,7 @@ class _FixedNameCell extends StatelessWidget {
       onTap: onTap,
       child: Container(
         height: 82,
-        padding: const EdgeInsets.fromLTRB(10, 10, 8, 8),
+        padding: const EdgeInsets.fromLTRB(8, 10, 6, 8),
         decoration: BoxDecoration(
           border: Border(top: BorderSide(color: borderColor(context))),
         ),
@@ -250,31 +244,25 @@ class _FixedNameCell extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
+            _FitText(
               position.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: primaryTextColor(context),
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-              ),
+              color: primaryTextColor(context),
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              alignment: Alignment.centerLeft,
             ),
             const SizedBox(height: 5),
-            Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 4,
-              runSpacing: 3,
+            Row(
               children: [
                 _MarketTag(label: _marketTag(position.code)),
-                Text(
-                  '${position.code} ${_currencyCode(position.code)}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                const SizedBox(width: 4),
+                Expanded(
+                  child: _FitText(
+                    '${position.code} ${_currencyCode(position.code)}',
                     color: secondaryTextColor(context),
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: FontWeight.w700,
+                    alignment: Alignment.centerLeft,
                   ),
                 ),
               ],
@@ -287,23 +275,21 @@ class _FixedNameCell extends StatelessWidget {
 }
 
 class _MetricRow extends StatelessWidget {
-  const _MetricRow({
-    required this.position,
-    required this.totalMarketValue,
-    required this.onTap,
-  });
+  const _MetricRow({required this.position, required this.onTap});
 
   final StockPosition position;
-  final double totalMarketValue;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final dailyColor = _profitColor(position.dailyProfit);
-    final profitColor = _profitColor(position.profit);
-    final weight = totalMarketValue <= 0
-        ? 0
-        : position.marketValue / totalMarketValue * 100;
+    final dailyProfit = position.backendDayProfit;
+    final dailyProfitRate = position.backendDayProfitRate;
+    final holdingProfit = position.backendHoldingProfit;
+    final holdingProfitRate = position.backendHoldingProfitRate;
+    final marketValue = position.backendMarketValue;
+    final weight = position.backendPositionWeight;
+    final dailyColor = _profitColor(dailyProfit ?? 0);
+    final profitColor = _profitColor(holdingProfit ?? 0);
 
     return InkWell(
       onTap: onTap,
@@ -323,18 +309,18 @@ class _MetricRow extends StatelessWidget {
               secondary: _formatPrice(position.costPrice),
             ),
             _MetricCell(
-              primary: _formatSignedMoney(position, position.dailyProfit),
-              secondary: formatPercent(position.dailyProfitRate),
+              primary: _formatSignedMoneyOrDash(position, dailyProfit),
+              secondary: _formatPercentOrDash(dailyProfitRate),
               color: dailyColor,
             ),
             _MetricCell(
-              primary: _formatSignedMoney(position, position.profit),
-              secondary: formatPercent(position.profitRate),
+              primary: _formatSignedMoneyOrDash(position, holdingProfit),
+              secondary: _formatPercentOrDash(holdingProfitRate),
               color: profitColor,
             ),
             _MetricCell(
-              primary: _formatMoney(position, position.marketValue),
-              secondary: '${weight.toStringAsFixed(2)}%',
+              primary: _formatMoneyOrDash(position, marketValue),
+              secondary: _formatPercentOrDash(weight),
             ),
           ],
         ),
@@ -358,35 +344,25 @@ class _MetricCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final textColor = color ?? primaryTextColor(context);
     return SizedBox(
-      width: 108,
+      width: 104,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text(
+            _FitText(
               primary,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                color: textColor,
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-              ),
+              color: textColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
             ),
             const SizedBox(height: 4),
-            Text(
+            _FitText(
               secondary,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                color: textColor.withValues(alpha: 0.78),
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
+              color: textColor.withValues(alpha: 0.78),
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
             ),
           ],
         ),
@@ -420,22 +396,73 @@ class _MarketTag extends StatelessWidget {
   }
 }
 
+class _FitText extends StatelessWidget {
+  const _FitText(
+    this.text, {
+    required this.color,
+    required this.fontSize,
+    required this.fontWeight,
+    this.alignment = Alignment.centerRight,
+  });
+
+  final String text;
+  final Color color;
+  final double fontSize;
+  final FontWeight fontWeight;
+  final AlignmentGeometry alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: alignment,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: alignment,
+        child: Text(
+          text,
+          maxLines: 1,
+          style: TextStyle(
+            color: color,
+            fontSize: fontSize,
+            fontWeight: fontWeight,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 Color _profitColor(double value) {
   return value >= 0 ? const Color(0xFF12B886) : const Color(0xFFFF4D67);
 }
 
 String _formatPrice(double value) {
-  return value == 0 ? '--' : value.toStringAsFixed(3);
+  return value == 0 ? '--' : value.toStringAsFixed(2);
 }
 
 String _formatMoney(StockPosition position, double value) {
-  return '${_currencyPrefix(position.code)} ${value.abs().toStringAsFixed(2)}';
+  return '${_currencyPrefix(position.code)}${value.abs().toStringAsFixed(2)}';
 }
 
 String _formatSignedMoney(StockPosition position, double value) {
-  if (value == 0) return '${_currencyPrefix(position.code)} 0.00';
+  if (value == 0) return '${_currencyPrefix(position.code)}0.00';
   final sign = value > 0 ? '+' : '-';
-  return '$sign${_currencyPrefix(position.code)} ${value.abs().toStringAsFixed(2)}';
+  return '$sign${_currencyPrefix(position.code)}${value.abs().toStringAsFixed(2)}';
+}
+
+String _formatMoneyOrDash(StockPosition position, double? value) {
+  if (value == null) return '--';
+  return _formatMoney(position, value);
+}
+
+String _formatSignedMoneyOrDash(StockPosition position, double? value) {
+  if (value == null) return '--';
+  return _formatSignedMoney(position, value);
+}
+
+String _formatPercentOrDash(double? value) {
+  if (value == null) return '--';
+  return formatPercent(value);
 }
 
 String _currencyPrefix(String code) {

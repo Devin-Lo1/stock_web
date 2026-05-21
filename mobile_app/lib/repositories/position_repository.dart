@@ -1,4 +1,5 @@
 import '../data/sample_positions.dart';
+import '../models/position_snapshot.dart';
 import '../models/quote_snapshot.dart';
 import '../models/stock_position.dart';
 import '../services/position_api_service.dart';
@@ -29,7 +30,12 @@ class PositionRepository {
           } catch (error) {
             refreshError = error;
           }
-          final enrichedPositions = await _attachQuotes(remotePositions);
+          final quotedPositions = await _attachQuotes(remotePositions);
+          final snapshots = await _loadPositionSnapshots();
+          final enrichedPositions = _attachSnapshots(
+            quotedPositions,
+            snapshots,
+          );
           await _storageService.savePositions(enrichedPositions);
           return PositionLoadResult.remote(
             enrichedPositions,
@@ -40,7 +46,7 @@ class PositionRepository {
         // Keep the app usable while the mock backend is offline.
         final storedPositions = await _storageService.loadPositions();
         return PositionLoadResult.local(
-          storedPositions ?? List.of(samplePositions),
+          _stripBackendMetrics(storedPositions ?? List.of(samplePositions)),
           error: error,
         );
       }
@@ -48,7 +54,7 @@ class PositionRepository {
 
     final storedPositions = await _storageService.loadPositions();
     return PositionLoadResult.local(
-      storedPositions ?? List.of(samplePositions),
+      _stripBackendMetrics(storedPositions ?? List.of(samplePositions)),
     );
   }
 
@@ -67,7 +73,11 @@ class PositionRepository {
       await apiService.createPosition(position),
       position,
     );
-    final enriched = (await _attachQuotes([created])).first;
+    final quoted = await _attachQuotes([created]);
+    final enriched = _attachSnapshots(
+      quoted,
+      await _loadPositionSnapshots(),
+    ).first;
     await _storageService.savePositions([enriched, ...currentPositions]);
     return enriched;
   }
@@ -85,7 +95,11 @@ class PositionRepository {
       await apiService.updatePosition(positionId, updated),
       updated,
     );
-    final enriched = (await _attachQuotes([remoteUpdated])).first;
+    final quoted = await _attachQuotes([remoteUpdated]);
+    final enriched = _attachSnapshots(
+      quoted,
+      await _loadPositionSnapshots(),
+    ).first;
     await _storageService.savePositions(
       currentPositions
           .map((position) => position.id == positionId ? enriched : position)
@@ -128,6 +142,20 @@ class PositionRepository {
     await _quoteApiService.refreshQuotes(
       positions.map((position) => position.code).toList(),
     );
+  }
+
+  Future<List<PositionSnapshot>> _loadPositionSnapshots() async {
+    final apiService = _apiService;
+    if (apiService == null) return const [];
+    try {
+      return await apiService.capturePositionSnapshots();
+    } catch (_) {
+      try {
+        return await apiService.fetchLatestPositionSnapshots();
+      } catch (_) {
+        return const [];
+      }
+    }
   }
 }
 
@@ -176,6 +204,9 @@ StockPosition _positionWithQuote(StockPosition position, QuoteSnapshot quote) {
     code: position.code,
     quantity: position.quantity,
     costPrice: position.costPrice,
+    avgCostPrice: position.avgCostPrice,
+    adjustedCostPrice: position.adjustedCostPrice,
+    realizedProfit: position.realizedProfit,
     currentPrice: quote.currentPrice,
     previousClose: quote.previousClose,
     openPrice: quote.open,
@@ -187,6 +218,44 @@ StockPosition _positionWithQuote(StockPosition position, QuoteSnapshot quote) {
     peRatio: quote.peRatio,
     lotSize: quote.lotSize,
     changeRate: quote.changeRate,
+    signal: position.signal,
+    snapshotMarketValue: position.snapshotMarketValue,
+    snapshotDayProfit: position.snapshotDayProfit,
+    snapshotDayProfitRate: position.snapshotDayProfitRate,
+    snapshotHoldingProfit: position.snapshotHoldingProfit,
+    snapshotHoldingProfitRate: position.snapshotHoldingProfitRate,
+    snapshotTotalProfit: position.snapshotTotalProfit,
+    snapshotTotalProfitRate: position.snapshotTotalProfitRate,
+    snapshotPositionWeight: position.snapshotPositionWeight,
+    snapshotTime: position.snapshotTime,
+  );
+}
+
+List<StockPosition> _stripBackendMetrics(List<StockPosition> positions) {
+  return positions.map(_positionWithoutBackendMetrics).toList();
+}
+
+StockPosition _positionWithoutBackendMetrics(StockPosition position) {
+  return StockPosition(
+    id: position.id,
+    name: position.name,
+    code: position.code,
+    quantity: position.quantity,
+    costPrice: position.costPrice,
+    avgCostPrice: position.avgCostPrice,
+    adjustedCostPrice: position.adjustedCostPrice,
+    realizedProfit: position.realizedProfit,
+    currentPrice: position.currentPrice,
+    previousClose: position.previousClose,
+    openPrice: position.openPrice,
+    highPrice: position.highPrice,
+    lowPrice: position.lowPrice,
+    volume: position.volume,
+    turnover: position.turnover,
+    turnoverRate: position.turnoverRate,
+    peRatio: position.peRatio,
+    lotSize: position.lotSize,
+    changeRate: position.changeRate,
     signal: position.signal,
   );
 }
@@ -201,6 +270,9 @@ StockPosition _mergeBackendPosition(
     code: backendPosition.code,
     quantity: backendPosition.quantity,
     costPrice: backendPosition.costPrice,
+    avgCostPrice: backendPosition.avgCostPrice,
+    adjustedCostPrice: backendPosition.adjustedCostPrice,
+    realizedProfit: backendPosition.realizedProfit,
     currentPrice: localPosition.currentPrice,
     previousClose: localPosition.previousClose,
     openPrice: localPosition.openPrice,
@@ -213,5 +285,63 @@ StockPosition _mergeBackendPosition(
     lotSize: localPosition.lotSize,
     changeRate: localPosition.changeRate,
     signal: localPosition.signal,
+  );
+}
+
+List<StockPosition> _attachSnapshots(
+  List<StockPosition> positions,
+  List<PositionSnapshot> snapshots,
+) {
+  if (snapshots.isEmpty) return positions;
+  final byPositionId = <String, PositionSnapshot>{};
+  final byCode = <String, PositionSnapshot>{};
+  for (final snapshot in snapshots) {
+    byPositionId[snapshot.positionId] = snapshot;
+    byCode[snapshot.code.toUpperCase()] = snapshot;
+  }
+  return positions.map((position) {
+    final snapshot = position.id == null ? null : byPositionId[position.id!];
+    return _positionWithSnapshot(
+      position,
+      snapshot ?? byCode[position.code.toUpperCase()],
+    );
+  }).toList();
+}
+
+StockPosition _positionWithSnapshot(
+  StockPosition position,
+  PositionSnapshot? snapshot,
+) {
+  if (snapshot == null) return position;
+  return StockPosition(
+    id: position.id,
+    name: position.name,
+    code: position.code,
+    quantity: snapshot.quantity,
+    costPrice: snapshot.adjustedCostPrice,
+    avgCostPrice: snapshot.avgCostPrice,
+    adjustedCostPrice: snapshot.adjustedCostPrice,
+    realizedProfit: snapshot.realizedProfit,
+    currentPrice: snapshot.currentPrice,
+    previousClose: snapshot.previousClose,
+    openPrice: position.openPrice,
+    highPrice: position.highPrice,
+    lowPrice: position.lowPrice,
+    volume: position.volume,
+    turnover: position.turnover,
+    turnoverRate: position.turnoverRate,
+    peRatio: position.peRatio,
+    lotSize: position.lotSize,
+    changeRate: position.changeRate,
+    signal: position.signal,
+    snapshotMarketValue: snapshot.marketValue,
+    snapshotDayProfit: snapshot.dayProfit,
+    snapshotDayProfitRate: snapshot.dayProfitRate,
+    snapshotHoldingProfit: snapshot.holdingProfit,
+    snapshotHoldingProfitRate: snapshot.holdingProfitRate,
+    snapshotTotalProfit: snapshot.totalProfit,
+    snapshotTotalProfitRate: snapshot.totalProfitRate,
+    snapshotPositionWeight: snapshot.positionWeight,
+    snapshotTime: snapshot.snapshotTime,
   );
 }
