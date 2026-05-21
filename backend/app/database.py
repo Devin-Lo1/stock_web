@@ -52,6 +52,14 @@ from .repositories.strategies import (
     create_strategy_definition,
     list_strategy_definitions,
 )
+from .repositories.strategy_monitors import (
+    create_strategy_monitor,
+    delete_strategy_monitor,
+    get_strategy_monitor,
+    list_strategy_monitors,
+    update_strategy_monitor,
+    update_strategy_monitor_scan_state,
+)
 
 __all__ = [
     "_connect",
@@ -73,6 +81,12 @@ __all__ = [
     "upsert_candles",
     "list_strategy_definitions",
     "create_strategy_definition",
+    "list_strategy_monitors",
+    "get_strategy_monitor",
+    "create_strategy_monitor",
+    "update_strategy_monitor",
+    "update_strategy_monitor_scan_state",
+    "delete_strategy_monitor",
     "create_backtest_run",
     "list_backtest_runs",
     "get_backtest_result",

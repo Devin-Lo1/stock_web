@@ -1058,6 +1058,30 @@ backend/app/routers/backtests.py
 - 计算市值、今日盈亏、持仓盈亏、总收益、持仓占比。
 - 写入 `position_snapshots`。
 
+### `backend/app/repositories/strategy_monitors.py`
+
+股票/持仓与策略监控配置的数据库读写。
+
+职责：
+
+- 创建、读取、更新、删除 `strategy_monitors`。
+- 支持按 `position_id`、股票代码、策略 code、启用状态筛选。
+- 保存扫描周期、冷却时间、推送候选、来源回测和最近扫描状态。
+- 不直接计算策略信号，策略信号由 service 层生成。
+
+### `backend/app/services/strategy_monitor_scanner.py`
+
+单股策略监控扫描服务。
+
+职责：
+
+- 读取已启用的 `strategy_monitors`。
+- 按监控配置读取或刷新 K 线。
+- 复用 `backend/app/strategies/` 下的策略语义计算最新信号。
+- 按监控 ID、策略、参数、方向和 K 线时间生成去重 key。
+- 先写入 `signal_events`，再更新监控扫描状态。
+- 遵守扫描间隔和冷却时间，避免盘中反复触发刷屏。
+
 ### `backend/app/repositories/market_data.py`
 
 行情和 K 线数据库读写。
@@ -1473,6 +1497,7 @@ backend/tests/test_strategy_backtest_database.py
 backend/app/repositories/positions.py
 backend/app/repositories/market_data.py
 backend/app/repositories/strategies.py
+backend/app/repositories/strategy_monitors.py
 backend/app/repositories/backtests.py
 ```
 

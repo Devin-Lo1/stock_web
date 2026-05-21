@@ -16,6 +16,7 @@ from ..schemas import (
     QuoteSnapshot,
     SignalEvent,
     SignalScanConfig,
+    StrategyMonitor,
     StrategyDefinition,
 )
 
@@ -149,6 +150,30 @@ def _signal_scan_config_values(config: SignalScanConfig) -> tuple[object, ...]:
         config.sort_order,
         _datetime_to_text(config.created_at),
         _datetime_to_text(config.updated_at),
+    )
+
+
+def _strategy_monitor_values(monitor: StrategyMonitor) -> tuple[object, ...]:
+    return (
+        monitor.id,
+        monitor.position_id,
+        monitor.market,
+        monitor.code,
+        monitor.name,
+        monitor.strategy_code,
+        monitor.strategy_name,
+        _json_to_text(monitor.parameters),
+        monitor.period,
+        monitor.scan_interval_minutes,
+        monitor.cooldown_minutes,
+        _bool_to_int(monitor.enabled),
+        _bool_to_int(monitor.push_candidate),
+        monitor.source_backtest_run_id,
+        _optional_datetime_to_text(monitor.last_scanned_at),
+        _optional_datetime_to_text(monitor.last_triggered_at),
+        monitor.last_signal_event_id,
+        _datetime_to_text(monitor.created_at),
+        _datetime_to_text(monitor.updated_at),
     )
 
 
@@ -380,6 +405,32 @@ def _row_to_signal_scan_config(
         enabled=_int_to_bool(row["enabled"]),
         push_candidate=_int_to_bool(row["push_candidate"]),
         sort_order=row["sort_order"],
+        created_at=_text_to_datetime(row["created_at"]),
+        updated_at=_text_to_datetime(row["updated_at"]),
+    )
+
+
+def _row_to_strategy_monitor(
+    row: sqlite3.Row | dict[str, Any],
+) -> StrategyMonitor:
+    return StrategyMonitor(
+        id=row["id"],
+        position_id=row["position_id"],
+        market=row["market"],
+        code=row["code"],
+        name=row["name"],
+        strategy_code=row["strategy_code"],
+        strategy_name=row["strategy_name"],
+        parameters=_json_from_text(row["parameters"]),
+        period=row["period"],
+        scan_interval_minutes=row["scan_interval_minutes"],
+        cooldown_minutes=row["cooldown_minutes"],
+        enabled=_int_to_bool(row["enabled"]),
+        push_candidate=_int_to_bool(row["push_candidate"]),
+        source_backtest_run_id=row["source_backtest_run_id"],
+        last_scanned_at=_optional_text_to_datetime(row["last_scanned_at"]),
+        last_triggered_at=_optional_text_to_datetime(row["last_triggered_at"]),
+        last_signal_event_id=row["last_signal_event_id"],
         created_at=_text_to_datetime(row["created_at"]),
         updated_at=_text_to_datetime(row["updated_at"]),
     )

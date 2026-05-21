@@ -245,6 +245,49 @@ def init_database(*, seed_defaults: bool = True) -> None:
             ON signal_scan_configs (enabled, sort_order)
             """,
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS strategy_monitors (
+                id TEXT PRIMARY KEY,
+                position_id TEXT,
+                market TEXT NOT NULL,
+                code TEXT NOT NULL,
+                name TEXT NOT NULL,
+                strategy_code TEXT NOT NULL,
+                strategy_name TEXT NOT NULL,
+                parameters TEXT NOT NULL,
+                period TEXT NOT NULL,
+                scan_interval_minutes INTEGER NOT NULL,
+                cooldown_minutes INTEGER NOT NULL,
+                enabled INTEGER NOT NULL,
+                push_candidate INTEGER NOT NULL,
+                source_backtest_run_id TEXT,
+                last_scanned_at TEXT,
+                last_triggered_at TEXT,
+                last_signal_event_id TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """,
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_strategy_monitors_enabled_code
+            ON strategy_monitors (enabled, code)
+            """,
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_strategy_monitors_position
+            ON strategy_monitors (position_id)
+            """,
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_strategy_monitors_strategy
+            ON strategy_monitors (strategy_code)
+            """,
+        )
         _ensure_column(connection, "backtest_runs", "name", "TEXT NOT NULL DEFAULT ''")
         connection.execute(
             """

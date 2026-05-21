@@ -608,6 +608,22 @@ backend /health: ok
 - 验收状态。
 - 已知风险。
 
+### 2026-05-21 策略监控后端地基
+
+已完成：
+
+- 新增 `strategy_monitors` 表，用于记录某只股票/持仓绑定的策略、参数、K 线周期、扫描间隔、冷却时间、推送候选和来源回测。
+- 新增 `backend/app/repositories/strategy_monitors.py`，数据库读写继续放在 repository 层，不写回 `database.py`。
+- 新增 `backend/app/services/strategy_monitor_scanner.py`，手动扫描已启用监控，复用现有策略模块计算信号。
+- 策略监控扫描结果写入 `signal_events`，不直接推送页面内存状态。
+- 新增 `GET/POST/PUT/DELETE /api/v1/strategies/monitors` 和 `POST /api/v1/strategies/monitors/scan`。
+
+下一步：
+
+1. 增加后台定时扫描任务，优先复用 `strategy_monitor_scanner.py`。
+2. 把监控产生的推送候选接入多通道推送分发。
+3. 前端再接策略监控选择入口、持仓详情监控状态和券商式持仓表。
+
 ### 2026-05-16 历史回测复盘体验补充
 
 已完成：

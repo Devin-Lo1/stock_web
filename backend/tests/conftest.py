@@ -16,6 +16,7 @@ TABLES = (
     "push_records",
     "notification_devices",
     "signal_events",
+    "strategy_monitors",
     "signal_scan_configs",
     "strategy_signals",
     "backtest_trades",
