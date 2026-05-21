@@ -696,9 +696,24 @@ widgets/quote/quote_read_only_card.dart
 
 持仓相关组件：
 
+- `brokerage_position_table.dart`
 - `position_tile.dart`
 - `compact_metric.dart`
 - `position_detail_metric.dart`
+
+#### `brokerage_position_table.dart`
+
+券商式持仓表组件。
+
+职责：
+
+- 左侧固定股票名称、代码、市场和币种。
+- 右侧指标区横向滑动。
+- 第一屏展示可卖/持有、现价/成本、今日盈亏。
+- 右滑展示持仓盈亏、市值和持仓占比。
+- 行点击进入单股详情页。
+
+后续订单、历史、排序和更多指标列应优先在本组件或同级拆分组件扩展，不要把横向表格逻辑堆回 `positions_screen.dart`。
 
 ### `lib/widgets/quote/`
 
