@@ -1,8 +1,37 @@
 # App 后续开发方案
 
-最后更新：2026-05-13
+最后更新：2026-05-21
 
 本文档用于持续记录“下一步怎么做”。每次完成重要功能后，应更新本文件，让新接手者知道当前最优先的开发内容、依赖关系和验收标准。
+
+## 0. 当前接手重点
+
+当前最新接手入口是：
+
+```text
+docs/APP新开发者接手指南.md
+```
+
+当前已完成策略监控前端第一版：
+
+- 信号页新增策略监控入口。
+- 策略监控页可创建、开关、删除监控。
+- 策略监控页可查看和控制 scheduler。
+- 信号页新增推送记录入口。
+- 推送记录页可查看 provider、状态、设备、尝试次数、错误和发送时间。
+
+下一步先做真机链路验证：
+
+```text
+持仓股票
+-> 策略监控
+-> scheduler 扫描
+-> signal_events
+-> push_records
+-> App 展示
+```
+
+验证通过后，再开始持仓详情页和券商式持仓页改造。
 
 ## 1. 当前基线
 
@@ -23,15 +52,16 @@
 - 股票搜索建议。
 - 部分代码拆分。
 - 真机安装验证。
+- 策略监控选择入口。
+- scheduler 状态展示。
+- 信号推送记录查看。
 
 当前验证通过：
 
 ```text
-dart format lib test
-flutter analyze
-flutter test
-flutter build apk --debug
-adb install -r build\app\outputs\flutter-apk\app-debug.apk
+Flutter analyze: No issues found
+Flutter test: 27 passed
+debug APK install: Success
 ```
 
 ## 2. 开发优先级总览

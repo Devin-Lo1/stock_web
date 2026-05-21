@@ -1,47 +1,45 @@
 # App 架构审计与优化路线
 
-最后更新：2026-05-20
+最后更新：2026-05-21
 
 当前 Git 基线：
 
 ```text
-b4a17f7 chore: detect LAN API address for debug APK
+efcfed4 feat: add strategy monitor frontend
 ```
 
-本文档记录 2026-05-20 对项目代码和 docs 的完整扫描结论，用于后续一步步优化项目框架结构。后续新增功能前，应先阅读：
+本文档记录项目代码和 docs 的结构扫描结论，用于后续一步步优化项目框架结构。后续新增功能前，应先阅读：
 
 1. `docs/APP开发强约束规范.md`
-2. `docs/APP架构审计与优化路线.md`
+2. `docs/APP新开发者接手指南.md`
 3. `docs/APP项目结构说明.md`
 4. `docs/APP马上解决任务顺序.md`
+5. `docs/APP架构审计与优化路线.md`
 
 ## 1. 本次验证状态
 
-本次只做审计和验证，未在审计阶段改动代码。
+2026-05-21 当前状态：策略监控前端入口、scheduler 状态展示、推送记录查看已完成并安装到真机。下一步先做真机链路验证，再进入持仓详情和券商式持仓页改造。
 
-已验证：
+最近相关验证：
 
 ```powershell
-cd C:\Users\58229\Desktop\stock_web\backend
-.\.venv\Scripts\python.exe -m compileall app scripts tests
-.\.venv\Scripts\python.exe -m pytest
-
 cd C:\Users\58229\Desktop\stock_web\mobile_app
+D:\flutter\bin\dart.bat format lib test
 D:\flutter\bin\flutter.bat analyze
 D:\flutter\bin\flutter.bat test
 ```
 
 结果：
 
-- 后端编译通过。
-- 后端测试 31 passed。
 - Flutter analyze 通过，无静态问题。
-- Flutter test 15 passed。
+- Flutter test 27 passed。
+- 局域网 debug APK 已打包并安装成功。
 - 当前工作区干净。
 
 已知警告：
 
 - `backend/app/main.py` 已从 `@app.on_event` 迁移到 lifespan，原 FastAPI 过期警告已处理。
+- 后端在本阶段没有新改动；修改后端时仍必须重新运行 compileall 和 pytest。
 
 ## 2. 当前代码结构结论
 
@@ -121,14 +119,22 @@ models -> services -> repositories -> screens -> widgets
    - 这会让数据模型和 UI 展示耦合，后续应拆成纯数据模型加 UI 映射。
 
 4. `mobile_app/lib/screens/signals_screen.dart`
-   - 第一版分类页可用，但分类详情页和分类卡片都在同一文件。
+   - 当前承担信号列表、分类入口、信号设置入口、策略监控入口、推送记录入口。
    - 后续信号中心继续扩展时，应移动到 `widgets/signal/` 和独立 screen。
 
-5. `mobile_app/lib/sheets/add_position_sheet.dart`
+5. `mobile_app/lib/screens/strategy_monitor_screen.dart`
+   - 第一版策略监控入口已经可用，但创建表单、scheduler 面板和监控列表都在同一文件。
+   - 如果继续增加“从回测保存为监控”“按股票筛选监控”“监控详情页”，应拆到 `widgets/strategy_monitor/` 或独立子页面。
+
+6. `mobile_app/lib/screens/push_records_screen.dart`
+   - 当前是全局推送记录列表。
+   - 后续如果要从某条信号进入推送详情，应支持按 `signal_event_id` 过滤。
+
+7. `mobile_app/lib/sheets/add_position_sheet.dart`
    - 添加持仓弹窗仍然偏大。
    - 股票搜索、行情只读卡片、输入控件可继续拆分。
 
-6. `mobile_app/lib_backup/`
+8. `mobile_app/lib_backup/`
    - 仍保留两份旧 `main.dart` 大备份。
    - 不参与编译，但会干扰接手者理解，后续应归档说明或移出 app 源码目录。
 
@@ -315,17 +321,36 @@ docs 当前最大问题不是内容少，而是历史记录太多、入口失效
 
 ## 5. 当前立即执行顺序
 
-本次文档保存后，马上开始阶段 1 的第一步：
+当前马上不继续做结构拆分，先完成真机链路验证：
 
 ```text
-信号模型和 UI 解耦
+持仓股票
+-> 策略监控
+-> scheduler 扫描
+-> signal_events
+-> push_records
+-> App 展示
 ```
 
-第一轮只做低风险拆分：
+验证通过后，进入持仓详情和券商式持仓页改造：
 
-- 新增信号分类 UI helper。
-- 从 `TradeSignal` 模型中移出分类标题、颜色、图标展示逻辑。
-- 保持当前信号页视觉和行为不变。
+```text
+券商式持仓页
+-> 持仓详情页收益和历史增强
+-> 单股策略监控和历史信号整合
+```
+
+持仓详情改造时优先使用已有后端：
+
+```text
+position_trades
+position_snapshots
+strategy_monitors
+signal_events
+push_records
+```
+
+不要在 Flutter 页面里重新计算复杂历史口径。
 
 完成后必须运行：
 

@@ -1,6 +1,6 @@
 # App 总体开发规划
 
-最后更新：2026-05-13
+最后更新：2026-05-21
 
 本文档用于让新接手者快速理解项目目标、阶段路线、技术架构和长期方向。内容整合自：
 
@@ -61,7 +61,7 @@ mobile_app/
 已实现：
 
 - `main.dart` 已保持薄入口。
-- 首页、持仓、信号、设置、我的、显示设置、持仓详情、添加/编辑弹窗。
+- 首页、持仓、量化、信号、设置、我的、显示设置、持仓详情、添加/编辑弹窗。
 - 港股/美股切换。
 - 本地添加、编辑、删除持仓。
 - 后端连接状态展示。
@@ -70,19 +70,24 @@ mobile_app/
 - 行情快照模型 `QuoteSnapshot`。
 - K 线模型 `Candle`。
 - 详情页交互 K 线、MA 标签、横屏全图。
+- 详情页 K 线 VOL 副图。
 - 股票搜索建议，本地候选 + 后端搜索。
-- 本地信号生成。
+- 后端落库信号展示和本地信号兜底。
+- 信号分类筛选。
+- 信号设置入口。
+- 策略监控选择入口。
+- scheduler 状态展示。
+- 推送记录查看入口。
+- 量化回测入口、历史回测、参数快照、收益曲线和买卖点 K 线。
 - 日间/夜间模式。
 - 真机 debug APK 安装验证。
 
 最近验证已通过：
 
 ```text
-dart format lib test
-flutter analyze
-flutter test
-flutter build apk --debug
-adb install -r build\app\outputs\flutter-apk\app-debug.apk
+Flutter analyze: No issues found
+Flutter test: 27 passed
+debug APK install: Success
 ```
 
 ### 2.2 后端
@@ -113,17 +118,40 @@ GET    /api/v1/futu/quote
 GET    /api/v1/futu/kline-quota
 POST   /api/v1/quotes/refresh
 POST   /api/v1/klines/refresh
+GET    /api/v1/strategies
+POST   /api/v1/backtests
+GET    /api/v1/backtests
+GET    /api/v1/backtests/{run_id}
+GET    /api/v1/signals/events
+POST   /api/v1/signals/scan
+GET    /api/v1/signals/configs
+PUT    /api/v1/signals/configs/{config_id}
+GET    /api/v1/strategies/monitors
+POST   /api/v1/strategies/monitors
+PUT    /api/v1/strategies/monitors/{monitor_id}
+DELETE /api/v1/strategies/monitors/{monitor_id}
+GET    /api/v1/strategies/monitors/scheduler/status
+POST   /api/v1/strategies/monitors/scheduler/start
+POST   /api/v1/strategies/monitors/scheduler/stop
+GET    /api/v1/notifications/push-records
 ```
 
 当前后端包含：
 
 - `backend/app/main.py`
-- `backend/app/database.py`
-- `backend/app/mock_store.py`
-- `backend/app/schemas.py`
+- `backend/app/routers/`
+- `backend/app/schemas/`
+- `backend/app/repositories/`
+- `backend/app/db/`
+- `backend/app/backtest/`
+- `backend/app/strategies/`
 - `backend/app/services/futu_client.py`
-- `backend/app/services/futu_import.py`
 - `backend/app/services/stock_search.py`
+- `backend/app/services/signal_scanner.py`
+- `backend/app/services/strategy_monitor_scanner.py`
+- `backend/app/services/strategy_monitor_scheduler.py`
+- `backend/app/services/push_service.py`
+- `backend/app/services/push_providers/`
 
 ### 2.3 文档
 
@@ -131,9 +159,12 @@ POST   /api/v1/klines/refresh
 
 ```text
 docs/APP开发强约束规范.md
+docs/APP新开发者接手指南.md
+docs/APP项目结构说明.md
+docs/APP马上解决任务顺序.md
+docs/APP架构审计与优化路线.md
 docs/APP总体开发规划.md
 docs/APP后续开发方案.md
-docs/APP项目结构说明.md
 ```
 
 原始文档作为历史背景保留。
@@ -769,17 +800,14 @@ D:\flutter\bin\flutter.bat config --jdk-dir="D:\java\jdk-17.0.19+10"
 新接手者先读：
 
 1. `docs/APP开发强约束规范.md`
-2. `docs/APP总体开发规划.md`
-3. `docs/APP后续开发方案.md`
-4. `docs/APP项目结构说明.md`
+2. `docs/APP新开发者接手指南.md`
+3. `docs/APP项目结构说明.md`
+4. `docs/APP马上解决任务顺序.md`
+5. `docs/APP架构审计与优化路线.md`
+6. `docs/APP后续开发方案.md`
+7. `docs/APP总体开发规划.md`
 
-需要历史背景时再读：
-
-- `docs/项目开发计划与技术方案整合.md`
-- `docs/项目记忆与交接.md`
-- `docs/安卓App一周MVP开发计划.md`
-- `docs/完整技术方案文档.md`
-- `docs/Flutter安卓环境准备.md`
+旧历史文档若不存在，不再作为接手入口；以 `docs/README.md` 中列出的当前文档为准。
 
 ## 11. 数据库路线更新
 

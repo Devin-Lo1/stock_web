@@ -1,6 +1,6 @@
 # App 项目结构说明
 
-最后更新：2026-05-15
+最后更新：2026-05-21
 
 本文档用于说明当前项目每个主要代码文件的职责。新接手者看完后，应能判断某个功能应该在哪个目录、哪个文件下开发。
 
@@ -168,6 +168,38 @@ POST /api/v1/klines/refresh
 - `enabled` 控制该扫描条件是否参与后端信号生成。
 - `push_candidate` 控制该扫描条件生成的信号是否进入推送候选。
 
+### `lib/models/strategy_monitor.dart`
+
+策略监控模型。
+
+用于 App 策略监控页面和 scheduler 状态展示：
+
+- `StrategyMonitor`：后端 `strategy_monitors` 的 App 端结构。
+- `StrategyMonitorCreateRequest`：创建监控请求。
+- `StrategyMonitorSchedulerStatus`：后端调度器运行状态。
+
+对应后端：
+
+```text
+GET    /api/v1/strategies/monitors
+POST   /api/v1/strategies/monitors
+PUT    /api/v1/strategies/monitors/{monitor_id}
+DELETE /api/v1/strategies/monitors/{monitor_id}
+GET    /api/v1/strategies/monitors/scheduler/status
+POST   /api/v1/strategies/monitors/scheduler/start
+POST   /api/v1/strategies/monitors/scheduler/stop
+```
+
+### `lib/models/notification_models.dart`
+
+通知和推送模型。
+
+当前包含：
+
+- `NotificationDevice`：设备 token 和通知开关。
+- `NotificationRegistrationResult`：设备注册结果。
+- `PushRecord`：推送记录，用于展示通道、状态、设备、尝试次数、错误和发送时间。
+
 ### `lib/models/strategy_definition.dart`
 
 量化策略定义模型。
@@ -221,6 +253,56 @@ GET /api/v1/stocks/search
 - 创建、编辑、删除持仓后同步本地缓存。
 
 开发持仓数据流时优先改这里，不要直接在页面里组合多个 service。
+
+### `lib/repositories/backtest_repository.dart`
+
+回测仓储层。
+
+职责：
+
+- 加载策略定义。
+- 提交回测。
+- 加载历史回测列表和详情。
+- 删除、重命名历史回测。
+
+量化页只调用 repository，不直接拼 HTTP。
+
+### `lib/repositories/signal_repository.dart`
+
+信号仓储层。
+
+职责：
+
+- 加载后端落库信号事件。
+- 手动触发信号扫描。
+- 加载和更新信号扫描配置。
+
+信号页分类筛选通过 repository 传参到 `SignalApiService`，不要在页面里拼 URL。
+
+### `lib/repositories/notification_repository.dart`
+
+通知仓储层。
+
+职责：
+
+- 注册当前设备 token。
+- 发送测试通知。
+- 读取推送记录。
+
+设置页和推送记录页都应通过这里访问通知相关 API。
+
+### `lib/repositories/strategy_monitor_repository.dart`
+
+策略监控仓储层。
+
+职责：
+
+- 加载策略监控列表。
+- 创建、更新、删除策略监控。
+- 加载 scheduler 状态。
+- 启动、停止 scheduler。
+
+策略监控页只做表单和状态展示，不直接拼 HTTP。
 
 ## 7. Flutter 服务目录
 
@@ -283,6 +365,42 @@ GET /api/v1/stocks/search
 - 将后端结构化错误交给 `ApiClient` 统一处理。
 
 量化页不直接拼 HTTP 请求；新增回测接口时优先扩展这里。
+
+### `lib/services/signal_api_service.dart`
+
+信号 API service。
+
+职责：
+
+- 读取后端 `signal_events`。
+- 调用手动扫描接口。
+- 读取和更新扫描配置。
+
+当前支持按股票、信号类型、级别、来源分类、策略、推送候选和已读状态筛选。
+
+### `lib/services/notification_api_service.dart`
+
+通知 API service。
+
+职责：
+
+- 注册设备。
+- 发送测试通知。
+- 读取推送记录。
+
+推送记录接口用于 App 展示某条信号是否已发送、跳过或失败。
+
+### `lib/services/strategy_monitor_api_service.dart`
+
+策略监控 API service。
+
+职责：
+
+- 访问 `strategies/monitors` 相关接口。
+- 创建、更新、删除监控配置。
+- 读取和控制 scheduler。
+
+新增策略监控接口时优先扩展这里，再由 repository 暴露给页面。
 
 ### `lib/services/position_storage_service.dart`
 
@@ -394,10 +512,45 @@ App 主壳。
 - 按分类进入信号列表。
 - 在分类详情页按股票、策略、信号类型筛选。
 - 提供信号设置入口，管理后端扫描配置启用状态和推送候选状态。
+- 提供策略监控入口。
+- 提供推送记录入口。
 - 空状态。
 - 刷新。
 
-后续信号历史、已读未读、推送记录可从这里扩展，但复杂信号组件应放 `widgets/signal/`。如果筛选和设置页继续变复杂，应拆出独立 screen 或 widget，不要继续堆在单个文件。
+后续信号历史、已读未读、推送记录可从这里扩展，但复杂信号组件应放 `widgets/signal/`。如果筛选、设置、监控入口继续变复杂，应拆出独立 screen 或 widget，不要继续堆在单个文件。
+
+### `lib/screens/strategy_monitor_screen.dart`
+
+策略监控页。
+
+职责：
+
+- 读取当前持仓和后端策略列表。
+- 创建股票 + 策略 + 参数的监控配置。
+- 设置周期、扫描间隔、冷却时间、启用状态和推送候选。
+- 展示已有策略监控列表。
+- 开关或删除已有监控。
+- 展示 scheduler 运行状态、扫描状态、上次结果和错误。
+- 启动、停止或应用 scheduler 配置。
+
+约束：
+
+- 不在页面中实现策略判断。
+- 不在页面中实现扫描循环。
+- 不直接拼 HTTP。
+- 后续如果要增加“从回测保存为监控”“按股票筛选监控”“监控详情页”，应继续拆组件或新增子页面。
+
+### `lib/screens/push_records_screen.dart`
+
+推送记录页。
+
+职责：
+
+- 读取后端 `push_records`。
+- 展示信号事件、设备、provider、状态、尝试次数、发送时间和错误信息。
+- 支持刷新和空/错状态。
+
+后续如果从某条信号进入，应增加 `signalEventId` 过滤，不要在页面内本地遍历全部记录模拟筛选。
 
 ### `lib/screens/quant_screen.dart`
 
@@ -430,6 +583,19 @@ App 主壳。
 - 版本信息。
 
 如果继续增长，应拆 `widgets/settings/`。
+
+### `lib/screens/notification_settings_screen.dart`
+
+消息提醒设置页。
+
+职责：
+
+- 注册当前设备 token。
+- 展示设备注册状态。
+- 控制通知开关和重要通知开关。
+- 发送测试通知。
+
+App 只负责设备 token、权限和设置展示；后台推送扫描和分发由后端负责。
 
 ### `lib/screens/account_screen.dart`
 

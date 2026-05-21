@@ -1,13 +1,13 @@
 # App 马上解决任务顺序
 
-最后更新：2026-05-20
+最后更新：2026-05-21
 
 本文档用于交接“下一位开发者马上应该做什么”。它不是长期规划文档，而是当前版本之后最优先的执行清单。
 
 当前 Git 基线：
 
 ```text
-b4a17f7 chore: detect LAN API address for debug APK
+efcfed4 feat: add strategy monitor frontend
 ```
 
 当前工作区要求：
@@ -19,34 +19,66 @@ b4a17f7 chore: detect LAN API address for debug APK
 - 涉及真机体验必须重新构建并安装 APK。
 - 当前真机调试采用局域网后端地址。重新打 debug APK 时禁止裸跑 `flutter build apk --debug`，必须直接运行 `.\scripts\build_mobile_lan_debug.ps1` 自动探测当前电脑局域网 IP，或手动传 `--dart-define=API_BASE_URL=http://电脑当前局域网IP:8000`。
 
-## 0. 2026-05-20 当前马上任务
+## 0. 2026-05-21 当前马上任务
 
-当前已经完成一次完整架构审计，结果记录在：
-
-```text
-docs/APP架构审计与优化路线.md
-```
-
-后续马上按该文档分阶段优化。当前第一步：
+当前刚完成：
 
 ```text
-信号模型和 UI 解耦
+策略监控选择入口
+strategy monitor scheduler 状态展示
+信号推送记录查看
 ```
 
-第一轮只做低风险结构优化：
+前端已提交：
 
-- 新增信号分类 UI helper。
-- 从 `mobile_app/lib/models/trade_signal.dart` 移出分类标题、图标、颜色等 UI 展示逻辑。
-- 保持当前信号页视觉和行为不变。
-- 完成后运行 Flutter format、analyze、test。
+```text
+efcfed4 feat: add strategy monitor frontend
+```
 
-后续阶段依次处理：
+已验证：
 
-- Futu `SH.`、`SZ.` 市场和币种映射。
-- `signal_scanner.py` 扫描配置化。
-- `app_shell.dart` 状态控制器拆分。
-- `quant_screen.dart` 参数校验和历史/搜索控制器拆分。
-- docs 中旧 IP、旧文件名和历史“下一步”描述清理。
+```text
+Flutter analyze: No issues found
+Flutter test: 27 passed
+debug APK install: Success
+```
+
+下一位开发者不要马上继续改持仓详情页，先做真机链路验证：
+
+1. 打开 App，确认首页、持仓、信号页能连接后端。
+2. 进入信号页，确认三个入口可打开：
+   - 信号设置。
+   - 策略监控。
+   - 推送记录。
+3. 在策略监控页创建一个监控，建议先用持仓股票 + `price_break_ma` 或 `ma_cross`。
+4. 启动 scheduler。
+5. 检查信号页是否出现策略信号。
+6. 检查推送记录页是否出现 `sent`、`failed` 或 `skipped`。
+
+必须先确认这条闭环：
+
+```text
+持仓股票
+-> 策略监控
+-> scheduler 扫描
+-> signal_events
+-> push_records
+-> App 展示
+```
+
+验证通过后，再进入下一阶段：
+
+```text
+券商式持仓页
+-> 持仓详情页收益和历史增强
+-> 单股策略监控和历史信号整合
+```
+
+具体接手说明见：
+
+```text
+docs/APP新开发者接手指南.md
+```
 
 ## 1. 当前真实状态
 
