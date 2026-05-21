@@ -135,6 +135,8 @@ class _AppShellState extends State<AppShell> {
         onRefresh: _refreshSignalsPage,
         onScan: _scanSignals,
         onLoadCategory: _backendSignals.isEmpty ? null : _loadSignalCategory,
+        onLoadConfigs: _signalRepository.loadScanConfigs,
+        onUpdateConfig: _signalRepository.updateScanConfig,
       ),
       SettingsScreen(
         settings: _settings,
@@ -353,23 +355,23 @@ class _AppShellState extends State<AppShell> {
   Future<List<TradeSignal>> _loadSignalCategory(SignalCategory category) {
     return switch (category) {
       SignalCategory.important => _signalRepository.loadSignals(
-        limit: 100,
+        limit: 200,
         level: 'important',
       ),
       SignalCategory.strategy => _signalRepository.loadSignals(
-        limit: 100,
+        limit: 200,
         sourceCategory: 'strategy',
       ),
       SignalCategory.risk => _signalRepository.loadSignals(
-        limit: 100,
+        limit: 200,
         sourceCategory: 'risk',
       ),
       SignalCategory.system => _signalRepository.loadSignals(
-        limit: 100,
+        limit: 200,
         sourceCategory: 'system',
       ),
       SignalCategory.ignored => _signalRepository.loadSignals(
-        limit: 100,
+        limit: 200,
         readStatus: 'ignored',
       ),
     };

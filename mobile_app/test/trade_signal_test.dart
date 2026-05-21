@@ -16,6 +16,7 @@ void main() {
       'payload': {
         'source_category': 'strategy',
         'stock_name': '美光科技',
+        'strategy_code': 'price_break_ma',
         'strategy_name': 'Price Break MA',
         'condition_label': '收盘价跌破 MA5',
         'push_candidate': true,
@@ -23,7 +24,9 @@ void main() {
     });
 
     expect(signal.id, 'event-1');
+    expect(signal.code, 'US.MU');
     expect(signal.signalType, 'price_break_ma_sell');
+    expect(signal.strategyCode, 'price_break_ma');
     expect(signal.stock, '美光科技 US.MU');
     expect(signal.time, '2026/05/18');
     expect(signal.level, '高');

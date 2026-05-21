@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../models/signal_scan_config.dart';
 import '../models/trade_signal.dart';
 import '../widgets/common/empty_state.dart';
 import '../widgets/common/page_title.dart';
@@ -19,6 +20,8 @@ class SignalsScreen extends StatelessWidget {
     required this.onRefresh,
     required this.onScan,
     this.onLoadCategory,
+    this.onLoadConfigs,
+    this.onUpdateConfig,
   });
 
   final List<TradeSignal> signals;
@@ -29,6 +32,13 @@ class SignalsScreen extends StatelessWidget {
   final Future<void> Function() onScan;
   final Future<List<TradeSignal>> Function(SignalCategory category)?
   onLoadCategory;
+  final Future<List<SignalScanConfig>> Function()? onLoadConfigs;
+  final Future<SignalScanConfig> Function(
+    String configId, {
+    bool? enabled,
+    bool? pushCandidate,
+  })?
+  onUpdateConfig;
 
   @override
   Widget build(BuildContext context) {
@@ -71,6 +81,23 @@ class SignalsScreen extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.refresh_rounded),
+              ),
+              const SizedBox(width: 10),
+              IconButton.outlined(
+                tooltip: '信号设置',
+                onPressed: onLoadConfigs == null || onUpdateConfig == null
+                    ? null
+                    : () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) => SignalConfigScreen(
+                              onLoadConfigs: onLoadConfigs!,
+                              onUpdateConfig: onUpdateConfig!,
+                            ),
+                          ),
+                        );
+                      },
+                icon: const Icon(Icons.tune_rounded),
               ),
             ],
           ),
@@ -252,6 +279,9 @@ class _SignalCategoryScaffold extends StatefulWidget {
 
 class _SignalCategoryScaffoldState extends State<_SignalCategoryScaffold> {
   late List<TradeSignal> _signals = widget.initialSignals;
+  String _selectedCode = '';
+  String _selectedStrategyCode = '';
+  String _selectedSignalType = '';
   bool _isLoading = false;
   Object? _error;
 
@@ -282,8 +312,34 @@ class _SignalCategoryScaffoldState extends State<_SignalCategoryScaffold> {
     }
   }
 
+  List<TradeSignal> get _visibleSignals {
+    return _signals.where((signal) {
+      if (_selectedCode.isNotEmpty && signal.code != _selectedCode) {
+        return false;
+      }
+      if (_selectedStrategyCode.isNotEmpty &&
+          signal.strategyCode != _selectedStrategyCode) {
+        return false;
+      }
+      if (_selectedSignalType.isNotEmpty &&
+          signal.signalType != _selectedSignalType) {
+        return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _selectedCode = '';
+      _selectedStrategyCode = '';
+      _selectedSignalType = '';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final visibleSignals = _visibleSignals;
     return Scaffold(
       backgroundColor: pageBackgroundColor(context),
       body: SafeArea(
@@ -308,6 +364,21 @@ class _SignalCategoryScaffoldState extends State<_SignalCategoryScaffold> {
               ],
             ),
             const SizedBox(height: 14),
+            if (!_isLoading && _error == null && _signals.isNotEmpty) ...[
+              _SignalFilterBar(
+                signals: _signals,
+                selectedCode: _selectedCode,
+                selectedStrategyCode: _selectedStrategyCode,
+                selectedSignalType: _selectedSignalType,
+                onCodeChanged: (value) => setState(() => _selectedCode = value),
+                onStrategyChanged: (value) =>
+                    setState(() => _selectedStrategyCode = value),
+                onSignalTypeChanged: (value) =>
+                    setState(() => _selectedSignalType = value),
+                onClear: _clearFilters,
+              ),
+              const SizedBox(height: 12),
+            ],
             if (_isLoading)
               const Center(child: CircularProgressIndicator(strokeWidth: 2))
             else if (_error != null)
@@ -324,8 +395,16 @@ class _SignalCategoryScaffoldState extends State<_SignalCategoryScaffold> {
                 title: '暂无信号',
                 subtitle: '该分类下暂时没有触发记录。',
               )
+            else if (visibleSignals.isEmpty)
+              EmptyState(
+                icon: Icons.filter_alt_off_rounded,
+                title: '没有匹配信号',
+                subtitle: '当前筛选条件下没有信号记录。',
+                actionLabel: '清空筛选',
+                onAction: _clearFilters,
+              )
             else
-              ..._signals.map(
+              ...visibleSignals.map(
                 (signal) => Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: SignalTile(signal: signal),
@@ -333,6 +412,401 @@ class _SignalCategoryScaffoldState extends State<_SignalCategoryScaffold> {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SignalFilterBar extends StatelessWidget {
+  const _SignalFilterBar({
+    required this.signals,
+    required this.selectedCode,
+    required this.selectedStrategyCode,
+    required this.selectedSignalType,
+    required this.onCodeChanged,
+    required this.onStrategyChanged,
+    required this.onSignalTypeChanged,
+    required this.onClear,
+  });
+
+  final List<TradeSignal> signals;
+  final String selectedCode;
+  final String selectedStrategyCode;
+  final String selectedSignalType;
+  final ValueChanged<String> onCodeChanged;
+  final ValueChanged<String> onStrategyChanged;
+  final ValueChanged<String> onSignalTypeChanged;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final stockOptions = _stockOptions(signals);
+    final strategyOptions = _strategyOptions(signals);
+    final signalTypeOptions = _signalTypeOptions(signals);
+    final hasFilter =
+        selectedCode.isNotEmpty ||
+        selectedStrategyCode.isNotEmpty ||
+        selectedSignalType.isNotEmpty;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cardColor(context),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor(context)),
+      ),
+      child: Column(
+        children: [
+          _FilterDropdown(
+            label: '股票',
+            value: _validValue(selectedCode, stockOptions),
+            options: stockOptions,
+            onChanged: onCodeChanged,
+          ),
+          const SizedBox(height: 10),
+          _FilterDropdown(
+            label: '策略',
+            value: _validValue(selectedStrategyCode, strategyOptions),
+            options: strategyOptions,
+            onChanged: onStrategyChanged,
+          ),
+          const SizedBox(height: 10),
+          _FilterDropdown(
+            label: '信号',
+            value: _validValue(selectedSignalType, signalTypeOptions),
+            options: signalTypeOptions,
+            onChanged: onSignalTypeChanged,
+          ),
+          if (hasFilter) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: onClear,
+                icon: const Icon(Icons.filter_alt_off_rounded, size: 18),
+                label: const Text('清空筛选'),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterDropdown extends StatelessWidget {
+  const _FilterDropdown({
+    required this.label,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String value;
+  final List<_FilterOption> options;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<String>(
+      initialValue: value,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        border: const OutlineInputBorder(),
+      ),
+      items: [
+        const DropdownMenuItem(value: '', child: Text('全部')),
+        ...options.map(
+          (option) => DropdownMenuItem(
+            value: option.value,
+            child: Text(option.label, overflow: TextOverflow.ellipsis),
+          ),
+        ),
+      ],
+      onChanged: (value) => onChanged(value ?? ''),
+    );
+  }
+}
+
+class _FilterOption {
+  const _FilterOption(this.value, this.label);
+
+  final String value;
+  final String label;
+}
+
+String _validValue(String value, List<_FilterOption> options) {
+  if (value.isEmpty) return '';
+  return options.any((option) => option.value == value) ? value : '';
+}
+
+List<_FilterOption> _stockOptions(List<TradeSignal> signals) {
+  final labels = <String, String>{};
+  for (final signal in signals) {
+    final value = signal.code.isNotEmpty ? signal.code : signal.stock;
+    if (value.isEmpty) continue;
+    labels.putIfAbsent(
+      value,
+      () => signal.stock.isEmpty ? value : signal.stock,
+    );
+  }
+  return _sortedOptions(labels);
+}
+
+List<_FilterOption> _strategyOptions(List<TradeSignal> signals) {
+  final labels = <String, String>{};
+  for (final signal in signals) {
+    if (signal.strategyCode.isEmpty) continue;
+    labels.putIfAbsent(
+      signal.strategyCode,
+      () => signal.strategyName.isEmpty
+          ? signal.strategyCode
+          : signal.strategyName,
+    );
+  }
+  return _sortedOptions(labels);
+}
+
+List<_FilterOption> _signalTypeOptions(List<TradeSignal> signals) {
+  final labels = <String, String>{};
+  for (final signal in signals) {
+    if (signal.signalType.isEmpty) continue;
+    labels.putIfAbsent(
+      signal.signalType,
+      () => signal.type.isEmpty ? signal.signalType : signal.type,
+    );
+  }
+  return _sortedOptions(labels);
+}
+
+List<_FilterOption> _sortedOptions(Map<String, String> labels) {
+  final options = labels.entries
+      .map((entry) => _FilterOption(entry.key, entry.value))
+      .toList();
+  options.sort((left, right) => left.label.compareTo(right.label));
+  return options;
+}
+
+class SignalConfigScreen extends StatefulWidget {
+  const SignalConfigScreen({
+    super.key,
+    required this.onLoadConfigs,
+    required this.onUpdateConfig,
+  });
+
+  final Future<List<SignalScanConfig>> Function() onLoadConfigs;
+  final Future<SignalScanConfig> Function(
+    String configId, {
+    bool? enabled,
+    bool? pushCandidate,
+  })
+  onUpdateConfig;
+
+  @override
+  State<SignalConfigScreen> createState() => _SignalConfigScreenState();
+}
+
+class _SignalConfigScreenState extends State<SignalConfigScreen> {
+  List<SignalScanConfig> _configs = const [];
+  final Set<String> _updatingIds = <String>{};
+  bool _isLoading = true;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadConfigs());
+  }
+
+  Future<void> _loadConfigs() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final configs = await widget.onLoadConfigs();
+      if (!mounted) return;
+      setState(() => _configs = configs);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _updateConfig(
+    SignalScanConfig config, {
+    bool? enabled,
+    bool? pushCandidate,
+  }) async {
+    setState(() => _updatingIds.add(config.id));
+    try {
+      final updated = await widget.onUpdateConfig(
+        config.id,
+        enabled: enabled,
+        pushCandidate: pushCandidate,
+      );
+      if (!mounted) return;
+      setState(() {
+        final index = _configs.indexWhere((item) => item.id == updated.id);
+        if (index == -1) return;
+        _configs = [
+          ..._configs.take(index),
+          updated,
+          ..._configs.skip(index + 1),
+        ];
+      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('保存失败：$error')));
+    } finally {
+      if (mounted) setState(() => _updatingIds.remove(config.id));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: pageBackgroundColor(context),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  tooltip: '返回',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                ),
+                const SizedBox(width: 4),
+                const Expanded(
+                  child: PageTitle(title: '信号设置', subtitle: '选择扫描策略和推送候选'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            if (_isLoading)
+              const Center(child: CircularProgressIndicator(strokeWidth: 2))
+            else if (_error != null)
+              EmptyState(
+                icon: Icons.error_outline_rounded,
+                title: '加载失败',
+                subtitle: '请刷新后重试。',
+                actionLabel: '重试',
+                onAction: _loadConfigs,
+              )
+            else if (_configs.isEmpty)
+              const ReadOnlyEmptyState(
+                icon: Icons.tune_rounded,
+                title: '暂无配置',
+                subtitle: '后端还没有返回信号扫描配置。',
+              )
+            else
+              ..._configs.map(
+                (config) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _SignalConfigTile(
+                    config: config,
+                    isUpdating: _updatingIds.contains(config.id),
+                    onEnabledChanged: (value) =>
+                        _updateConfig(config, enabled: value),
+                    onPushChanged: config.enabled
+                        ? (value) => _updateConfig(config, pushCandidate: value)
+                        : null,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SignalConfigTile extends StatelessWidget {
+  const _SignalConfigTile({
+    required this.config,
+    required this.isUpdating,
+    required this.onEnabledChanged,
+    required this.onPushChanged,
+  });
+
+  final SignalScanConfig config;
+  final bool isUpdating;
+  final ValueChanged<bool> onEnabledChanged;
+  final ValueChanged<bool>? onPushChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cardColor(context),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  config.strategyName,
+                  style: TextStyle(
+                    color: primaryTextColor(context),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              if (isUpdating)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${config.strategyCode} · ${config.parameterLabel}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: secondaryTextColor(context), fontSize: 12),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: SwitchListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('启用'),
+                  value: config.enabled,
+                  onChanged: isUpdating ? null : onEnabledChanged,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: SwitchListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('推送'),
+                  value: config.pushCandidate,
+                  onChanged: isUpdating ? null : onPushChanged,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

@@ -175,7 +175,8 @@ def _event_payload(
             "side": signal.side,
             "trigger_date": signal_date.isoformat(),
             "parameters": config.parameters,
-            "push_candidate": level in {"important", "warning"},
+            "push_candidate": config.push_candidate
+            and level in {"important", "warning"},
         },
         triggered_at=_triggered_at(signal_date),
     )

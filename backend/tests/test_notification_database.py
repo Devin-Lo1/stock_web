@@ -356,6 +356,9 @@ def test_signal_events_endpoint_filters_categories_and_ignored_status() -> None:
     strategy_response = client.get(
         "/api/v1/signals/events?source_category=strategy&strategy_code=ma_cross",
     )
+    signal_type_response = client.get(
+        "/api/v1/signals/events?signal_type=ma_cross_buy",
+    )
     important_response = client.get("/api/v1/signals/events?level=important")
     push_response = client.get("/api/v1/signals/events?push_candidate=true")
     system_response = client.get("/api/v1/signals/events?source_category=system")
@@ -364,6 +367,7 @@ def test_signal_events_endpoint_filters_categories_and_ignored_status() -> None:
     assert ignored_response.status_code == 200
     assert ignored_response.json()["read_status"] == "ignored"
     assert [item["id"] for item in strategy_response.json()] == [strategy.id]
+    assert [item["id"] for item in signal_type_response.json()] == [strategy.id]
     assert [item["id"] for item in important_response.json()] == [strategy.id]
     assert [item["id"] for item in push_response.json()] == [strategy.id]
     assert [item["id"] for item in system_response.json()] == [system.id]

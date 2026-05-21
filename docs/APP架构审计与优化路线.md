@@ -253,12 +253,15 @@ docs 当前最大问题不是内容少，而是历史记录太多、入口失效
 
 2026-05-21 筛选分类进展：
 
-- 后端 `GET /api/v1/signals/events` 已支持 `source_category`、`strategy_code`、`level`、`push_candidate`、`read_status`、`code`、`limit` 筛选。
+- 后端 `GET /api/v1/signals/events` 已支持 `source_category`、`strategy_code`、`signal_type`、`level`、`push_candidate`、`read_status`、`code`、`limit` 筛选。
 - 后端已新增：
   - `PUT /api/v1/signals/events/{event_id}/read`
   - `PUT /api/v1/signals/events/{event_id}/ignore`
 - `read_status` 已支持 `unread`、`read`、`ignored`。
 - App 信号分类页点击分类后，已可按分类调用后端筛选接口。
+- App 分类详情页已支持按股票、策略、信号类型二次筛选。
+- App 信号页已新增信号设置入口，可切换扫描配置的 `enabled` 和 `push_candidate`。
+- 后端扫描器生成信号时已遵守扫描配置的 `push_candidate`，关闭后仍可落库展示，但不会进入推送候选。
 - 当前分类映射：
   - 重要信号：`level=important`
   - 量化策略：`source_category=strategy`

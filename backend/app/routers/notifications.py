@@ -53,6 +53,7 @@ def api_list_notification_devices(
 @router.get("/signals", response_model=list[SignalEvent])
 def api_list_signal_events(
     code: str | None = Query(default=None),
+    signal_type: str | None = Query(default=None),
     read_status: str | None = Query(default=None),
     level: str | None = Query(default=None),
     source_category: str | None = Query(default=None),
@@ -62,6 +63,7 @@ def api_list_signal_events(
 ) -> list[SignalEvent]:
     return list_signal_events(
         code=code,
+        signal_type=signal_type,
         read_status=read_status,
         level=level,
         source_category=source_category,

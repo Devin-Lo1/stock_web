@@ -1,6 +1,7 @@
 class TradeSignal {
   const TradeSignal({
     this.id = '',
+    this.code = '',
     required this.type,
     required this.stock,
     required this.time,
@@ -8,6 +9,7 @@ class TradeSignal {
     this.signalType = '',
     this.tone = SignalTone.info,
     this.message = '',
+    this.strategyCode = '',
     this.strategyName = '',
     this.conditionLabel = '',
     this.triggerValue,
@@ -18,6 +20,7 @@ class TradeSignal {
   });
 
   final String id;
+  final String code;
   final String type;
   final String stock;
   final String time;
@@ -25,6 +28,7 @@ class TradeSignal {
   final String signalType;
   final SignalTone tone;
   final String message;
+  final String strategyCode;
   final String strategyName;
   final String conditionLabel;
   final double? triggerValue;
@@ -57,6 +61,7 @@ class TradeSignal {
     );
     return TradeSignal(
       id: json['id'] as String? ?? '',
+      code: code,
       type: json['title'] as String? ?? signalType,
       stock: stockName.isEmpty ? code : '$stockName $code',
       time: triggeredAt == null ? '--' : _dateText(triggeredAt),
@@ -64,6 +69,7 @@ class TradeSignal {
       signalType: signalType,
       tone: _toneFor(level, signalType),
       message: json['message'] as String? ?? '',
+      strategyCode: payload['strategy_code'] as String? ?? '',
       strategyName: payload['strategy_name'] as String? ?? '',
       conditionLabel: payload['condition_label'] as String? ?? '',
       triggerValue: _readDouble(json['trigger_value']),

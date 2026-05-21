@@ -71,6 +71,7 @@ def get_signal_event_by_dedupe_key(dedupe_key: str) -> SignalEvent | None:
 def list_signal_events(
     *,
     code: str | None = None,
+    signal_type: str | None = None,
     read_status: str | None = None,
     level: str | None = None,
     source_category: str | None = None,
@@ -83,6 +84,9 @@ def list_signal_events(
     if code:
         clauses.append("code = ?")
         parameters.append(code.strip().upper())
+    if signal_type:
+        clauses.append("signal_type = ?")
+        parameters.append(signal_type.strip())
     if read_status:
         clauses.append("read_status = ?")
         parameters.append(read_status)

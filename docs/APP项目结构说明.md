@@ -152,6 +152,22 @@ POST /api/v1/klines/refresh
 
 当前用于 `SignalsScreen` 和首页最新信号。
 
+当前后端信号字段必须保留：
+
+- `code`：股票代码，用于 App 信号筛选。
+- `signal_type`：具体信号类型，例如 `price_break_ma_sell`。
+- `strategy_code`：策略编号，用于筛选和解释来源。
+- `read_status`：未读、已读、已忽略状态。
+
+### `lib/models/signal_scan_config.dart`
+
+后端信号扫描配置模型。
+
+用于 App 信号设置页：
+
+- `enabled` 控制该扫描条件是否参与后端信号生成。
+- `push_candidate` 控制该扫描条件生成的信号是否进入推送候选。
+
 ### `lib/models/strategy_definition.dart`
 
 量化策略定义模型。
@@ -367,10 +383,14 @@ App 主壳。
 职责：
 
 - 展示本地策略信号。
+- 展示后端落库信号事件。
+- 按分类进入信号列表。
+- 在分类详情页按股票、策略、信号类型筛选。
+- 提供信号设置入口，管理后端扫描配置启用状态和推送候选状态。
 - 空状态。
 - 刷新。
 
-后续信号历史、已读未读、推送记录可从这里扩展，但复杂信号组件应放 `widgets/signal/`。
+后续信号历史、已读未读、推送记录可从这里扩展，但复杂信号组件应放 `widgets/signal/`。如果筛选和设置页继续变复杂，应拆出独立 screen 或 widget，不要继续堆在单个文件。
 
 ### `lib/screens/quant_screen.dart`
 
@@ -606,6 +626,13 @@ K 线计算和格式化工具。
 信号组件：
 
 - `signal_tile.dart`
+- `signal_presentation.dart`
+
+信号展示规则：
+
+- `TradeSignal` 只保存数据。
+- 分类标题、颜色、图标等 UI 展示逻辑放在 `signal_presentation.dart`。
+- 后续新增复杂筛选控件时，优先拆到本目录。
 
 ### `lib/widgets/quant/`
 
@@ -1248,6 +1275,22 @@ K 线接口：
 - `POST /api/v1/signals/configs`
 - `PUT /api/v1/signals/configs/{config_id}`
 - `POST /api/v1/signals/configs/reset-defaults`
+
+`GET /api/v1/signals/events` 当前筛选参数：
+
+- `code`
+- `strategy_code`
+- `signal_type`
+- `source_category`
+- `level`
+- `push_candidate`
+- `read_status`
+- `limit`
+
+`PUT /api/v1/signals/configs/{config_id}` 当前用于 App 信号设置页：
+
+- `enabled=false`：不再扫描该策略条件。
+- `push_candidate=false`：继续落库展示，但不进入推送候选。
 
 ### `backend/app/routers/stocks.py`
 

@@ -35,6 +35,7 @@ def test_signal_scanner_can_use_persisted_ma_cross_config() -> None:
             strategy_code="ma_cross",
             strategy_name="MA Cross",
             parameters={"short_window": 3, "long_window": 7},
+            push_candidate=False,
             sort_order=1,
         ),
     )
@@ -74,6 +75,7 @@ def test_signal_scanner_can_use_persisted_ma_cross_config() -> None:
     event = result.events[0]
     assert event.signal_type == "ma_cross_buy"
     assert event.payload["parameters"] == {"short_window": 3, "long_window": 7}
+    assert event.payload["push_candidate"] is False
     assert event.payload["condition_label"] == "MA3 上穿 MA7"
 
 
