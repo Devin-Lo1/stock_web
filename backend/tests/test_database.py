@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+import pytest
 from app import database
 from app.main import app
 from app.schemas import (
@@ -74,6 +75,10 @@ def test_position_trade_history_persists_after_position_delete() -> None:
 
     rows_by_code = database.list_position_trades(code="hk.00700", limit=10)
     assert {row.id for row in rows_by_code} == {opening_trades[0].id, added.id}
+    updated = database.get_position(created.id)
+    assert updated is not None
+    assert updated.quantity == 150
+    assert updated.cost_price == pytest.approx((100 * 350 + 50 * 360 + 1.2) / 150)
 
     assert database.delete_position(created.id) is True
     remaining = database.list_position_trades(position_id=created.id)
@@ -115,6 +120,67 @@ def test_position_trade_endpoints() -> None:
     assert create_trade_response.json()["code"] == "US.MU"
     assert len(list_response.json()) == 2
     assert {item["action"] for item in code_response.json()} == {"open", "reduce"}
+    current_position = client.get("/api/v1/positions").json()[0]
+    assert current_position["quantity"] == 8
+    assert current_position["cost_price"] == 100
+
+
+def test_position_trade_close_updates_position_snapshot() -> None:
+    client = TestClient(app)
+    position_response = client.post(
+        "/api/v1/positions",
+        json={
+            "market": "HK",
+            "code": "HK.09988",
+            "name": "Alibaba",
+            "quantity": 100,
+            "cost_price": 90,
+            "currency": "HKD",
+        },
+    )
+    position_id = position_response.json()["id"]
+
+    close_response = client.post(
+        f"/api/v1/positions/{position_id}/trades",
+        json={
+            "action": "close",
+            "quantity": 100,
+            "price": 95,
+        },
+    )
+    current_position = client.get("/api/v1/positions").json()[0]
+
+    assert close_response.status_code == 201
+    assert current_position["quantity"] == 0
+    assert current_position["cost_price"] == 0
+
+
+def test_position_trade_rejects_over_reduce() -> None:
+    client = TestClient(app)
+    position_response = client.post(
+        "/api/v1/positions",
+        json={
+            "market": "US",
+            "code": "US.MU",
+            "name": "Micron",
+            "quantity": 10,
+            "cost_price": 100,
+            "currency": "USD",
+        },
+    )
+    position_id = position_response.json()["id"]
+
+    response = client.post(
+        f"/api/v1/positions/{position_id}/trades",
+        json={
+            "action": "reduce",
+            "quantity": 20,
+            "price": 120,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "POSITION_TRADE_INVALID"
 
 
 def test_quote_upsert_and_get() -> None:

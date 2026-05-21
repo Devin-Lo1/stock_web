@@ -1021,6 +1021,13 @@ backend/app/routers/backtests.py
 
 交易记录用于保存建仓、加仓、减仓、清仓历史；删除当前持仓不应删除历史交易记录。
 
+当前聚合规则：
+
+- `open`：仅允许空仓建仓。
+- `add`：增加数量，并按加权平均更新成本。
+- `reduce`：减少数量，成本价不变；超过当前持仓数量返回错误。
+- `close`：必须等于当前持仓数量，清仓后数量和成本归零。
+
 ### `backend/app/repositories/market_data.py`
 
 行情和 K 线数据库读写。

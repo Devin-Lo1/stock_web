@@ -2,11 +2,16 @@ from uuid import uuid4
 
 from ..db.core import _DatabaseConnection, _connect
 from ..db.converters import (
+    _datetime_to_text,
+    _now,
     _position_trade_values,
     _row_to_position_trade,
-    _now,
 )
 from ..schemas import Position, PositionTrade, PositionTradeCreate
+
+
+class PositionTradeError(ValueError):
+    pass
 
 
 _POSITION_TRADE_COLUMNS = """
@@ -50,8 +55,10 @@ def create_position_trade_for_position(
     payload: PositionTradeCreate,
 ) -> PositionTrade:
     trade = _build_position_trade(position, payload)
+    updated_position = _apply_trade_to_position(position, trade)
     with _connect() as connection:
         _insert_position_trade(connection, trade)
+        _update_position_snapshot(connection, updated_position)
     return trade
 
 
@@ -91,4 +98,101 @@ def _insert_position_trade(
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         _position_trade_values(trade),
+    )
+
+
+def _apply_trade_to_position(
+    position: Position,
+    trade: PositionTrade,
+) -> Position:
+    if trade.action == "open":
+        return _apply_open_trade(position, trade)
+    if trade.action == "add":
+        return _apply_add_trade(position, trade)
+    if trade.action == "reduce":
+        return _apply_reduce_trade(position, trade)
+    if trade.action == "close":
+        return _apply_close_trade(position, trade)
+    raise PositionTradeError(f"unsupported position trade action: {trade.action}")
+
+
+def _apply_open_trade(position: Position, trade: PositionTrade) -> Position:
+    if position.quantity > 0:
+        raise PositionTradeError("open trade is only allowed for an empty position")
+    return position.model_copy(
+        update={
+            "quantity": trade.quantity,
+            "cost_price": _cost_price(trade.quantity, trade.price, trade.fee),
+            "updated_at": trade.created_at,
+        },
+    )
+
+
+def _apply_add_trade(position: Position, trade: PositionTrade) -> Position:
+    new_quantity = position.quantity + trade.quantity
+    current_cost = position.quantity * position.cost_price
+    added_cost = trade.quantity * trade.price + trade.fee
+    return position.model_copy(
+        update={
+            "quantity": new_quantity,
+            "cost_price": (current_cost + added_cost) / new_quantity,
+            "updated_at": trade.created_at,
+        },
+    )
+
+
+def _apply_reduce_trade(position: Position, trade: PositionTrade) -> Position:
+    _ensure_can_reduce(position, trade.quantity)
+    new_quantity = position.quantity - trade.quantity
+    return position.model_copy(
+        update={
+            "quantity": new_quantity,
+            "cost_price": position.cost_price if new_quantity > 0 else 0,
+            "updated_at": trade.created_at,
+        },
+    )
+
+
+def _apply_close_trade(position: Position, trade: PositionTrade) -> Position:
+    _ensure_can_reduce(position, trade.quantity)
+    if abs(position.quantity - trade.quantity) > 1e-9:
+        raise PositionTradeError("close trade quantity must equal current position")
+    return position.model_copy(
+        update={
+            "quantity": 0,
+            "cost_price": 0,
+            "updated_at": trade.created_at,
+        },
+    )
+
+
+def _ensure_can_reduce(position: Position, quantity: float) -> None:
+    if position.quantity <= 0:
+        raise PositionTradeError("position has no quantity to reduce")
+    if quantity - position.quantity > 1e-9:
+        raise PositionTradeError("trade quantity exceeds current position")
+
+
+def _cost_price(quantity: float, price: float, fee: float) -> float:
+    return (quantity * price + fee) / quantity
+
+
+def _update_position_snapshot(
+    connection: _DatabaseConnection,
+    position: Position,
+) -> None:
+    connection.execute(
+        """
+        UPDATE positions
+        SET quantity = ?,
+            cost_price = ?,
+            updated_at = ?
+        WHERE id = ?
+        """,
+        (
+            position.quantity,
+            position.cost_price,
+            _datetime_to_text(position.updated_at),
+            position.id,
+        ),
     )
