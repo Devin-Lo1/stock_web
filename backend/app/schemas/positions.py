@@ -1,8 +1,11 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
 from .common import Market
+
+PositionTradeAction = Literal["open", "add", "reduce", "close"]
 
 
 class PositionBase(BaseModel):
@@ -29,5 +32,31 @@ class PositionUpdate(BaseModel):
 
 class Position(PositionBase):
     id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class PositionTradeCreate(BaseModel):
+    action: PositionTradeAction
+    quantity: float = Field(gt=0)
+    price: float = Field(ge=0)
+    fee: float = Field(default=0, ge=0)
+    trade_time: datetime | None = None
+    note: str = Field(default="", max_length=500)
+
+
+class PositionTrade(BaseModel):
+    id: str
+    position_id: str
+    market: Market
+    code: str
+    name: str
+    currency: str
+    action: PositionTradeAction
+    quantity: float
+    price: float
+    fee: float
+    trade_time: datetime
+    note: str = ""
     created_at: datetime
     updated_at: datetime

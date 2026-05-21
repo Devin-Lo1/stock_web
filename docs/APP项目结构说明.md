@@ -1008,6 +1008,19 @@ backend/app/routers/backtests.py
 - `delete_position`
 - `get_position`
 
+创建持仓时会自动写入一条 `open` 建仓交易记录，便于后续保留持仓生命周期。
+
+### `backend/app/repositories/position_trades.py`
+
+持仓交易记录数据库读写。
+
+职责：
+
+- `list_position_trades`
+- `create_position_trade_for_position`
+
+交易记录用于保存建仓、加仓、减仓、清仓历史；删除当前持仓不应删除历史交易记录。
+
 ### `backend/app/repositories/market_data.py`
 
 行情和 K 线数据库读写。
@@ -1254,6 +1267,11 @@ backend/app/routers/futu.py
 - `POST /api/v1/positions`
 - `PUT /api/v1/positions/{position_id}`
 - `DELETE /api/v1/positions/{position_id}`
+- `GET /api/v1/positions/trades`
+- `GET /api/v1/positions/{position_id}/trades`
+- `POST /api/v1/positions/{position_id}/trades`
+
+交易记录接口用于建仓、加仓、减仓、清仓历史；当前持仓快照仍由 `positions` 表维护。
 
 ### `backend/app/routers/quotes.py`
 
@@ -1351,6 +1369,15 @@ from app.schemas import Position, Candle
 - `PositionCreate`
 - `PositionUpdate`
 - `Position`
+- `PositionTradeCreate`
+- `PositionTrade`
+
+`PositionTrade` 的 `action` 当前支持：
+
+- `open`
+- `add`
+- `reduce`
+- `close`
 
 ### `backend/app/schemas/quotes.py`
 

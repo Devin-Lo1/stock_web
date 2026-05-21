@@ -34,6 +34,10 @@ from .repositories.positions import (
     list_positions,
     update_position,
 )
+from .repositories.position_trades import (
+    create_position_trade_for_position,
+    list_position_trades,
+)
 from .repositories.signal_scan_configs import (
     create_signal_scan_config,
     list_signal_scan_configs,
@@ -52,6 +56,8 @@ __all__ = [
     "update_position",
     "delete_position",
     "get_position",
+    "list_position_trades",
+    "create_position_trade_for_position",
     "get_quotes",
     "upsert_quote",
     "list_candles",

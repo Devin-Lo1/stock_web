@@ -7,7 +7,14 @@ from .backtests import (
     BacktestTrade,
 )
 from .klines import Candle
-from .positions import Position, PositionCreate, PositionUpdate
+from .positions import (
+    Position,
+    PositionCreate,
+    PositionTrade,
+    PositionTradeAction,
+    PositionTradeCreate,
+    PositionUpdate,
+)
 from .quotes import QuoteSnapshot
 from .signals import Signal, SignalScanResult
 from .notifications import (
@@ -43,6 +50,9 @@ __all__ = [
     "Candle",
     "Position",
     "PositionCreate",
+    "PositionTrade",
+    "PositionTradeAction",
+    "PositionTradeCreate",
     "PositionUpdate",
     "QuoteSnapshot",
     "Signal",

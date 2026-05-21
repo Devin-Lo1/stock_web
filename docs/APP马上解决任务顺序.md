@@ -1530,6 +1530,24 @@ App 建议新增：
 - 策略监控能关联到具体股票和具体建仓周期。
 - 持仓记录页能像券商 App 一样横向滑动查看更多列，不因字段多而把单行撑得过高。
 
+当前实现状态：
+
+- 后端已新增 `position_trades` 表。
+- 后端已新增 `PositionTradeCreate`、`PositionTrade` 模型。
+- 后端已新增交易记录 repository：`backend/app/repositories/position_trades.py`。
+- 后端已新增接口：
+  - `GET /api/v1/positions/trades`
+  - `GET /api/v1/positions/{position_id}/trades`
+  - `POST /api/v1/positions/{position_id}/trades`
+- 创建持仓时会自动写入一条 `open` 建仓记录。
+- 删除当前持仓不会删除历史交易记录。
+
+下一步继续：
+
+1. 新增 `position_snapshots` 收益快照表和接口。
+2. 增加加仓、减仓、清仓对当前持仓快照的聚合更新规则。
+3. 再接 App 券商式持仓表和交易记录页面。
+
 ### 场内基金/ETF 后续任务
 
 当前结论：

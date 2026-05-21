@@ -1,7 +1,15 @@
 from datetime import datetime, timezone
 
 from app import database
-from app.schemas import Candle, PositionCreate, PositionUpdate, QuoteSnapshot
+from app.main import app
+from app.schemas import (
+    Candle,
+    PositionCreate,
+    PositionTradeCreate,
+    PositionUpdate,
+    QuoteSnapshot,
+)
+from fastapi.testclient import TestClient
 
 
 def test_position_crud() -> None:
@@ -32,6 +40,81 @@ def test_position_crud() -> None:
     assert database.delete_position(created.id) is True
     assert database.get_position(created.id) is None
     assert database.delete_position(created.id) is False
+
+
+def test_position_trade_history_persists_after_position_delete() -> None:
+    created = database.create_position(
+        PositionCreate(
+            market="HK",
+            code="HK.00700",
+            name="Tencent",
+            quantity=100,
+            cost_price=350,
+            currency="HKD",
+        ),
+    )
+
+    opening_trades = database.list_position_trades(position_id=created.id)
+    assert len(opening_trades) == 1
+    assert opening_trades[0].action == "open"
+    assert opening_trades[0].quantity == 100
+    assert opening_trades[0].price == 350
+
+    added = database.create_position_trade_for_position(
+        created,
+        PositionTradeCreate(
+            action="add",
+            quantity=50,
+            price=360,
+            fee=1.2,
+            trade_time=datetime(2026, 5, 20, tzinfo=timezone.utc),
+            note="scale in",
+        ),
+    )
+
+    rows_by_code = database.list_position_trades(code="hk.00700", limit=10)
+    assert {row.id for row in rows_by_code} == {opening_trades[0].id, added.id}
+
+    assert database.delete_position(created.id) is True
+    remaining = database.list_position_trades(position_id=created.id)
+    assert {row.id for row in remaining} == {opening_trades[0].id, added.id}
+
+
+def test_position_trade_endpoints() -> None:
+    client = TestClient(app)
+    position_response = client.post(
+        "/api/v1/positions",
+        json={
+            "market": "US",
+            "code": "US.MU",
+            "name": "Micron",
+            "quantity": 10,
+            "cost_price": 100,
+            "currency": "USD",
+        },
+    )
+    position_id = position_response.json()["id"]
+
+    create_trade_response = client.post(
+        f"/api/v1/positions/{position_id}/trades",
+        json={
+            "action": "reduce",
+            "quantity": 2,
+            "price": 120,
+            "fee": 0.5,
+            "trade_time": "2026-05-20T00:00:00Z",
+            "note": "trim",
+        },
+    )
+    list_response = client.get(f"/api/v1/positions/{position_id}/trades")
+    code_response = client.get("/api/v1/positions/trades?code=us.mu")
+
+    assert position_response.status_code == 201
+    assert create_trade_response.status_code == 201
+    assert create_trade_response.json()["action"] == "reduce"
+    assert create_trade_response.json()["code"] == "US.MU"
+    assert len(list_response.json()) == 2
+    assert {item["action"] for item in code_response.json()} == {"open", "reduce"}
 
 
 def test_quote_upsert_and_get() -> None:

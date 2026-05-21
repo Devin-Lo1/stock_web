@@ -10,6 +10,7 @@ from ..schemas import (
     Candle,
     NotificationDevice,
     Position,
+    PositionTrade,
     PushRecord,
     QuoteSnapshot,
     SignalEvent,
@@ -32,6 +33,25 @@ def _position_values(position: Position) -> tuple[object, ...]:
         position.currency,
         _datetime_to_text(position.created_at),
         _datetime_to_text(position.updated_at),
+    )
+
+
+def _position_trade_values(trade: PositionTrade) -> tuple[object, ...]:
+    return (
+        trade.id,
+        trade.position_id,
+        trade.market,
+        trade.code,
+        trade.name,
+        trade.currency,
+        trade.action,
+        trade.quantity,
+        trade.price,
+        trade.fee,
+        _datetime_to_text(trade.trade_time),
+        trade.note,
+        _datetime_to_text(trade.created_at),
+        _datetime_to_text(trade.updated_at),
     )
 
 
@@ -215,6 +235,25 @@ def _row_to_position(row: sqlite3.Row | dict[str, Any]) -> Position:
     )
 
 
+def _row_to_position_trade(row: sqlite3.Row | dict[str, Any]) -> PositionTrade:
+    return PositionTrade(
+        id=row["id"],
+        position_id=row["position_id"],
+        market=row["market"],
+        code=row["code"],
+        name=row["name"],
+        currency=row["currency"],
+        action=row["action"],
+        quantity=row["quantity"],
+        price=row["price"],
+        fee=row["fee"],
+        trade_time=_text_to_datetime(row["trade_time"]),
+        note=row["note"],
+        created_at=_text_to_datetime(row["created_at"]),
+        updated_at=_text_to_datetime(row["updated_at"]),
+    )
+
+
 def _row_to_quote(row: sqlite3.Row | dict[str, Any]) -> QuoteSnapshot:
     return QuoteSnapshot(
         code=row["code"],
@@ -383,6 +422,7 @@ def _row_to_push_record(row: sqlite3.Row | dict[str, Any]) -> PushRecord:
         created_at=_text_to_datetime(row["created_at"]),
         updated_at=_text_to_datetime(row["updated_at"]),
     )
+
 
 def _now() -> datetime:
     return datetime.now(UTC)

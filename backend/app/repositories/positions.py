@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from ..schemas import Position, PositionCreate, PositionUpdate
+from ..schemas import Position, PositionCreate, PositionTradeCreate, PositionUpdate
 from ..db.core import _connect
 from ..db.converters import (
     _datetime_to_text,
@@ -8,6 +8,7 @@ from ..db.converters import (
     _position_values,
     _row_to_position,
 )
+from .position_trades import _build_position_trade, _insert_position_trade
 
 
 def list_positions() -> list[Position]:
@@ -31,6 +32,16 @@ def create_position(payload: PositionCreate) -> Position:
         updated_at=now,
         **payload.model_dump(),
     )
+    opening_trade = None
+    if position.quantity > 0:
+        opening_trade = _build_position_trade(
+            position,
+            PositionTradeCreate(
+                action="open",
+                quantity=position.quantity,
+                price=position.cost_price,
+            ),
+        )
     with _connect() as connection:
         connection.execute(
             """
@@ -42,6 +53,8 @@ def create_position(payload: PositionCreate) -> Position:
             """,
             _position_values(position),
         )
+        if opening_trade is not None:
+            _insert_position_trade(connection, opening_trade)
     return position
 
 
