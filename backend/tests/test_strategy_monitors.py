@@ -6,6 +6,7 @@ from app import database
 from app.main import app
 from app.schemas import (
     Candle,
+    NotificationDeviceUpsert,
     StrategyMonitorCreate,
     StrategyMonitorSchedulerUpdate,
     StrategyMonitorUpdate,
@@ -137,6 +138,58 @@ def test_strategy_monitor_scan_creates_signal_event_and_updates_state() -> None:
     assert events[0].payload["monitor_id"] == monitor.id
     assert events[0].payload["push_candidate"] is False
     assert events[0].payload["parameters"] == {"short_window": 3, "long_window": 7}
+
+
+def test_strategy_monitor_scan_dispatches_push_candidate_records() -> None:
+    device = database.upsert_notification_device(
+        NotificationDeviceUpsert(
+            platform="android",
+            push_provider="unknown",
+            push_token="local-token",
+            important_enabled=True,
+        ),
+    )
+    database.create_strategy_monitor(
+        StrategyMonitorCreate(
+            market="HK",
+            code="HK.09988",
+            name="Alibaba",
+            strategy_code="ma_cross",
+            strategy_name="MA Cross",
+            parameters={"short_window": 3, "long_window": 7},
+            cooldown_minutes=0,
+            push_candidate=True,
+        ),
+        monitor_id="monitor-push",
+    )
+    start = datetime(2026, 5, 1, tzinfo=timezone.utc)
+    closes = [10, 10, 10, 10, 10, 10, 10, 30]
+    database.upsert_candles(
+        [
+            Candle(
+                code="HK.09988",
+                market="HK",
+                period="day",
+                time=start + timedelta(days=index),
+                open=close,
+                high=close,
+                low=close,
+                close=close,
+                volume=1000,
+                turnover=close * 1000,
+            )
+            for index, close in enumerate(closes)
+        ],
+    )
+
+    result = scan_strategy_monitors(refresh=False, force=True)
+    records = database.list_push_records(signal_event_id=result.events[0].id)
+
+    assert result.created_count == 1
+    assert len(records) == 1
+    assert records[0].device_id == device.id
+    assert records[0].status == "skipped"
+    assert records[0].provider == "unknown"
 
 
 def test_strategy_monitor_create_rejects_unknown_strategy() -> None:

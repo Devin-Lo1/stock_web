@@ -620,11 +620,13 @@ backend /health: ok
 - 新增 `backend/app/services/strategy_monitor_scheduler.py`，可随后端启动自动轮询扫描，也可通过 API 手动启动、停止和查看状态。
 - `backend/app/main.py` 已从 `on_event` 迁移到 lifespan，启动时初始化数据库和 scheduler，关闭时停止 scheduler。
 - `backend/.env.example` 已补充 `STRATEGY_MONITOR_SCHEDULER_ENABLED`、`STRATEGY_MONITOR_SCHEDULER_INTERVAL_SECONDS`、`STRATEGY_MONITOR_SCHEDULER_REFRESH`。
+- `push_candidate=true` 的策略监控信号已接入 `push_service`，会按设备推送开关、重要通知开关和通道配置写入 `push_records`。
+- 新增 `POST /api/v1/notifications/signals/{event_id}/dispatch`，可手动分发某条已落库信号；同一信号同一设备不会重复发送。
 
 下一步：
 
-1. 把监控产生的推送候选接入多通道推送分发。
-2. 前端再接策略监控选择入口、持仓详情监控状态和券商式持仓表。
+1. 前端再接策略监控选择入口、持仓详情监控状态和券商式持仓表。
+2. 在 App 信号页补充已读/忽略操作和推送记录查看入口。
 3. 后续生产部署如果需要多进程或多实例，应把 scheduler 迁移到 APScheduler/Celery/独立 worker，避免多个 API 进程重复扫描。
 
 ### 2026-05-16 历史回测复盘体验补充
@@ -988,6 +990,8 @@ App 量化入口和回测结果展示已开始落地：
 - 后端推送统一从 `backend/app/services/push_service.py` 分发，不允许 App 直接拼接业务信号或绕过信号落库。
 - 已支持真实 provider：`fcm`、`huawei`。
 - 已预留 provider：`xiaomi`、`oppo`、`vivo`、`apns`、`local`、`unknown`。预留 provider 未配置时必须写入 `skipped` 推送记录，不影响信号历史。
+- 已支持对 `signal_events` 的推送候选分发：只有 `payload.push_candidate=true` 的信号进入设备分发；同一信号同一设备按 `push_records` 去重。
+- 分发 payload 只携带 `signal_event_id`、股票代码、信号类型和必要跳转字段，不携带完整持仓、成本、数量或策略参数。
 - App 端只负责获取设备 token 并登记：Android 优先尝试 Huawei Push Kit token，再尝试 FCM token，最后使用本机安装 token 兜底。
 - 华为真机要跑通远程推送，需要 AppGallery Connect 的 `agconnect-services.json`，以及后端 `.env` 中的 `HUAWEI_PUSH_APP_ID`、`HUAWEI_PUSH_CLIENT_ID`、`HUAWEI_PUSH_CLIENT_SECRET`。
 - Google/海外 Android 设备要跑通远程推送，需要 `google-services.json`，以及后端 `.env` 中的 `FCM_SERVICE_ACCOUNT_PATH` 或 `FCM_SERVICE_ACCOUNT_JSON`。

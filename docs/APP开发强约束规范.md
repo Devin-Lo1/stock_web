@@ -365,6 +365,8 @@ D:\flutter\bin\flutter.bat build apk --release --dart-define=API_BASE_URL=https:
 - 推送文案不得写成投资建议，只能表达“触发观察信号”。
 - 推送 payload 不放完整持仓、成本、资金等敏感信息；详细内容由 App 打开后通过接口读取。
 - 国内 Android 设备不能假设 FCM 必然稳定，推送通道必须预留厂商推送扩展。
+- `push_candidate=false` 的信号不得进入远程推送分发；`push_candidate=true` 的信号也必须按设备开关、重要通知开关和同一信号同一设备去重后再发送。
+- 同一条 `signal_events` 对同一台设备不得重复发送；重复调度应复用已有 `push_records`。
 
 ### 7.6 策略信号中心
 

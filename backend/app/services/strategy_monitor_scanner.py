@@ -22,6 +22,7 @@ from ..services.futu_client import (
     FutuOpenDError,
     request_history_klines,
 )
+from ..services.push_service import dispatch_signal_event_to_devices
 from ..services.signal_scanner import _condition_values, _latest_signal, _parameter_key
 from ..strategies import get_strategy
 from ..strategies.base import StrategyConfigurationError, StrategySignal
@@ -127,6 +128,18 @@ def scan_strategy_monitors(
             continue
 
         event = create_signal_event(payload)
+        try:
+            dispatch_signal_event_to_devices(event)
+        except Exception as error:  # pragma: no cover - push must not hide signals
+            errors.append(
+                {
+                    "monitor_id": monitor.id,
+                    "code": monitor.code,
+                    "strategy_code": monitor.strategy_code,
+                    "stage": "dispatch_push",
+                    "message": str(error),
+                },
+            )
         update_strategy_monitor_scan_state(
             monitor.id,
             last_scanned_at=now,

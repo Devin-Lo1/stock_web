@@ -223,6 +223,135 @@ def test_notification_test_endpoint_sends_huawei_when_provider_is_configured(
     assert "token" not in str(record["request_payload"]).lower()
 
 
+def test_dispatch_signal_event_endpoint_sends_push_candidate_once(monkeypatch) -> None:
+    client = TestClient(app)
+    calls: list[dict[str, object]] = []
+
+    def fake_send_fcm_message(**kwargs):
+        calls.append(kwargs)
+        assert kwargs["token"] == "fcm-token"
+        data = kwargs["data"]
+        assert data["signal_event_id"]
+        assert data["code"] == "HK.09988"
+        assert data["signal_type"] == "ma_cross_buy"
+        assert data["strategy_code"] == "ma_cross"
+        assert data["monitor_id"] == "monitor-1"
+        assert "position_id" not in data
+        assert "parameters" not in data
+        return {"message_id": "projects/test/messages/strategy-1"}
+
+    monkeypatch.setattr(push_service, "send_fcm_message", fake_send_fcm_message)
+    database.upsert_notification_device(
+        NotificationDeviceUpsert(
+            platform="android",
+            push_provider="fcm",
+            push_token="fcm-token",
+            important_enabled=True,
+        ),
+    )
+    event = database.create_signal_event(
+        SignalEventCreate(
+            source="strategy_monitor",
+            code="HK.09988",
+            signal_type="ma_cross_buy",
+            level="important",
+            title="Alibaba MA Cross observation",
+            message="MA3 crossed above MA7.",
+            dedupe_key="strategy_monitor:monitor-1:ma_cross:buy:2026-05-21",
+            payload={
+                "source_category": "strategy",
+                "strategy_code": "ma_cross",
+                "monitor_id": "monitor-1",
+                "position_id": "position-1",
+                "parameters": {"short_window": 3, "long_window": 7},
+                "push_candidate": True,
+            },
+        ),
+    )
+
+    response = client.post(f"/api/v1/notifications/signals/{event.id}/dispatch")
+    duplicate_response = client.post(f"/api/v1/notifications/signals/{event.id}/dispatch")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["attempted_count"] == 1
+    assert body["created_count"] == 1
+    assert body["sent_count"] == 1
+    assert body["records"][0]["status"] == "sent"
+    assert duplicate_response.json()["created_count"] == 0
+    assert duplicate_response.json()["sent_count"] == 1
+    assert len(calls) == 1
+
+
+def test_dispatch_signal_event_skips_when_candidate_disabled() -> None:
+    client = TestClient(app)
+    database.upsert_notification_device(
+        NotificationDeviceUpsert(
+            platform="android",
+            push_provider="unknown",
+            push_token="local-token",
+        ),
+    )
+    event = database.create_signal_event(
+        SignalEventCreate(
+            source="strategy_monitor",
+            code="HK.09988",
+            signal_type="ma_cross_buy",
+            level="important",
+            title="Alibaba MA Cross observation",
+            message="MA3 crossed above MA7.",
+            dedupe_key="strategy_monitor:monitor-1:ma_cross:buy:disabled",
+            payload={"push_candidate": False},
+        ),
+    )
+
+    response = client.post(f"/api/v1/notifications/signals/{event.id}/dispatch")
+
+    assert response.status_code == 200
+    assert response.json()["reason"] == "push_candidate_disabled"
+    assert response.json()["attempted_count"] == 0
+    assert database.list_push_records(signal_event_id=event.id) == []
+
+
+def test_dispatch_signal_event_respects_device_important_switch(monkeypatch) -> None:
+    client = TestClient(app)
+
+    def fake_send_fcm_message(**kwargs):
+        raise AssertionError("provider should not be called when important switch is off")
+
+    monkeypatch.setattr(push_service, "send_fcm_message", fake_send_fcm_message)
+    device = database.upsert_notification_device(
+        NotificationDeviceUpsert(
+            platform="android",
+            push_provider="fcm",
+            push_token="fcm-token",
+            important_enabled=False,
+        ),
+    )
+    event = database.create_signal_event(
+        SignalEventCreate(
+            source="strategy_monitor",
+            code="HK.09988",
+            signal_type="ma_cross_sell",
+            level="important",
+            title="Alibaba MA Cross observation",
+            message="MA3 crossed below MA7.",
+            dedupe_key="strategy_monitor:monitor-1:ma_cross:sell:2026-05-21",
+            payload={"push_candidate": True},
+        ),
+    )
+
+    response = client.post(f"/api/v1/notifications/signals/{event.id}/dispatch")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["attempted_count"] == 1
+    assert body["created_count"] == 1
+    assert body["skipped_count"] == 1
+    assert body["records"][0]["device_id"] == device.id
+    assert body["records"][0]["error_message"] == "important_notifications_disabled"
+
+
 def test_notification_test_endpoint_skips_reserved_vendor_provider() -> None:
     client = TestClient(app)
 

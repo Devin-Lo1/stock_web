@@ -68,6 +68,23 @@ def get_signal_event_by_dedupe_key(dedupe_key: str) -> SignalEvent | None:
     return _row_to_signal_event(row)
 
 
+def get_signal_event(event_id: str) -> SignalEvent | None:
+    with _connect() as connection:
+        row = connection.execute(
+            """
+            SELECT id, source, code, signal_type, level, title, message,
+                   trigger_value, threshold_value, dedupe_key, payload,
+                   read_status, read_at, triggered_at, created_at, updated_at
+            FROM signal_events
+            WHERE id = ?
+            """,
+            (event_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    return _row_to_signal_event(row)
+
+
 def list_signal_events(
     *,
     code: str | None = None,
@@ -382,3 +399,26 @@ def list_push_records(
             (*parameters, safe_limit),
         ).fetchall()
     return [_row_to_push_record(row) for row in rows]
+
+
+def get_push_record_by_signal_event_and_device(
+    *,
+    signal_event_id: str,
+    device_id: str,
+) -> PushRecord | None:
+    with _connect() as connection:
+        row = connection.execute(
+            """
+            SELECT id, signal_event_id, device_id, provider, status,
+                   request_payload, response_payload, error_message,
+                   attempt_count, sent_at, created_at, updated_at
+            FROM push_records
+            WHERE signal_event_id = ? AND device_id = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (signal_event_id, device_id),
+        ).fetchone()
+    if row is None:
+        return None
+    return _row_to_push_record(row)

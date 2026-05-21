@@ -3,7 +3,7 @@ from fastapi import APIRouter, Query, status
 from ..errors import not_found_error
 from ..repositories.notifications import (
     create_signal_event,
-    get_notification_device_by_token,
+    get_signal_event,
     list_notification_devices,
     list_push_records,
     list_signal_events,
@@ -16,11 +16,15 @@ from ..schemas import (
     NotificationDeviceUpsert,
     NotificationRegistrationResult,
     NotificationTestRequest,
+    PushDispatchResult,
     PushRecord,
     SignalEvent,
     SignalEventCreate,
 )
-from ..services.push_service import dispatch_notification_to_device
+from ..services.push_service import (
+    dispatch_notification_to_device,
+    dispatch_signal_event_to_devices,
+)
 
 router = APIRouter(prefix="/api/v1/notifications", tags=["notifications"])
 
@@ -109,6 +113,17 @@ def api_list_push_records(
         device_id=device_id,
         limit=limit,
     )
+
+
+@router.post(
+    "/signals/{event_id}/dispatch",
+    response_model=PushDispatchResult,
+)
+def api_dispatch_signal_event(event_id: str) -> PushDispatchResult:
+    event = get_signal_event(event_id)
+    if event is None:
+        raise not_found_error("signal event not found", event_id=event_id)
+    return dispatch_signal_event_to_devices(event)
 
 
 @router.post(

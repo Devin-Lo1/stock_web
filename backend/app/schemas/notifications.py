@@ -76,6 +76,17 @@ class PushRecord(PushRecordCreate):
     updated_at: datetime
 
 
+class PushDispatchResult(BaseModel):
+    signal_event_id: str
+    attempted_count: int = 0
+    created_count: int = 0
+    sent_count: int = 0
+    failed_count: int = 0
+    skipped_count: int = 0
+    reason: str = ""
+    records: list[PushRecord] = Field(default_factory=list)
+
+
 class NotificationTestRequest(BaseModel):
     device_id: str = Field(min_length=1)
     title: str = Field(default="测试提醒", min_length=1, max_length=120)

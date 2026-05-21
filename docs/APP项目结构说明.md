@@ -1297,9 +1297,11 @@ backend/app/routers/notifications.py
 - `notification_repository.dart` 负责通知设置、测试通知、设备注册接口，不在页面里直接拼 HTTP。
 - `signal_scanner.py` 负责后端扫描持仓和行情并生成信号事件。
 - `signal_scan_config.py` 负责提供后端扫描策略配置，后续可迁移到数据库和 App 设置。
-- `push_service.py` 负责编排推送、去重、重试和记录结果。
+- `push_service.py` 负责编排推送、同一信号同一设备去重、设备开关、重要通知开关和记录结果。
 - `push_providers/` 下按通道拆实现，第一版优先 `fcm.py`，后续再加厂商推送。
 - 信号必须先落库再推送，推送失败不能导致信号丢失。
+- `POST /api/v1/notifications/signals/{event_id}/dispatch` 用于把已落库信号分发到已登记设备。
+- 策略监控扫描创建 `push_candidate=true` 信号后，会调用 push service 写入 `push_records`；推送失败或通道未配置时记录为 `failed` 或 `skipped`，不影响信号历史。
 
 ## 15. 后端路由结构
 
