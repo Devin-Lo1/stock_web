@@ -1,13 +1,13 @@
 # App 马上解决任务顺序
 
-最后更新：2026-05-21
+最后更新：2026-05-22
 
 本文档用于交接“下一位开发者马上应该做什么”。它不是长期规划文档，而是当前版本之后最优先的执行清单。
 
 当前 Git 基线：
 
 ```text
-efcfed4 feat: add strategy monitor frontend
+3ae866c feat: add position detail trade history
 ```
 
 当前工作区要求：
@@ -18,6 +18,47 @@ efcfed4 feat: add strategy monitor frontend
 - 涉及后端改动必须执行 `python -m compileall app`。
 - 涉及真机体验必须重新构建并安装 APK。
 - 当前真机调试采用局域网后端地址。重新打 debug APK 时禁止裸跑 `flutter build apk --debug`，必须直接运行 `.\scripts\build_mobile_lan_debug.ps1` 自动探测当前电脑局域网 IP，或手动传 `--dart-define=API_BASE_URL=http://电脑当前局域网IP:8000`。
+
+## 0. 2026-05-22 当前马上任务
+
+当前刚完成：
+
+```text
+券商式持仓列表后端收益快照接入
+持仓详情页交易历史
+持仓详情页单股收益曲线
+加仓/减仓/清仓入口
+```
+
+已验证：
+
+```text
+Flutter analyze: No issues found
+Flutter test: 32 passed
+Backend compileall + pytest: 59 passed
+debug APK install: Success
+```
+
+下一位开发者马上做：
+
+1. 真机打开持仓页，检查横向持仓表是否仍然完整展示。
+2. 点击一只持仓进入详情页，检查：
+   - 后端收益指标是否正确显示。
+   - 单股收益曲线是否显示；快照不足时是否显示空状态。
+   - 交易历史是否显示后端 `position_trades`。
+   - 加仓、减仓、清仓弹窗是否能打开。
+   - 提交交易后详情页和持仓列表是否刷新。
+3. 若发现 UI 截断、数据未刷新、接口失败，先修持仓详情页，不要进入新模块。
+4. 详情页体验确认后，再做：
+
+```text
+单股策略监控整合
+-> 单股历史信号整合
+-> 单股推送记录整合
+-> 策略监控真实链路验证
+```
+
+注意：本节是当前短期任务的权威入口。下面 2026-05-21 及更早章节保留历史背景，若与本节冲突，以本节为准。
 
 ## 0. 2026-05-21 当前马上任务
 
@@ -32,14 +73,15 @@ strategy monitor scheduler 状态展示
 前端已提交：
 
 ```text
-efcfed4 feat: add strategy monitor frontend
+历史提交：策略监控前端第一版
 ```
 
 已验证：
 
 ```text
 Flutter analyze: No issues found
-Flutter test: 27 passed
+Flutter test: 32 passed
+Backend compileall + pytest: 59 passed
 debug APK install: Success
 ```
 
@@ -70,7 +112,7 @@ debug APK install: Success
 
 ```text
 券商式持仓页
--> 持仓详情页收益和历史增强
+-> 持仓详情页收益和历史增强（基础功能已完成，后续只做整合和打磨）
 -> 单股策略监控和历史信号整合
 ```
 

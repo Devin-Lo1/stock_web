@@ -1,6 +1,13 @@
 # App 总体开发规划
 
-最后更新：2026-05-21
+最后更新：2026-05-22
+
+当前最新状态：
+
+- 持仓列表已接入后端收益快照并采用券商式横向表格。
+- 持仓详情页已接入后端交易历史、单股收益快照曲线、加仓、减仓和清仓入口。
+- 核心持仓收益、市值、仓位占比以后端 `position_snapshots` 为权威来源。
+- 下一阶段重点是单股详情页继续整合策略监控、历史信号和推送记录。
 
 本文档用于让新接手者快速理解项目目标、阶段路线、技术架构和长期方向。内容整合自：
 
@@ -86,7 +93,8 @@ mobile_app/
 
 ```text
 Flutter analyze: No issues found
-Flutter test: 27 passed
+Flutter test: 32 passed
+Backend compileall + pytest: 59 passed
 debug APK install: Success
 ```
 

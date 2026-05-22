@@ -1,6 +1,14 @@
 # App 项目结构说明
 
-最后更新：2026-05-21
+最后更新：2026-05-22
+
+最新功能基线：
+
+```text
+3ae866c feat: add position detail trade history
+```
+
+本次文档已同步持仓详情页新增结构：`PositionTrade` 模型、持仓交易弹窗、单股收益曲线组件、交易历史组件，以及 `PositionRepository` / `PositionApiService` 中的交易历史和单股快照接口。
 
 本文档用于说明当前项目每个主要代码文件的职责。新接手者看完后，应能判断某个功能应该在哪个目录、哪个文件下开发。
 
@@ -135,6 +143,25 @@ GET  /api/v1/positions/snapshots/latest
 
 用于承接后端计算后的市值、今日盈亏、持仓盈亏、总收益、持仓占比和成本口径。
 
+### `lib/models/position_trade.dart`
+
+持仓交易记录模型。
+
+包含：
+
+- `PositionTrade`：后端 `position_trades` 返回结构。
+- `PositionTradeDraft`：App 提交加仓、减仓、清仓时的请求草稿。
+- `actionLabel`：将 `open`、`add`、`reduce`、`close` 转为界面展示文案。
+
+对应后端：
+
+```text
+GET  /api/v1/positions/{position_id}/trades
+POST /api/v1/positions/{position_id}/trades
+```
+
+用于持仓详情页交易历史、加仓、减仓和清仓。
+
 ### `lib/models/quote_snapshot.dart`
 
 行情快照模型。
@@ -268,6 +295,9 @@ GET /api/v1/stocks/search
 - 后端失败时 fallback。
 - 持仓接口成功但 Futu 刷新失败时保留后端连接状态，并使用缓存行情。
 - 创建、编辑、删除持仓后同步本地缓存。
+- 加载单只持仓交易历史。
+- 加载单只持仓收益快照历史。
+- 提交加仓、减仓、清仓交易后重新加载持仓列表，并返回最新持仓给详情页。
 
 开发持仓数据流时优先改这里，不要直接在页面里组合多个 service。
 
@@ -352,6 +382,9 @@ GET /api/v1/stocks/search
 - 删除持仓。
 - 触发后端持仓快照计算。
 - 读取最新持仓快照。
+- 读取单只持仓交易历史。
+- 读取单只持仓收益快照历史。
+- 创建单只持仓交易记录，用于加仓、减仓和清仓。
 - 后端 JSON 与 `StockPosition` 转换。
 
 ### `lib/services/quote_api_service.dart`
@@ -489,13 +522,14 @@ App 主壳。
 - 市场切换。
 - 添加持仓。
 - 点击进入详情。
-- 后续升级为券商式持仓记录表：
+- 当前已升级为券商式持仓记录表：
   - 第一列固定股票名称、代码、币种、市场标签。
   - 右侧指标列横向滑动。
   - 初始列展示可卖/持有、现价/成本、今日盈亏。
-  - 右滑展示持仓盈亏、市值、持仓占比、可用数量、累计收益。
-  - 支持持仓、订单、历史切换。
-  - 支持按市值、今日盈亏、持仓盈亏、持仓占比排序。
+  - 右滑展示持仓盈亏、市值、持仓占比。
+  - 核心收益指标来自后端 `position_snapshots`。
+  - 后端快照不可用时显示未同步或空值，不用前端公式伪装成真实收益。
+- 待完成：持仓排序、搜索、分组，以及是否需要订单/历史切换的产品决策。
 
 如果要加排序、搜索、分组，优先从这里开始。持仓表格组件变复杂时，应拆到 `widgets/positions/`，不要把横向表格和行操作全部堆在 `positions_screen.dart`。
 
@@ -511,7 +545,11 @@ App 主壳。
 - 维护 K 线周期、加载状态、刷新状态。
 - 调用 `PositionKLineChart` 展示竖屏 K 线。
 - 调用 `FullScreenKLineScreen` 展示横屏 K 线。
-- 收益指标。
+- 收益指标，核心收益来自后端快照。
+- 加载并展示单股收益快照曲线。
+- 加载并展示建仓、加仓、减仓、清仓交易历史。
+- 打开加仓、减仓、清仓交易弹窗。
+- 提交交易记录后刷新持仓列表、详情状态和详情数据。
 - 编辑/删除持仓。
 
 约束：
@@ -519,6 +557,7 @@ App 主壳。
 - 不在此文件继续堆叠 K 线绘制、指标计算、横屏布局。
 - 新增 K 线指标、成交量图、十字光标、缩放逻辑时，优先放到 `widgets/chart/`。
 - 此文件只负责页面状态编排和持仓详情业务动作。
+- 不在此文件直接拼 HTTP；交易历史、收益快照、交易提交必须通过 `PositionRepository`。
 
 ### `lib/screens/signals_screen.dart`
 
@@ -661,6 +700,23 @@ widgets/position/stock_suggestion_list.dart
 widgets/quote/quote_read_only_card.dart
 ```
 
+### `lib/sheets/position_trade_sheet.dart`
+
+持仓交易记录弹窗。
+
+职责：
+
+- 根据动作展示加仓、减仓或清仓表单。
+- 输入数量、成交价格、手续费和备注。
+- 清仓时默认使用当前持仓数量。
+- 保存后返回 `PositionTradeDraft`。
+
+约束：
+
+- 不在弹窗里直接调用 HTTP。
+- 不在弹窗里计算持仓成本或收益。
+- 成本、收益和持仓数量更新以后端交易记录处理结果为准。
+
 ## 10. Flutter 工具目录
 
 ### `lib/utils/formatters.dart`
@@ -719,6 +775,8 @@ widgets/quote/quote_read_only_card.dart
 - `position_tile.dart`
 - `compact_metric.dart`
 - `position_detail_metric.dart`
+- `position_profit_curve.dart`
+- `position_trade_history.dart`
 
 #### `brokerage_position_table.dart`
 
@@ -733,6 +791,37 @@ widgets/quote/quote_read_only_card.dart
 - 行点击进入单股详情页。
 
 后续订单、历史、排序和更多指标列应优先在本组件或同级拆分组件扩展，不要把横向表格逻辑堆回 `positions_screen.dart`。
+
+#### `position_profit_curve.dart`
+
+单股收益曲线组件。
+
+职责：
+
+- 接收后端 `PositionSnapshot` 历史快照。
+- 按快照时间排序。
+- 绘制 `totalProfit` 曲线。
+- 快照不足时显示空状态。
+
+约束：
+
+- 只做展示，不计算持仓收益。
+- 曲线点来自后端 `position_snapshots`。
+
+#### `position_trade_history.dart`
+
+单股交易历史组件。
+
+职责：
+
+- 展示建仓、加仓、减仓、清仓记录。
+- 展示数量、成交价、手续费和成交时间。
+- 根据动作类型显示不同颜色。
+
+约束：
+
+- 只展示后端 `position_trades`。
+- 不在组件里修改持仓，不在组件里计算成本。
 
 ### `lib/widgets/quote/`
 

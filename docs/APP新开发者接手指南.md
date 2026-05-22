@@ -1,14 +1,51 @@
 # App 新开发者接手指南
 
-最后更新：2026-05-21
+最后更新：2026-05-22
 
 当前代码功能基线：
 
 ```text
-efcfed4 feat: add strategy monitor frontend
+3ae866c feat: add position detail trade history
 ```
 
 本文档给新开发者使用。目标是：读完 `docs/` 后能知道当前项目做到哪、不能做什么、下一步从哪里开始。
+
+## 0. 最新交接快照
+
+当前最新完成内容：
+
+- 持仓列表已经是券商式横向表格，核心收益指标使用后端 `position_snapshots`，后端快照不可用时显示未同步/空值，不再静默前端补算。
+- 持仓详情页已经接入：
+  - 后端交易历史。
+  - 单股收益快照曲线。
+  - 加仓、减仓、清仓入口。
+  - 提交交易后刷新后端持仓、收益快照和页面数据。
+- 移动端已新增 `PositionTrade` / `PositionTradeDraft` 模型，新增持仓交易弹窗、交易历史组件和单股收益曲线组件。
+- 后端交易记录、收益快照和接口此前已经存在，本轮主要完成 App 端接入。
+
+最近一次完整验证：
+
+```text
+Flutter analyze: No issues found
+Flutter test: 32 passed
+Backend compileall + pytest: 59 passed
+debug APK install: Success
+```
+
+当前真机 APK 使用局域网后端：
+
+```text
+http://192.168.1.4:8000
+```
+
+下一位开发者优先做：
+
+1. 真机检查持仓详情页新功能：收益快照、收益曲线、交易历史、加仓、减仓、清仓弹窗和提交后刷新。
+2. 如果 UI 或数据口径有问题，先修持仓详情页体验，不要进入新的大功能。
+3. 继续补单股详情页的策略监控、历史信号和推送记录整合。
+4. 再回到策略监控真实链路验证：持仓股票 -> scheduler 扫描 -> signal_events -> push_records -> App 展示。
+
+注意：本文顶部“最新交接快照”优先于后面历史章节。后面章节保留开发脉络，但若出现“下一步”冲突，以本节为准。
 
 ## 1. 必读顺序
 
@@ -81,6 +118,8 @@ git log -1 --oneline
   - `position_snapshots`。
   - 建仓、加仓、减仓、清仓记录。
   - 真实平均成本和券商式摊薄成本字段。
+  - 持仓交易历史接口。
+  - 单只持仓收益快照历史接口。
 
 ### Flutter 已完成
 
@@ -110,6 +149,15 @@ git log -1 --oneline
   - 尝试次数。
   - 发送时间。
   - 错误信息。
+- 持仓列表已改为券商式横向表格：
+  - 左侧固定股票名称、代码、市场标签。
+  - 右侧横向滑动查看可卖/持有、现价/成本、今日盈亏、持仓盈亏、市值和持仓占比。
+  - 核心收益指标以后端快照为权威来源。
+- 持仓详情页已接入：
+  - 后端持仓收益快照。
+  - 单股收益曲线。
+  - 建仓、加仓、减仓、清仓交易历史。
+  - 加仓、减仓、清仓记录入口。
 
 ## 4. 当前刚完成的前端验证
 
@@ -126,7 +174,8 @@ D:\flutter\bin\flutter.bat test
 
 ```text
 Flutter analyze: No issues found
-Flutter test: 27 passed
+Flutter test: 32 passed
+Backend compileall + pytest: 59 passed
 ```
 
 最近一次真机安装：
@@ -153,24 +202,31 @@ http://192.168.1.4:8000
 
 ## 5. 下一位开发者马上要做
 
-先做真机联调，不要马上继续大改页面。
+先做真机检查和小修，不要马上继续大改页面。
 
 按顺序验证：
 
 1. 打开 App，确认首页、持仓、信号页能正常连接后端。
-2. 进入信号页，确认三个入口可打开：
+2. 进入持仓页，点击任意持仓，检查详情页：
+   - 后端收益指标是否有值。
+   - 单股收益曲线是否显示；快照不足时是否显示“收益快照不足”。
+   - 交易历史是否显示建仓、加仓、减仓、清仓记录。
+   - 加仓、减仓、清仓弹窗是否能打开。
+   - 提交交易后列表和详情页是否刷新。
+3. 若持仓详情页存在 UI 截断、数据未刷新或后端错误，先修这些问题。
+4. 进入信号页，确认三个入口可打开：
    - 信号设置。
    - 策略监控。
    - 推送记录。
-3. 进入策略监控，选择一只持仓股票，创建一个监控：
+5. 进入策略监控，选择一只持仓股票，创建一个监控：
    - 策略先选 `price_break_ma` 或 `ma_cross`。
    - 周期先用 `日K`。
    - 扫描间隔先用 `15`。
    - 冷却时间先用 `120`。
    - 启用打开。
    - 推送打开。
-4. 在策略监控页顶部启动 scheduler。
-5. 等待或手动触发扫描后检查：
+6. 在策略监控页顶部启动 scheduler。
+7. 等待或手动触发扫描后检查：
    - 信号页是否出现对应策略信号。
    - 推送记录页是否出现 `sent`、`failed` 或 `skipped` 记录。
 
@@ -185,36 +241,47 @@ http://192.168.1.4:8000
 -> App 展示
 ```
 
-验证通过后，再进入持仓详情页和券商式持仓表改造。
+验证通过后，再进入单股详情页的策略监控、历史信号和推送记录整合。
 
-## 6. 下一个开发主题：持仓详情页和持仓记录页
+## 6. 当前持仓详情页状态和下一个开发主题
 
-完成上面的策略监控链路验证后，建议开始：
+当前已经完成：
 
 ```text
 券商式持仓页
--> 持仓详情页收益和历史增强
--> 单股策略监控和历史信号整合
+-> 持仓详情页后端收益快照
+-> 单股收益曲线
+-> 交易历史
+-> 加仓/减仓/清仓入口
 ```
 
-### 持仓页目标
+下一步建议开始：
+
+```text
+单股策略监控整合
+-> 单股历史信号整合
+-> 单股推送记录整合
+-> 持仓详情页 UI 细节打磨
+```
+
+### 持仓页当前状态
 
 - 第一列固定股票名称、代码、市场、币种。
 - 右侧指标列横向滑动。
 - 初始展示：可卖/持有、现价/成本、今日盈亏。
-- 右滑展示：持仓盈亏、持仓盈亏率、市值、持仓占比、可用数量、累计收益。
+- 右滑展示：持仓盈亏、市值、持仓占比。
 - 支持市场切换：港股、美股、沪深股。
-- 支持持仓、订单、历史切换。
-- 支持按市值、今日盈亏、持仓盈亏、持仓占比排序。
+- 订单、历史切换和排序暂未完成。
 
-### 持仓详情页目标
+### 持仓详情页当前状态
 
-- 展示当前持仓收益。
-- 展示单股收益曲线。
-- 展示建仓、加仓、减仓、清仓历史。
-- 展示该股票已绑定策略监控。
-- 展示该股票历史信号。
-- 展示该股票相关推送记录。
+- 已展示当前持仓收益，核心收益来自后端快照。
+- 已展示单股收益曲线。
+- 已展示建仓、加仓、减仓、清仓历史。
+- 已提供加仓、减仓、清仓记录入口。
+- 待完成：展示该股票已绑定策略监控。
+- 待完成：展示该股票历史信号。
+- 待完成：展示该股票相关推送记录。
 
 ### 关键约束
 
@@ -259,6 +326,20 @@ backend/app/routers/positions.py
 backend/app/repositories/position_trades.py
 backend/app/repositories/position_snapshots.py
 backend/app/schemas/positions.py
+```
+
+### 持仓生命周期前端
+
+```text
+mobile_app/lib/models/position_trade.dart
+mobile_app/lib/models/position_snapshot.dart
+mobile_app/lib/services/position_api_service.dart
+mobile_app/lib/repositories/position_repository.dart
+mobile_app/lib/screens/position_detail_screen.dart
+mobile_app/lib/sheets/position_trade_sheet.dart
+mobile_app/lib/widgets/position/position_profit_curve.dart
+mobile_app/lib/widgets/position/position_trade_history.dart
+mobile_app/test/position_api_service_test.dart
 ```
 
 ### 策略监控后端
@@ -325,4 +406,3 @@ rg -n "\x{FFFD}" docs mobile_app\docs
 - 不要把推送文案写成投资建议。
 - 不要基于终端里看到的乱码继续写中文文案。
 - 不要裸跑 `flutter build apk --debug` 给真机联调，必须带局域网 `API_BASE_URL` 或使用 `scripts/build_mobile_lan_debug.ps1`。
-

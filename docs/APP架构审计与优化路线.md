@@ -1,11 +1,11 @@
 # App 架构审计与优化路线
 
-最后更新：2026-05-21
+最后更新：2026-05-22
 
 当前 Git 基线：
 
 ```text
-efcfed4 feat: add strategy monitor frontend
+3ae866c feat: add position detail trade history
 ```
 
 本文档记录项目代码和 docs 的结构扫描结论，用于后续一步步优化项目框架结构。后续新增功能前，应先阅读：
@@ -18,7 +18,7 @@ efcfed4 feat: add strategy monitor frontend
 
 ## 1. 本次验证状态
 
-2026-05-21 当前状态：策略监控前端入口、scheduler 状态展示、推送记录查看已完成并安装到真机。下一步先做真机链路验证，再进入持仓详情和券商式持仓页改造。
+2026-05-22 当前状态：持仓列表后端收益快照、券商式持仓表、持仓详情页交易历史、单股收益曲线、加仓/减仓/清仓入口已完成并安装到真机。下一步先真机检查持仓详情页体验，再整合单股策略监控、历史信号和推送记录。
 
 最近相关验证：
 
@@ -32,7 +32,8 @@ D:\flutter\bin\flutter.bat test
 结果：
 
 - Flutter analyze 通过，无静态问题。
-- Flutter test 27 passed。
+- Flutter test 32 passed。
+- 后端 compileall + pytest 59 passed。
 - 局域网 debug APK 已打包并安装成功。
 - 当前工作区干净。
 
@@ -336,7 +337,7 @@ docs 当前最大问题不是内容少，而是历史记录太多、入口失效
 
 ```text
 券商式持仓页
--> 持仓详情页收益和历史增强
+-> 持仓详情页收益和历史增强（基础功能已完成，后续只做整合和打磨）
 -> 单股策略监控和历史信号整合
 ```
 
