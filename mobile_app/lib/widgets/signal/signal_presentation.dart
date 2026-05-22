@@ -36,7 +36,7 @@ extension SignalCategoryPresentation on SignalCategory {
   Color get color {
     return switch (this) {
       SignalCategory.important => const Color(0xFFFF3B45),
-      SignalCategory.strategy => const Color(0xFF6B7280),
+      SignalCategory.strategy => const Color(0xFF38BDF8),
       SignalCategory.risk => const Color(0xFFE6B450),
       SignalCategory.system => const Color(0xFF8B9CB3),
       SignalCategory.ignored => const Color(0xFF7C8798),
@@ -49,6 +49,6 @@ Color signalColor(TradeSignal signal) {
     SignalTone.positive => const Color(0xFF12B886),
     SignalTone.negative => const Color(0xFFFF3B45),
     SignalTone.warning => const Color(0xFFE6B450),
-    SignalTone.info => const Color(0xFF6B7280),
+    SignalTone.info => const Color(0xFF38BDF8),
   };
 }

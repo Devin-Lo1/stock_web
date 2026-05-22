@@ -343,7 +343,7 @@ Color _statusColor(String status) {
   return switch (status) {
     'completed' => const Color(0xFF12B886),
     'failed' => const Color(0xFFFF3B45),
-    'running' => const Color(0xFF6B7280),
+    'running' => const Color(0xFF38BDF8),
     _ => const Color(0xFFE6B450),
   };
 }

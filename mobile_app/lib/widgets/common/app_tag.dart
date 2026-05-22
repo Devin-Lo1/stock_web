@@ -10,10 +10,13 @@ class AppTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = appAccentColor(context);
+    final backgroundColor = isDarkMode(context)
+        ? const Color(0xFF38BDF8).withValues(alpha: 0.13)
+        : appAccentContainerColor(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: appAccentContainerColor(context),
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
