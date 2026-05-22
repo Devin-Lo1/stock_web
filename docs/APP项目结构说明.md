@@ -5,10 +5,10 @@
 最新功能基线：
 
 ```text
-3ae866c feat: add position detail trade history
+4d17b72 feat: close push record workflow
 ```
 
-本次文档已同步持仓详情页新增结构：`PositionTrade` 模型、持仓交易弹窗、单股收益曲线组件、交易历史组件，以及 `PositionRepository` / `PositionApiService` 中的交易历史和单股快照接口。
+本次文档已同步持仓详情页新增结构：`PositionTrade` 模型、持仓交易弹窗、单股收益曲线组件、交易历史组件，以及 `PositionRepository` / `PositionApiService` 中的交易历史和单股快照接口。当前最新功能还包括：交易历史删除、历史信号忽略、单股策略监控/历史信号/推送记录整合、推送记录按股票和状态筛选、删除与重试。
 
 本文档用于说明当前项目每个主要代码文件的职责。新接手者看完后，应能判断某个功能应该在哪个目录、哪个文件下开发。
 

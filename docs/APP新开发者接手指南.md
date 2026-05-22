@@ -5,7 +5,7 @@
 当前代码功能基线：
 
 ```text
-3ae866c feat: add position detail trade history
+4d17b72 feat: close push record workflow
 ```
 
 本文档给新开发者使用。目标是：读完 `docs/` 后能知道当前项目做到哪、不能做什么、下一步从哪里开始。
@@ -20,16 +20,21 @@
   - 单股收益快照曲线。
   - 加仓、减仓、清仓入口。
   - 提交交易后刷新后端持仓、收益快照和页面数据。
-- 移动端已新增 `PositionTrade` / `PositionTradeDraft` 模型，新增持仓交易弹窗、交易历史组件和单股收益曲线组件。
-- 后端交易记录、收益快照和接口此前已经存在，本轮主要完成 App 端接入。
+- 交易历史支持删除，后端会按剩余交易重新回放持仓数量、成本和已实现盈亏。
+- 历史信号支持忽略，普通列表和单股详情页不再显示已忽略信号。
+- 单股详情页已整合策略监控、历史信号和推送记录。
+- 单股详情页可直接启用/停用监控、开启/关闭推送、删除监控。
+- 推送记录支持按股票代码和状态筛选，支持删除和重试。
+- 日间模式已改为纯白背景，中性边框更清晰；夜间模式保留旧深色风格。
 
 最近一次完整验证：
 
 ```text
 Flutter analyze: No issues found
-Flutter test: 32 passed
-Backend compileall + pytest: 59 passed
-debug APK install: Success
+Flutter test: 37 passed
+Backend pytest: 63 passed
+LAN debug APK build: Success
+debug APK install: 等待手机重新连接后安装
 ```
 
 当前真机 APK 使用局域网后端：
@@ -40,10 +45,14 @@ http://192.168.1.4:8000
 
 下一位开发者优先做：
 
-1. 真机检查持仓详情页新功能：收益快照、收益曲线、交易历史、加仓、减仓、清仓弹窗和提交后刷新。
-2. 如果 UI 或数据口径有问题，先修持仓详情页体验，不要进入新的大功能。
-3. 继续补单股详情页的策略监控、历史信号和推送记录整合。
-4. 再回到策略监控真实链路验证：持仓股票 -> scheduler 扫描 -> signal_events -> push_records -> App 展示。
+1. 手机重新连接后安装最新 LAN debug APK。
+2. 启动并验证现有策略监控 scheduler：
+   - 策略监控已启用。
+   - `last_scanned_at` 会更新。
+   - 触发时写入 `signal_events`。
+   - 推送尝试写入 `push_records`。
+   - 单股详情页能按股票代码看到推送记录。
+3. 验证通过后，按顺序做：扫描日志与原因说明 -> 真实推送通道 -> 策略监控总览 -> 信号处置流 -> 交易记录增强。
 
 注意：本文顶部“最新交接快照”优先于后面历史章节。后面章节保留开发脉络，但若出现“下一步”冲突，以本节为准。
 
@@ -174,8 +183,8 @@ D:\flutter\bin\flutter.bat test
 
 ```text
 Flutter analyze: No issues found
-Flutter test: 32 passed
-Backend compileall + pytest: 59 passed
+Flutter test: 37 passed
+Backend pytest: 63 passed
 ```
 
 最近一次真机安装：
@@ -183,7 +192,7 @@ Backend compileall + pytest: 59 passed
 ```powershell
 cd C:\Users\58229\Desktop\stock_web
 .\scripts\build_mobile_lan_debug.ps1
-D:\Android\Sdk\platform-tools\adb.exe install -r mobile_app\build\app\outputs\flutter-apk\app-debug.apk
+D:\Android\Sdk\platform-tools\adb.exe install --no-streaming -r mobile_app\build\app\outputs\flutter-apk\app-debug.apk
 ```
 
 安装结果：

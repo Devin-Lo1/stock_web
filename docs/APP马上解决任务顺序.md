@@ -7,7 +7,7 @@
 当前 Git 基线：
 
 ```text
-3ae866c feat: add position detail trade history
+4d17b72 feat: close push record workflow
 ```
 
 当前工作区要求：
@@ -19,46 +19,51 @@
 - 涉及真机体验必须重新构建并安装 APK。
 - 当前真机调试采用局域网后端地址。重新打 debug APK 时禁止裸跑 `flutter build apk --debug`，必须直接运行 `.\scripts\build_mobile_lan_debug.ps1` 自动探测当前电脑局域网 IP，或手动传 `--dart-define=API_BASE_URL=http://电脑当前局域网IP:8000`。
 
-## 0. 2026-05-22 当前马上任务
+## 0. 2026-05-22 当前马上任务（最新）
 
 当前刚完成：
 
 ```text
-券商式持仓列表后端收益快照接入
-持仓详情页交易历史
-持仓详情页单股收益曲线
-加仓/减仓/清仓入口
+日间纯白主题与边框增强
+交易历史删除与历史信号忽略
+持仓详情页单股策略监控、历史信号、推送记录整合
+持仓详情页策略监控启停、推送开关、删除
+推送记录按股票代码/状态筛选、删除、重试
 ```
 
 已验证：
 
 ```text
+Backend pytest: 63 passed
 Flutter analyze: No issues found
-Flutter test: 32 passed
-Backend compileall + pytest: 59 passed
-debug APK install: Success
+Flutter test: 37 passed
+LAN debug APK build: Success
+debug APK install: 等待手机重新连接后安装
 ```
 
 下一位开发者马上做：
 
-1. 真机打开持仓页，检查横向持仓表是否仍然完整展示。
-2. 点击一只持仓进入详情页，检查：
-   - 后端收益指标是否正确显示。
-   - 单股收益曲线是否显示；快照不足时是否显示空状态。
-   - 交易历史是否显示后端 `position_trades`。
-   - 加仓、减仓、清仓弹窗是否能打开。
-   - 提交交易后详情页和持仓列表是否刷新。
-3. 若发现 UI 截断、数据未刷新、接口失败，先修持仓详情页，不要进入新模块。
-4. 详情页体验确认后，再做：
+1. 重新连接手机，安装最新 `mobile_app/build/app/outputs/flutter-apk/app-debug.apk`。
+2. 启动或配置策略监控 scheduler：
+   - 临时接口：`POST /api/v1/strategies/monitors/scheduler/start`。
+   - 自动启动：配置 `STRATEGY_MONITOR_SCHEDULER_ENABLED=true`。
+3. 验证现有定时扫描闭环：
+   - 策略监控已启用。
+   - `last_scanned_at` 会随调度器更新。
+   - 触发时写入 `signal_events`。
+   - 推送尝试写入 `push_records`。
+   - 单股详情页能按股票代码看到推送记录。
+4. 验证通过后，按下面顺序继续完善：
 
 ```text
-单股策略监控整合
--> 单股历史信号整合
--> 单股推送记录整合
--> 策略监控真实链路验证
+扫描日志与原因说明
+-> 真实推送通道接入
+-> 策略监控总览
+-> 信号处置流
+-> 交易记录增强
 ```
 
-注意：本节是当前短期任务的权威入口。下面 2026-05-21 及更早章节保留历史背景，若与本节冲突，以本节为准。
+注意：本节是当前短期任务的权威入口。下面 2026-05-21 及更早章节保留历史背景，若与本节冲突，以本节为准。长期功能池见 `docs/APP后续开发方案.md` 的“后续功能完善路线图”。
 
 ## 0. 2026-05-21 当前马上任务
 

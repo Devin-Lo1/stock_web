@@ -6,8 +6,11 @@
 
 - 持仓列表已接入后端收益快照并采用券商式横向表格。
 - 持仓详情页已接入后端交易历史、单股收益快照曲线、加仓、减仓和清仓入口。
+- 持仓详情页已整合单股策略监控、历史信号和推送记录。
+- 交易历史支持删除，历史信号支持忽略。
+- 推送记录支持按股票代码和状态筛选，支持删除和重试。
 - 核心持仓收益、市值、仓位占比以后端 `position_snapshots` 为权威来源。
-- 下一阶段重点是单股详情页继续整合策略监控、历史信号和推送记录。
+- 下一阶段重点是启用并验证现有策略监控 scheduler，然后补扫描日志、真实推送和策略监控总览。
 
 本文档用于让新接手者快速理解项目目标、阶段路线、技术架构和长期方向。内容整合自：
 
@@ -55,6 +58,18 @@
   -> App/推送提醒
 ```
 
+当前功能完善方向：
+
+```text
+策略监控配置
+  -> scheduler 定时扫描
+  -> 扫描日志解释结果
+  -> 历史信号落库
+  -> 真实推送通道
+  -> 推送记录追溯
+  -> 单股详情和总览页统一查看
+```
+
 ## 2. 当前实际状态
 
 ### 2.1 Flutter App
@@ -85,6 +100,7 @@ mobile_app/
 - 策略监控选择入口。
 - scheduler 状态展示。
 - 推送记录查看入口。
+- 推送记录按股票代码/状态筛选、删除和重试。
 - 量化回测入口、历史回测、参数快照、收益曲线和买卖点 K 线。
 - 日间/夜间模式。
 - 真机 debug APK 安装验证。
@@ -93,9 +109,9 @@ mobile_app/
 
 ```text
 Flutter analyze: No issues found
-Flutter test: 32 passed
-Backend compileall + pytest: 59 passed
-debug APK install: Success
+Flutter test: 37 passed
+Backend pytest: 63 passed
+LAN debug APK build: Success
 ```
 
 ### 2.2 后端
@@ -142,6 +158,8 @@ GET    /api/v1/strategies/monitors/scheduler/status
 POST   /api/v1/strategies/monitors/scheduler/start
 POST   /api/v1/strategies/monitors/scheduler/stop
 GET    /api/v1/notifications/push-records
+POST   /api/v1/notifications/push-records/{record_id}/retry
+DELETE /api/v1/notifications/push-records/{record_id}
 ```
 
 当前后端包含：
@@ -176,6 +194,36 @@ docs/APP后续开发方案.md
 ```
 
 原始文档作为历史背景保留。
+
+### 2.4 后续功能完善路线图
+
+后续功能按“先可信、再好用、最后高级”的顺序推进。
+
+近期优先：
+
+1. 启用并验证现有策略监控 scheduler。
+2. 增加扫描日志与原因说明，让用户知道每次扫描为什么触发或未触发。
+3. 接入真实推送通道，优先 Huawei Push Kit，再补 FCM。
+4. 建立策略监控总览，统一查看所有股票监控状态。
+5. 完善信号处置流：已读、忽略、加入观察、关联交易、复盘备注。
+
+中期完善：
+
+1. 持仓风险雷达：成本、均线、回撤、波动、仓位风险。
+2. 组合层面风控：市场分布、集中度、总盈亏、最大回撤。
+3. 回测到监控一键落地：从回测结果保存为单股策略监控。
+4. K 线交互增强：十字光标、指标开关、买卖点和信号标记。
+5. 数据健康检查：FutuOpenD、行情权限、K 线更新时间、失败股票。
+
+长期高级：
+
+1. 自动复盘日报。
+2. 策略参数推荐。
+3. 多账户 / 多券商支持。
+4. 云同步与备份。
+5. 权限、安全和推送内容脱敏。
+
+详细拆解和验收标准见 `docs/APP后续开发方案.md` 的“后续功能完善路线图”。
 
 ## 3. 推荐总体架构
 
