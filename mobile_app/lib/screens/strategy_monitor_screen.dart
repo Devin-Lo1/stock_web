@@ -31,6 +31,7 @@ class StrategyMonitorScreen extends StatefulWidget {
 }
 
 class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
+  final _listController = ScrollController();
   final _intervalController = TextEditingController(text: '15');
   final _cooldownController = TextEditingController(text: '120');
   final _schedulerIntervalController = TextEditingController(text: '60');
@@ -42,6 +43,7 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
   List<StrategyMonitor> _monitors = const [];
   List<StrategyMonitorScanLog> _scanLogs = const [];
   StrategyMonitorSchedulerStatus? _schedulerStatus;
+  StrategyMonitor? _editingMonitor;
   StockPosition? _selectedPosition;
   StrategyDefinition? _selectedStrategy;
   String _period = 'day';
@@ -50,6 +52,7 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
   bool _schedulerRefresh = false;
   bool _isLoading = true;
   bool _isCreating = false;
+  bool _isScanningNow = false;
   bool _isSchedulerUpdating = false;
   Object? _error;
 
@@ -89,6 +92,7 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
 
   @override
   void dispose() {
+    _listController.dispose();
     _intervalController.dispose();
     _cooldownController.dispose();
     _schedulerIntervalController.dispose();
@@ -149,6 +153,14 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
     });
   }
 
+  Future<void> _submitMonitorForm() async {
+    if (_editingMonitor != null) {
+      await _saveEditedMonitor();
+      return;
+    }
+    await _createMonitor();
+  }
+
   Future<void> _createMonitor() async {
     final position = _selectedPosition;
     final strategy = _selectedStrategy;
@@ -182,13 +194,123 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
       );
       if (!mounted) return;
       setState(() => _monitors = [monitor, ..._monitors]);
-      _showSnack('策略监控已创建。');
+      if (monitor.enabled) {
+        await _scanOnce(showSnack: false);
+        if (!mounted) return;
+        if (_schedulerStatus?.running != true) {
+          await _startScheduler(showSnack: false);
+          if (!mounted) return;
+        }
+        _showSnack('策略监控已创建，已执行一次扫描并启动调度器。');
+      } else {
+        _showSnack('策略监控已创建。');
+      }
     } catch (error) {
       if (!mounted) return;
       _showSnack('创建失败：$error');
     } finally {
       if (mounted) setState(() => _isCreating = false);
     }
+  }
+
+  Future<void> _saveEditedMonitor() async {
+    final monitor = _editingMonitor;
+    final position = _selectedPosition;
+    final strategy = _selectedStrategy;
+    if (monitor == null ||
+        position == null ||
+        strategy == null ||
+        _isCreating) {
+      return;
+    }
+
+    final interval = _positiveInt(_intervalController.text);
+    final cooldown = _nonNegativeInt(_cooldownController.text);
+    final parameters = _readParameters(strategy);
+    if (interval == null || cooldown == null || parameters == null) {
+      _showSnack('请检查扫描间隔、冷却时间和策略参数。');
+      return;
+    }
+
+    setState(() => _isCreating = true);
+    try {
+      final updated = await widget.monitorRepository.updateMonitor(
+        monitor.id,
+        positionId: position.id,
+        market: _marketFromCode(position.code),
+        code: position.code,
+        name: position.name,
+        strategyCode: strategy.code,
+        strategyName: strategy.name,
+        parameters: parameters,
+        period: _period,
+        scanIntervalMinutes: interval,
+        cooldownMinutes: cooldown,
+        enabled: _enabled,
+        pushCandidate: _pushCandidate,
+      );
+      if (!mounted) return;
+      setState(() {
+        _replaceMonitor(updated);
+        _editingMonitor = null;
+      });
+      _showSnack('策略监控已保存。');
+    } catch (error) {
+      if (!mounted) return;
+      _showSnack('保存失败：$error');
+    } finally {
+      if (mounted) setState(() => _isCreating = false);
+    }
+  }
+
+  void _startEditMonitor(StrategyMonitor monitor) {
+    final position = widget.positions.where(
+      (item) => item.code == monitor.code,
+    );
+    final strategy = _strategies.where(
+      (item) => item.code == monitor.strategyCode,
+    );
+    setState(() {
+      _editingMonitor = monitor;
+      _selectedPosition = position.isEmpty ? _selectedPosition : position.first;
+      _selectedStrategy = strategy.isEmpty ? _selectedStrategy : strategy.first;
+      _period = monitor.period;
+      _enabled = monitor.enabled;
+      _pushCandidate = monitor.pushCandidate;
+      _intervalController.text = '${monitor.scanIntervalMinutes}';
+      _cooldownController.text = '${monitor.cooldownMinutes}';
+      _parameterValues
+        ..clear()
+        ..addAll(_parameterTextValues(monitor));
+    });
+    unawaited(
+      Future<void>.delayed(const Duration(milliseconds: 60), () {
+        if (!_listController.hasClients) return;
+        _listController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+        );
+      }),
+    );
+  }
+
+  void _cancelEditMonitor() {
+    setState(() {
+      _editingMonitor = null;
+      _intervalController.text = '15';
+      _cooldownController.text = '120';
+      _period = 'day';
+      _enabled = true;
+      _pushCandidate = true;
+      _selectedPosition = _selectInitialPosition(
+        widget.positions,
+        widget.initialCode,
+      );
+      _selectedStrategy = _strategies.isEmpty ? null : _strategies.first;
+      _parameterValues.clear();
+      _seedParameterValues();
+    });
   }
 
   Future<void> _updateMonitor(
@@ -246,7 +368,46 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
     }
   }
 
-  Future<void> _startScheduler() async {
+  Future<void> _scanOnce({bool showSnack = true}) async {
+    if (_isScanningNow) return;
+    final interval = _schedulerIntervalSeconds();
+    if (interval == null) {
+      _showSnack('调度间隔需要在 10 到 3600 秒之间。');
+      return;
+    }
+    setState(() => _isScanningNow = true);
+    try {
+      final status = await widget.monitorRepository.runSchedulerOnce(
+        pollIntervalSeconds: interval,
+        refresh: _schedulerRefresh,
+        force: true,
+      );
+      if (!mounted) return;
+      _applySchedulerStatus(status);
+      await _reloadMonitorState();
+      if (!mounted) return;
+      if (showSnack) _showSnack('已完成一次策略扫描。');
+    } catch (error) {
+      if (!mounted) return;
+      if (showSnack) _showSnack('立即扫描失败：$error');
+    } finally {
+      if (mounted) setState(() => _isScanningNow = false);
+    }
+  }
+
+  Future<void> _reloadMonitorState() async {
+    final result = await Future.wait<Object>([
+      widget.monitorRepository.loadMonitors(limit: 200),
+      widget.monitorRepository.loadScanLogs(limit: 50),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _monitors = result[0] as List<StrategyMonitor>;
+      _scanLogs = result[1] as List<StrategyMonitorScanLog>;
+    });
+  }
+
+  Future<void> _startScheduler({bool showSnack = true}) async {
     if (_isSchedulerUpdating) return;
     final interval = _schedulerIntervalSeconds();
     if (interval == null) {
@@ -261,9 +422,10 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
       );
       if (!mounted) return;
       _applySchedulerStatus(status);
+      if (showSnack) _showSnack(status.running ? '调度器已启动。' : '调度器配置已应用。');
     } catch (error) {
       if (!mounted) return;
-      _showSnack('调度器启动失败：$error');
+      if (showSnack) _showSnack('调度器启动失败：$error');
     } finally {
       if (mounted) setState(() => _isSchedulerUpdating = false);
     }
@@ -355,6 +517,7 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
         child: RefreshIndicator(
           onRefresh: _load,
           child: ListView(
+            controller: _listController,
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
             children: [
@@ -399,10 +562,12 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
                   intervalController: _schedulerIntervalController,
                   refresh: _schedulerRefresh,
                   isUpdating: _isSchedulerUpdating,
+                  isScanningNow: _isScanningNow,
                   onRefreshChanged: (value) =>
                       setState(() => _schedulerRefresh = value),
                   onStart: _startScheduler,
                   onStop: _stopScheduler,
+                  onScanNow: _scanOnce,
                 ),
                 const SizedBox(height: 16),
                 _ScanLogPanel(
@@ -419,6 +584,7 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
                   period: _period,
                   enabled: _enabled,
                   pushCandidate: _pushCandidate,
+                  editingMonitor: _editingMonitor,
                   intervalController: _intervalController,
                   cooldownController: _cooldownController,
                   parameterValues: _parameterValues,
@@ -438,7 +604,8 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
                   onParameterChanged: (key, value) {
                     setState(() => _parameterValues[key] = value);
                   },
-                  onCreate: _createMonitor,
+                  onCancelEdit: _cancelEditMonitor,
+                  onSubmit: _submitMonitorForm,
                 ),
                 const SizedBox(height: 16),
                 if (_monitors.isEmpty)
@@ -460,6 +627,7 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
                             ? (value) =>
                                   _updateMonitor(monitor, pushCandidate: value)
                             : null,
+                        onEdit: () => _startEditMonitor(monitor),
                         onDelete: () => _deleteMonitor(monitor),
                       ),
                     ),
@@ -479,18 +647,22 @@ class _SchedulerStatusPanel extends StatelessWidget {
     required this.intervalController,
     required this.refresh,
     required this.isUpdating,
+    required this.isScanningNow,
     required this.onRefreshChanged,
     required this.onStart,
     required this.onStop,
+    required this.onScanNow,
   });
 
   final StrategyMonitorSchedulerStatus? status;
   final TextEditingController intervalController;
   final bool refresh;
   final bool isUpdating;
+  final bool isScanningNow;
   final ValueChanged<bool> onRefreshChanged;
   final VoidCallback onStart;
   final VoidCallback onStop;
+  final VoidCallback onScanNow;
 
   @override
   Widget build(BuildContext context) {
@@ -527,6 +699,15 @@ class _SchedulerStatusPanel extends StatelessWidget {
                   width: 18,
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              if (isScanningNow)
+                const Padding(
+                  padding: EdgeInsets.only(left: 8),
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
                 ),
             ],
           ),
@@ -617,6 +798,21 @@ class _SchedulerStatusPanel extends StatelessWidget {
                 icon: const Icon(Icons.stop_rounded),
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: isScanningNow ? null : onScanNow,
+              icon: isScanningNow
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.radar_rounded, size: 18),
+              label: const Text('扫描一次'),
+            ),
           ),
         ],
       ),
@@ -801,6 +997,7 @@ class _MonitorCreatePanel extends StatelessWidget {
     required this.period,
     required this.enabled,
     required this.pushCandidate,
+    required this.editingMonitor,
     required this.intervalController,
     required this.cooldownController,
     required this.parameterValues,
@@ -811,7 +1008,8 @@ class _MonitorCreatePanel extends StatelessWidget {
     required this.onEnabledChanged,
     required this.onPushChanged,
     required this.onParameterChanged,
-    required this.onCreate,
+    required this.onCancelEdit,
+    required this.onSubmit,
   });
 
   final List<StockPosition> positions;
@@ -821,6 +1019,7 @@ class _MonitorCreatePanel extends StatelessWidget {
   final String period;
   final bool enabled;
   final bool pushCandidate;
+  final StrategyMonitor? editingMonitor;
   final TextEditingController intervalController;
   final TextEditingController cooldownController;
   final Map<String, String> parameterValues;
@@ -831,7 +1030,8 @@ class _MonitorCreatePanel extends StatelessWidget {
   final ValueChanged<bool> onEnabledChanged;
   final ValueChanged<bool> onPushChanged;
   final void Function(String key, String value) onParameterChanged;
-  final VoidCallback onCreate;
+  final VoidCallback onCancelEdit;
+  final VoidCallback onSubmit;
 
   @override
   Widget build(BuildContext context) {
@@ -841,6 +1041,7 @@ class _MonitorCreatePanel extends StatelessWidget {
         : strategyParameterSpecsFor(strategy.code);
     final canCreate =
         selectedPosition != null && strategy != null && !isCreating;
+    final isEditing = editingMonitor != null;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -852,14 +1053,38 @@ class _MonitorCreatePanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '新增监控',
-            style: TextStyle(
-              color: primaryTextColor(context),
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  isEditing ? '修改监控' : '新增监控',
+                  style: TextStyle(
+                    color: primaryTextColor(context),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              if (isEditing)
+                TextButton.icon(
+                  onPressed: isCreating ? null : onCancelEdit,
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  label: const Text('取消'),
+                ),
+            ],
           ),
+          if (isEditing) ...[
+            const SizedBox(height: 4),
+            Text(
+              '${editingMonitor!.name} · ${editingMonitor!.code}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: secondaryTextColor(context),
+                fontSize: 12,
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             initialValue: selectedPosition?.code,
@@ -995,15 +1220,18 @@ class _MonitorCreatePanel extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: canCreate ? onCreate : null,
+              onPressed: canCreate ? onSubmit : null,
               icon: isCreating
                   ? const SizedBox(
                       width: 16,
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.add_task_rounded, size: 18),
-              label: const Text('创建监控'),
+                  : Icon(
+                      isEditing ? Icons.save_rounded : Icons.add_task_rounded,
+                      size: 18,
+                    ),
+              label: Text(isEditing ? '保存监控' : '创建监控'),
             ),
           ),
         ],
@@ -1069,6 +1297,7 @@ class _MonitorTile extends StatelessWidget {
     required this.isUpdating,
     required this.onEnabledChanged,
     required this.onPushChanged,
+    required this.onEdit,
     required this.onDelete,
   });
 
@@ -1076,6 +1305,7 @@ class _MonitorTile extends StatelessWidget {
   final bool isUpdating;
   final ValueChanged<bool> onEnabledChanged;
   final ValueChanged<bool>? onPushChanged;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   @override
@@ -1113,12 +1343,18 @@ class _MonitorTile extends StatelessWidget {
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              else
+              else ...[
+                IconButton(
+                  tooltip: '编辑',
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit_rounded),
+                ),
                 IconButton(
                   tooltip: '删除',
                   onPressed: onDelete,
                   icon: const Icon(Icons.delete_outline_rounded),
                 ),
+              ],
             ],
           ),
           const SizedBox(height: 4),
@@ -1244,6 +1480,18 @@ StockPosition? _selectInitialPosition(
     }
   }
   return positions.first;
+}
+
+Map<String, String> _parameterTextValues(StrategyMonitor monitor) {
+  final values = <String, String>{};
+  for (final entry in monitor.parameters.entries) {
+    final value = entry.value;
+    if (value != null) values[entry.key] = '$value';
+  }
+  for (final spec in strategyParameterSpecsFor(monitor.strategyCode)) {
+    values.putIfAbsent(spec.key, () => spec.fallback);
+  }
+  return values;
 }
 
 String _periodLabel(String period) {

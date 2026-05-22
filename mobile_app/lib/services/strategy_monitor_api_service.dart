@@ -52,12 +52,30 @@ class StrategyMonitorApiService {
 
   Future<StrategyMonitor> updateMonitor(
     String monitorId, {
+    String? positionId,
+    String? market,
+    String? code,
+    String? name,
+    String? strategyCode,
+    String? strategyName,
+    Map<String, Object?>? parameters,
+    String? period,
     bool? enabled,
     bool? pushCandidate,
     int? scanIntervalMinutes,
     int? cooldownMinutes,
   }) async {
     final body = <String, dynamic>{};
+    if (positionId != null && positionId.trim().isNotEmpty) {
+      body['position_id'] = positionId.trim();
+    }
+    if (market != null) body['market'] = market;
+    if (code != null) body['code'] = code;
+    if (name != null) body['name'] = name;
+    if (strategyCode != null) body['strategy_code'] = strategyCode;
+    if (strategyName != null) body['strategy_name'] = strategyName;
+    if (parameters != null) body['parameters'] = parameters;
+    if (period != null) body['period'] = period;
     if (enabled != null) body['enabled'] = enabled;
     if (pushCandidate != null) body['push_candidate'] = pushCandidate;
     if (scanIntervalMinutes != null) {
@@ -151,6 +169,31 @@ class StrategyMonitorApiService {
     final decoded = await _apiClient.post(
       '/api/v1/strategies/monitors/scheduler/stop',
       const {},
+    );
+    if (decoded is Map<String, dynamic>) {
+      return StrategyMonitorSchedulerStatus.fromJson(decoded);
+    }
+    throw const ApiException(
+      statusCode: 0,
+      code: 'INVALID_STRATEGY_SCHEDULER_RESPONSE',
+      message: '策略监控调度状态格式不正确',
+    );
+  }
+
+  Future<StrategyMonitorSchedulerStatus> runSchedulerOnce({
+    int? pollIntervalSeconds,
+    bool? refresh,
+    bool force = true,
+  }) async {
+    final body = <String, dynamic>{};
+    if (pollIntervalSeconds != null) {
+      body['poll_interval_seconds'] = pollIntervalSeconds;
+    }
+    if (refresh != null) body['refresh'] = refresh;
+    final decoded = await _apiClient.post(
+      '/api/v1/strategies/monitors/scheduler/run-once',
+      body,
+      query: {'force': '$force'},
     );
     if (decoded is Map<String, dynamic>) {
       return StrategyMonitorSchedulerStatus.fromJson(decoded);

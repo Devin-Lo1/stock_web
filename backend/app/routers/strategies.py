@@ -89,6 +89,18 @@ async def api_stop_strategy_monitor_scheduler() -> StrategyMonitorSchedulerStatu
     return await get_strategy_monitor_scheduler().stop()
 
 
+@router.post("/monitors/scheduler/run-once", response_model=StrategyMonitorSchedulerStatus)
+async def api_run_strategy_monitor_scheduler_once(
+    payload: StrategyMonitorSchedulerUpdate | None = None,
+    force: bool = Query(default=True),
+) -> StrategyMonitorSchedulerStatus:
+    scheduler = get_strategy_monitor_scheduler()
+    if payload is not None:
+        scheduler.configure(payload)
+    await scheduler.run_once(force=force)
+    return scheduler.status()
+
+
 @router.get("/monitors/scan-logs", response_model=list[StrategyMonitorScanLog])
 def api_list_strategy_monitor_scan_logs(
     monitor_id: str | None = Query(default=None),

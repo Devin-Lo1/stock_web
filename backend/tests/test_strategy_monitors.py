@@ -335,6 +335,19 @@ def test_strategy_monitor_scheduler_endpoints_start_stop() -> None:
     assert stop_response.json()["running"] is False
 
 
+def test_strategy_monitor_scheduler_run_once_endpoint_updates_status() -> None:
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/strategies/monitors/scheduler/run-once?force=true",
+        json={"poll_interval_seconds": 10, "refresh": False},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["last_run_at"] is not None
+    assert response.json()["last_result"]["scanned_count"] == 0
+
+
 def test_strategy_monitor_scheduler_can_be_configured_without_starting() -> None:
     scheduler = StrategyMonitorScheduler(
         enabled_by_env=False,

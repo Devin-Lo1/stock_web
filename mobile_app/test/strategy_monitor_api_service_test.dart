@@ -125,13 +125,20 @@ void main() {
 
     final monitor = await service.updateMonitor(
       'monitor-1',
+      period: '60m',
+      parameters: {'ma_window': 20},
       enabled: false,
       scanIntervalMinutes: 30,
     );
 
     expect(method, 'PUT');
     expect(requestedUri.path, '/api/v1/strategies/monitors/monitor-1');
-    expect(body, {'enabled': false, 'scan_interval_minutes': 30});
+    expect(body, {
+      'parameters': {'ma_window': 20},
+      'period': '60m',
+      'enabled': false,
+      'scan_interval_minutes': 30,
+    });
     expect(monitor.enabled, isFalse);
     expect(monitor.scanIntervalMinutes, 30);
   });
@@ -279,5 +286,42 @@ void main() {
     expect(method, 'POST');
     expect(requestedUri.path, '/api/v1/strategies/monitors/scheduler/stop');
     expect(status.running, isFalse);
+  });
+
+  test('runSchedulerOnce posts run once endpoint with force query', () async {
+    late String method;
+    late Uri requestedUri;
+    late Map<String, dynamic> body;
+    final service = StrategyMonitorApiService(
+      ApiClient(
+        baseUrl: 'http://test.local',
+        httpClient: MockClient((request) async {
+          method = request.method;
+          requestedUri = request.url;
+          body = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(
+            '{"enabled_by_env":false,"running":false,"scanning":false,'
+            '"poll_interval_seconds":45,"refresh":true,'
+            '"last_started_at":null,"last_stopped_at":null,'
+            '"last_run_at":"2026-05-23T01:00:00Z","last_error":null,'
+            '"last_result":{"scanned_count":1,"created_count":0,'
+            '"skipped_count":1,"error_count":0}}',
+            200,
+          );
+        }),
+      ),
+    );
+
+    final status = await service.runSchedulerOnce(
+      pollIntervalSeconds: 45,
+      refresh: true,
+      force: true,
+    );
+
+    expect(method, 'POST');
+    expect(requestedUri.path, '/api/v1/strategies/monitors/scheduler/run-once');
+    expect(requestedUri.queryParameters['force'], 'true');
+    expect(body, {'poll_interval_seconds': 45, 'refresh': true});
+    expect(status.lastResult['scanned_count'], 1);
   });
 }

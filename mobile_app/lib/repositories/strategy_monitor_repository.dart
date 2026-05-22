@@ -28,6 +28,14 @@ class StrategyMonitorRepository {
 
   Future<StrategyMonitor> updateMonitor(
     String monitorId, {
+    String? positionId,
+    String? market,
+    String? code,
+    String? name,
+    String? strategyCode,
+    String? strategyName,
+    Map<String, Object?>? parameters,
+    String? period,
     bool? enabled,
     bool? pushCandidate,
     int? scanIntervalMinutes,
@@ -35,6 +43,14 @@ class StrategyMonitorRepository {
   }) {
     return _apiService.updateMonitor(
       monitorId,
+      positionId: positionId,
+      market: market,
+      code: code,
+      name: name,
+      strategyCode: strategyCode,
+      strategyName: strategyName,
+      parameters: parameters,
+      period: period,
       enabled: enabled,
       pushCandidate: pushCandidate,
       scanIntervalMinutes: scanIntervalMinutes,
@@ -80,5 +96,17 @@ class StrategyMonitorRepository {
 
   Future<StrategyMonitorSchedulerStatus> stopScheduler() {
     return _apiService.stopScheduler();
+  }
+
+  Future<StrategyMonitorSchedulerStatus> runSchedulerOnce({
+    int? pollIntervalSeconds,
+    bool? refresh,
+    bool force = true,
+  }) {
+    return _apiService.runSchedulerOnce(
+      pollIntervalSeconds: pollIntervalSeconds,
+      refresh: refresh,
+      force: force,
+    );
   }
 }
