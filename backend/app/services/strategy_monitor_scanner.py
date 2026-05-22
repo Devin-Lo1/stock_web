@@ -6,6 +6,7 @@ from ..repositories.notifications import (
     create_signal_event,
     get_signal_event_by_dedupe_key,
 )
+from ..repositories.strategy_monitor_scan_logs import create_strategy_monitor_scan_log
 from ..repositories.strategy_monitors import (
     list_strategy_monitors,
     update_strategy_monitor_scan_state,
@@ -16,6 +17,7 @@ from ..schemas import (
     SignalEventCreate,
     SignalScanResult,
     StrategyMonitor,
+    StrategyMonitorScanLogCreate,
 )
 from ..services.futu_client import (
     FutuDependencyError,
@@ -44,6 +46,20 @@ def scan_strategy_monitors(
             skipped_count += 1
             continue
         if _is_in_cooldown(monitor, now):
+            _record_scan_log(
+                monitor,
+                stage="cooldown",
+                status="cooldown",
+                message="监控处于冷却期，暂不重复生成信号。",
+                detail={
+                    "cooldown_minutes": monitor.cooldown_minutes,
+                    "last_triggered_at": _datetime_detail(
+                        monitor.last_triggered_at,
+                    ),
+                },
+                scanned_at=now,
+            )
+            update_strategy_monitor_scan_state(monitor.id, last_scanned_at=now)
             skipped_count += 1
             continue
 
@@ -59,12 +75,28 @@ def scan_strategy_monitors(
             )
         if len(candles) < 2:
             update_strategy_monitor_scan_state(monitor.id, last_scanned_at=now)
+            _record_scan_log(
+                monitor,
+                stage="load_candles",
+                status="market_error" if load_error else "insufficient_klines",
+                message=load_error or "K 线数量不足，至少需要 2 根才能扫描。",
+                detail={"candles": len(candles), "refresh": refresh},
+                scanned_at=now,
+            )
             skipped_count += 1
             continue
 
         strategy = get_strategy(monitor.strategy_code)
         if strategy is None:
             update_strategy_monitor_scan_state(monitor.id, last_scanned_at=now)
+            _record_scan_log(
+                monitor,
+                stage="strategy_lookup",
+                status="strategy_error",
+                message="后端暂不支持该策略。",
+                detail={"strategy_code": monitor.strategy_code},
+                scanned_at=now,
+            )
             errors.append(
                 {
                     "monitor_id": monitor.id,
@@ -81,6 +113,14 @@ def scan_strategy_monitors(
             minimum_candles = strategy.minimum_candles(monitor.parameters)
         except StrategyConfigurationError as error:
             update_strategy_monitor_scan_state(monitor.id, last_scanned_at=now)
+            _record_scan_log(
+                monitor,
+                stage="minimum_candles",
+                status="strategy_error",
+                message=error.reason,
+                detail={"parameters": monitor.parameters},
+                scanned_at=now,
+            )
             errors.append(
                 {
                     "monitor_id": monitor.id,
@@ -94,6 +134,18 @@ def scan_strategy_monitors(
             continue
         if len(candles) < minimum_candles:
             update_strategy_monitor_scan_state(monitor.id, last_scanned_at=now)
+            _record_scan_log(
+                monitor,
+                stage="minimum_candles",
+                status="insufficient_klines",
+                message=f"K 线数量不足：当前 {len(candles)} 根，策略至少需要 {minimum_candles} 根。",
+                detail={
+                    "candles": len(candles),
+                    "minimum_candles": minimum_candles,
+                    "load_error": load_error,
+                },
+                scanned_at=now,
+            )
             skipped_count += 1
             continue
 
@@ -102,6 +154,14 @@ def scan_strategy_monitors(
             evaluation = strategy.evaluate(candles, monitor.parameters)
         except StrategyConfigurationError as error:
             update_strategy_monitor_scan_state(monitor.id, last_scanned_at=now)
+            _record_scan_log(
+                monitor,
+                stage="evaluate",
+                status="strategy_error",
+                message=error.reason,
+                detail={"parameters": monitor.parameters},
+                scanned_at=now,
+            )
             errors.append(
                 {
                     "monitor_id": monitor.id,
@@ -117,6 +177,24 @@ def scan_strategy_monitors(
         signal = _latest_signal(evaluation.signals, len(candles) - 1)
         if signal is None:
             update_strategy_monitor_scan_state(monitor.id, last_scanned_at=now)
+            _record_scan_log(
+                monitor,
+                stage="evaluate",
+                status="not_triggered",
+                message=(
+                    "未触发信号；行情刷新失败，使用本地缓存完成扫描。"
+                    if load_error
+                    else "未触发信号。"
+                ),
+                detail={
+                    "candles": len(candles),
+                    "minimum_candles": minimum_candles,
+                    "load_error": load_error,
+                    "latest_time": _datetime_detail(candles[-1].time),
+                    "latest_close": candles[-1].close,
+                },
+                scanned_at=now,
+            )
             skipped_count += 1
             continue
 
@@ -124,13 +202,28 @@ def scan_strategy_monitors(
         existing = get_signal_event_by_dedupe_key(payload.dedupe_key)
         if existing is not None:
             update_strategy_monitor_scan_state(monitor.id, last_scanned_at=now)
+            _record_scan_log(
+                monitor,
+                stage="dedupe",
+                status="duplicate_signal",
+                message="本次信号已存在，避免重复生成。",
+                detail={
+                    "existing_signal_event_id": existing.id,
+                    "dedupe_key": payload.dedupe_key,
+                    "signal_side": signal.side,
+                    "signal_time": _datetime_detail(candles[signal.index].time),
+                },
+                scanned_at=now,
+            )
             skipped_count += 1
             continue
 
         event = create_signal_event(payload)
+        push_error: str | None = None
         try:
             dispatch_signal_event_to_devices(event)
         except Exception as error:  # pragma: no cover - push must not hide signals
+            push_error = str(error)
             errors.append(
                 {
                     "monitor_id": monitor.id,
@@ -145,6 +238,20 @@ def scan_strategy_monitors(
             last_scanned_at=now,
             last_triggered_at=event.triggered_at,
             last_signal_event_id=event.id,
+        )
+        _record_scan_log(
+            monitor,
+            stage="dispatch",
+            status="triggered",
+            message="策略条件已触发，已生成历史信号。",
+            detail={
+                "signal_event_id": event.id,
+                "signal_type": event.signal_type,
+                "signal_side": signal.side,
+                "triggered_at": _datetime_detail(event.triggered_at),
+                "push_error": push_error,
+            },
+            scanned_at=now,
         )
         events.append(event)
 
@@ -241,6 +348,35 @@ def _is_in_cooldown(monitor: StrategyMonitor, now: datetime) -> bool:
     if monitor.cooldown_minutes <= 0 or monitor.last_triggered_at is None:
         return False
     return now - monitor.last_triggered_at < timedelta(minutes=monitor.cooldown_minutes)
+
+
+def _record_scan_log(
+    monitor: StrategyMonitor,
+    *,
+    stage: str,
+    status: str,
+    message: str,
+    detail: dict[str, Any] | None = None,
+    scanned_at: datetime,
+) -> None:
+    create_strategy_monitor_scan_log(
+        StrategyMonitorScanLogCreate(
+            monitor_id=monitor.id,
+            code=monitor.code,
+            strategy_code=monitor.strategy_code,
+            stage=stage,
+            status=status,
+            message=message,
+            detail=detail or {},
+            scanned_at=scanned_at,
+        ),
+    )
+
+
+def _datetime_detail(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    return value.astimezone(timezone.utc).isoformat()
 
 
 def _scan_limit(period: str) -> int:

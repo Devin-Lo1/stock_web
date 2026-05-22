@@ -8,12 +8,17 @@ from ..repositories.strategy_monitors import (
     list_strategy_monitors,
     update_strategy_monitor,
 )
+from ..repositories.strategy_monitor_scan_logs import (
+    delete_strategy_monitor_scan_log,
+    list_strategy_monitor_scan_logs,
+)
 from ..repositories.strategies import list_strategy_definitions
 from ..schemas import (
     StrategyDefinition,
     SignalScanResult,
     StrategyMonitor,
     StrategyMonitorCreate,
+    StrategyMonitorScanLog,
     StrategyMonitorSchedulerStatus,
     StrategyMonitorSchedulerUpdate,
     StrategyMonitorUpdate,
@@ -82,6 +87,30 @@ async def api_start_strategy_monitor_scheduler(
 @router.post("/monitors/scheduler/stop", response_model=StrategyMonitorSchedulerStatus)
 async def api_stop_strategy_monitor_scheduler() -> StrategyMonitorSchedulerStatus:
     return await get_strategy_monitor_scheduler().stop()
+
+
+@router.get("/monitors/scan-logs", response_model=list[StrategyMonitorScanLog])
+def api_list_strategy_monitor_scan_logs(
+    monitor_id: str | None = Query(default=None),
+    code: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+) -> list[StrategyMonitorScanLog]:
+    return list_strategy_monitor_scan_logs(
+        monitor_id=monitor_id,
+        code=code,
+        status=status,
+        limit=limit,
+    )
+
+
+@router.delete(
+    "/monitors/scan-logs/{log_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def api_delete_strategy_monitor_scan_log(log_id: str) -> None:
+    if not delete_strategy_monitor_scan_log(log_id):
+        raise not_found_error("strategy monitor scan log not found", log_id=log_id)
 
 
 @router.get("/monitors/{monitor_id}", response_model=StrategyMonitor)

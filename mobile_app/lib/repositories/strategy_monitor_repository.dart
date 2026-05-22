@@ -46,6 +46,24 @@ class StrategyMonitorRepository {
     return _apiService.deleteMonitor(monitorId);
   }
 
+  Future<List<StrategyMonitorScanLog>> loadScanLogs({
+    String? monitorId,
+    String? code,
+    String? status,
+    int limit = 50,
+  }) {
+    return _apiService.fetchScanLogs(
+      monitorId: monitorId,
+      code: code,
+      status: status,
+      limit: limit,
+    );
+  }
+
+  Future<void> deleteScanLog(String logId) {
+    return _apiService.deleteScanLog(logId);
+  }
+
   Future<StrategyMonitorSchedulerStatus> loadSchedulerStatus() {
     return _apiService.fetchSchedulerStatus();
   }

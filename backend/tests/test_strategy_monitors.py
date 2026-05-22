@@ -8,6 +8,7 @@ from app.schemas import (
     Candle,
     NotificationDeviceUpsert,
     StrategyMonitorCreate,
+    StrategyMonitorScanLogCreate,
     StrategyMonitorSchedulerUpdate,
     StrategyMonitorUpdate,
 )
@@ -52,6 +53,32 @@ def test_strategy_monitor_repository_create_update_list_delete() -> None:
     assert database.get_strategy_monitor(monitor.id) is None
 
 
+def test_strategy_monitor_scan_log_repository_list_and_delete() -> None:
+    log = database.create_strategy_monitor_scan_log(
+        StrategyMonitorScanLogCreate(
+            monitor_id="monitor-1",
+            code="hk.09988",
+            strategy_code="ma_cross",
+            stage="evaluate",
+            status="not_triggered",
+            message="未触发信号。",
+            detail={"latest_close": 88.8},
+        ),
+        log_id="scan-log-1",
+    )
+
+    by_code = database.list_strategy_monitor_scan_logs(
+        code="HK.09988",
+        status="not_triggered",
+    )
+
+    assert log.code == "HK.09988"
+    assert by_code[0].id == "scan-log-1"
+    assert by_code[0].detail["latest_close"] == 88.8
+    assert database.delete_strategy_monitor_scan_log(log.id) is True
+    assert database.list_strategy_monitor_scan_logs(monitor_id="monitor-1") == []
+
+
 def test_strategy_monitor_endpoints_create_update_scan_and_delete() -> None:
     client = TestClient(app)
 
@@ -78,6 +105,9 @@ def test_strategy_monitor_endpoints_create_update_scan_and_delete() -> None:
     )
     list_response = client.get("/api/v1/strategies/monitors?enabled_only=true")
     scan_response = client.post("/api/v1/strategies/monitors/scan?force=true")
+    logs_response = client.get(
+        f"/api/v1/strategies/monitors/scan-logs?monitor_id={monitor_id}",
+    )
     delete_response = client.delete(f"/api/v1/strategies/monitors/{monitor_id}")
 
     assert create_response.status_code == 201
@@ -85,7 +115,29 @@ def test_strategy_monitor_endpoints_create_update_scan_and_delete() -> None:
     assert update_response.json()["push_candidate"] is False
     assert len(list_response.json()) == 1
     assert scan_response.status_code == 200
+    assert logs_response.status_code == 200
+    assert logs_response.json()[0]["monitor_id"] == monitor_id
     assert delete_response.status_code == 204
+
+
+def test_strategy_monitor_scan_log_endpoint_delete() -> None:
+    client = TestClient(app)
+    log = database.create_strategy_monitor_scan_log(
+        StrategyMonitorScanLogCreate(
+            monitor_id="monitor-1",
+            code="HK.09988",
+            strategy_code="ma_cross",
+            stage="evaluate",
+            status="not_triggered",
+            message="未触发信号。",
+        ),
+    )
+
+    delete_response = client.delete(f"/api/v1/strategies/monitors/scan-logs/{log.id}")
+    list_response = client.get("/api/v1/strategies/monitors/scan-logs?code=HK.09988")
+
+    assert delete_response.status_code == 204
+    assert list_response.json() == []
 
 
 def test_strategy_monitor_scan_creates_signal_event_and_updates_state() -> None:
@@ -126,6 +178,7 @@ def test_strategy_monitor_scan_creates_signal_event_and_updates_state() -> None:
     duplicate_result = scan_strategy_monitors(refresh=False, force=True)
     updated = database.get_strategy_monitor(monitor.id)
     events = database.list_signal_events(limit=10)
+    logs = database.list_strategy_monitor_scan_logs(monitor_id=monitor.id)
 
     assert result.scanned_count == 1
     assert result.created_count == 1
@@ -138,6 +191,9 @@ def test_strategy_monitor_scan_creates_signal_event_and_updates_state() -> None:
     assert events[0].payload["monitor_id"] == monitor.id
     assert events[0].payload["push_candidate"] is False
     assert events[0].payload["parameters"] == {"short_window": 3, "long_window": 7}
+    assert logs[0].status == "duplicate_signal"
+    assert logs[1].status == "triggered"
+    assert logs[1].detail["signal_event_id"] == result.events[0].id
 
 
 def test_strategy_monitor_scan_dispatches_push_candidate_records() -> None:

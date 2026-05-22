@@ -17,6 +17,7 @@ from ..schemas import (
     SignalEvent,
     SignalScanConfig,
     StrategyMonitor,
+    StrategyMonitorScanLog,
     StrategyDefinition,
 )
 
@@ -174,6 +175,23 @@ def _strategy_monitor_values(monitor: StrategyMonitor) -> tuple[object, ...]:
         monitor.last_signal_event_id,
         _datetime_to_text(monitor.created_at),
         _datetime_to_text(monitor.updated_at),
+    )
+
+
+def _strategy_monitor_scan_log_values(
+    log: StrategyMonitorScanLog,
+) -> tuple[object, ...]:
+    return (
+        log.id,
+        log.monitor_id,
+        log.code,
+        log.strategy_code,
+        log.stage,
+        log.status,
+        log.message,
+        _json_to_text(log.detail),
+        _datetime_to_text(log.scanned_at),
+        _datetime_to_text(log.created_at),
     )
 
 
@@ -433,6 +451,23 @@ def _row_to_strategy_monitor(
         last_signal_event_id=row["last_signal_event_id"],
         created_at=_text_to_datetime(row["created_at"]),
         updated_at=_text_to_datetime(row["updated_at"]),
+    )
+
+
+def _row_to_strategy_monitor_scan_log(
+    row: sqlite3.Row | dict[str, Any],
+) -> StrategyMonitorScanLog:
+    return StrategyMonitorScanLog(
+        id=row["id"],
+        monitor_id=row["monitor_id"],
+        code=row["code"],
+        strategy_code=row["strategy_code"],
+        stage=row["stage"],
+        status=row["status"],
+        message=row["message"],
+        detail=_json_from_text(row["detail"]),
+        scanned_at=_text_to_datetime(row["scanned_at"]),
+        created_at=_text_to_datetime(row["created_at"]),
     )
 
 

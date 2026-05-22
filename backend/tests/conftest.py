@@ -16,6 +16,7 @@ TABLES = (
     "push_records",
     "notification_devices",
     "signal_events",
+    "strategy_monitor_scan_logs",
     "strategy_monitors",
     "signal_scan_configs",
     "strategy_signals",

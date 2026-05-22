@@ -162,6 +162,47 @@ class StrategyMonitorSchedulerStatus {
   }
 }
 
+class StrategyMonitorScanLog {
+  const StrategyMonitorScanLog({
+    required this.id,
+    required this.monitorId,
+    required this.code,
+    required this.strategyCode,
+    required this.stage,
+    required this.status,
+    required this.message,
+    required this.detail,
+    required this.scannedAt,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String monitorId;
+  final String code;
+  final String strategyCode;
+  final String stage;
+  final String status;
+  final String message;
+  final Map<String, Object?> detail;
+  final DateTime? scannedAt;
+  final DateTime? createdAt;
+
+  factory StrategyMonitorScanLog.fromJson(Map<String, dynamic> json) {
+    return StrategyMonitorScanLog(
+      id: json['id'] as String? ?? '',
+      monitorId: json['monitor_id'] as String? ?? '',
+      code: json['code'] as String? ?? '',
+      strategyCode: json['strategy_code'] as String? ?? '',
+      stage: json['stage'] as String? ?? '',
+      status: json['status'] as String? ?? '',
+      message: json['message'] as String? ?? '',
+      detail: _readMap(json['detail']),
+      scannedAt: _readDateTime(json['scanned_at']),
+      createdAt: _readDateTime(json['created_at']),
+    );
+  }
+}
+
 Map<String, Object?> _readMap(Object? value) {
   if (value is Map<String, dynamic>) return value.cast<String, Object?>();
   return const {};

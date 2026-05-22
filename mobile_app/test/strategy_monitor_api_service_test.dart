@@ -162,6 +162,65 @@ void main() {
     expect(status.lastResult['created_count'], 1);
   });
 
+  test('fetchScanLogs sends filters and parses response', () async {
+    late Uri requestedUri;
+    final service = StrategyMonitorApiService(
+      ApiClient(
+        baseUrl: 'http://test.local',
+        httpClient: MockClient((request) async {
+          requestedUri = request.url;
+          return http.Response.bytes(
+            utf8.encode(
+              '[{"id":"log-1","monitor_id":"monitor-1","code":"HK.00700",'
+              '"strategy_code":"ma_cross","stage":"evaluate",'
+              '"status":"not_triggered","message":"未触发信号。",'
+              '"detail":{"latest_close":320.5},'
+              '"scanned_at":"2026-05-22T01:00:00Z",'
+              '"created_at":"2026-05-22T01:00:01Z"}]',
+            ),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }),
+      ),
+    );
+
+    final logs = await service.fetchScanLogs(
+      monitorId: 'monitor-1',
+      code: 'hk.00700',
+      status: 'not_triggered',
+      limit: 10,
+    );
+
+    expect(requestedUri.path, '/api/v1/strategies/monitors/scan-logs');
+    expect(requestedUri.queryParameters['monitor_id'], 'monitor-1');
+    expect(requestedUri.queryParameters['code'], 'HK.00700');
+    expect(requestedUri.queryParameters['status'], 'not_triggered');
+    expect(requestedUri.queryParameters['limit'], '10');
+    expect(logs.single.id, 'log-1');
+    expect(logs.single.detail['latest_close'], 320.5);
+  });
+
+  test('deleteScanLog deletes backend scan log endpoint', () async {
+    late String method;
+    late Uri requestedUri;
+    final service = StrategyMonitorApiService(
+      ApiClient(
+        baseUrl: 'http://test.local',
+        httpClient: MockClient((request) async {
+          method = request.method;
+          requestedUri = request.url;
+          return http.Response('', 204);
+        }),
+      ),
+    );
+
+    await service.deleteScanLog('log-1');
+
+    expect(method, 'DELETE');
+    expect(requestedUri.path, '/api/v1/strategies/monitors/scan-logs/log-1');
+  });
+
   test('startScheduler sends interval and refresh payload', () async {
     late String method;
     late Uri requestedUri;

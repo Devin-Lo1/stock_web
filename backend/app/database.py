@@ -67,6 +67,11 @@ from .repositories.strategy_monitors import (
     update_strategy_monitor,
     update_strategy_monitor_scan_state,
 )
+from .repositories.strategy_monitor_scan_logs import (
+    create_strategy_monitor_scan_log,
+    delete_strategy_monitor_scan_log,
+    list_strategy_monitor_scan_logs,
+)
 
 __all__ = [
     "_connect",
@@ -96,6 +101,9 @@ __all__ = [
     "update_strategy_monitor",
     "update_strategy_monitor_scan_state",
     "delete_strategy_monitor",
+    "create_strategy_monitor_scan_log",
+    "list_strategy_monitor_scan_logs",
+    "delete_strategy_monitor_scan_log",
     "create_backtest_run",
     "list_backtest_runs",
     "get_backtest_result",

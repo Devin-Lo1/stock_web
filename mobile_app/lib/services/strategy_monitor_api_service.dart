@@ -82,6 +82,34 @@ class StrategyMonitorApiService {
     return _apiClient.delete('/api/v1/strategies/monitors/$monitorId');
   }
 
+  Future<List<StrategyMonitorScanLog>> fetchScanLogs({
+    String? monitorId,
+    String? code,
+    String? status,
+    int limit = 50,
+  }) async {
+    final decoded = await _apiClient.get(
+      '/api/v1/strategies/monitors/scan-logs',
+      query: {
+        'limit': '$limit',
+        if (monitorId != null && monitorId.trim().isNotEmpty)
+          'monitor_id': monitorId.trim(),
+        if (code != null && code.trim().isNotEmpty)
+          'code': code.trim().toUpperCase(),
+        if (status != null && status.trim().isNotEmpty) 'status': status.trim(),
+      },
+    );
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(StrategyMonitorScanLog.fromJson)
+        .toList();
+  }
+
+  Future<void> deleteScanLog(String logId) {
+    return _apiClient.delete('/api/v1/strategies/monitors/scan-logs/$logId');
+  }
+
   Future<StrategyMonitorSchedulerStatus> fetchSchedulerStatus() async {
     final decoded = await _apiClient.get(
       '/api/v1/strategies/monitors/scheduler/status',

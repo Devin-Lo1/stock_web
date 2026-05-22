@@ -35,10 +35,12 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
   final _cooldownController = TextEditingController(text: '120');
   final _schedulerIntervalController = TextEditingController(text: '60');
   final Set<String> _updatingIds = <String>{};
+  final Set<String> _deletingLogIds = <String>{};
   final Map<String, String> _parameterValues = <String, String>{};
 
   List<StrategyDefinition> _strategies = const [];
   List<StrategyMonitor> _monitors = const [];
+  List<StrategyMonitorScanLog> _scanLogs = const [];
   StrategyMonitorSchedulerStatus? _schedulerStatus;
   StockPosition? _selectedPosition;
   StrategyDefinition? _selectedStrategy;
@@ -103,6 +105,7 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
         widget.backtestRepository.loadStrategies(),
         widget.monitorRepository.loadMonitors(limit: 200),
         widget.monitorRepository.loadSchedulerStatus(),
+        widget.monitorRepository.loadScanLogs(limit: 50),
       ]);
       if (!mounted) return;
       final strategies = result[0] as List<StrategyDefinition>;
@@ -111,6 +114,7 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
         _strategies = strategies;
         _monitors = result[1] as List<StrategyMonitor>;
         _schedulerStatus = schedulerStatus;
+        _scanLogs = result[3] as List<StrategyMonitorScanLog>;
         _schedulerRefresh = schedulerStatus.refresh;
         _schedulerIntervalController.text =
             '${schedulerStatus.pollIntervalSeconds}';
@@ -222,6 +226,23 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
       _showSnack('删除失败：$error');
     } finally {
       if (mounted) setState(() => _updatingIds.remove(monitor.id));
+    }
+  }
+
+  Future<void> _deleteScanLog(StrategyMonitorScanLog log) async {
+    if (_deletingLogIds.contains(log.id)) return;
+    setState(() => _deletingLogIds.add(log.id));
+    try {
+      await widget.monitorRepository.deleteScanLog(log.id);
+      if (!mounted) return;
+      setState(() {
+        _scanLogs = _scanLogs.where((item) => item.id != log.id).toList();
+      });
+    } catch (error) {
+      if (!mounted) return;
+      _showSnack('日志删除失败：$error');
+    } finally {
+      if (mounted) setState(() => _deletingLogIds.remove(log.id));
     }
   }
 
@@ -382,6 +403,12 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
                       setState(() => _schedulerRefresh = value),
                   onStart: _startScheduler,
                   onStop: _stopScheduler,
+                ),
+                const SizedBox(height: 16),
+                _ScanLogPanel(
+                  logs: _scanLogs,
+                  deletingIds: _deletingLogIds,
+                  onDelete: _deleteScanLog,
                 ),
                 const SizedBox(height: 16),
                 _MonitorCreatePanel(
@@ -590,6 +617,174 @@ class _SchedulerStatusPanel extends StatelessWidget {
                 icon: const Icon(Icons.stop_rounded),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScanLogPanel extends StatelessWidget {
+  const _ScanLogPanel({
+    required this.logs,
+    required this.deletingIds,
+    required this.onDelete,
+  });
+
+  final List<StrategyMonitorScanLog> logs;
+  final Set<String> deletingIds;
+  final ValueChanged<StrategyMonitorScanLog> onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleLogs = logs.take(8).toList();
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cardColor(context),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '扫描日志',
+                  style: TextStyle(
+                    color: primaryTextColor(context),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              _InfoChip(
+                label: logs.isEmpty ? '暂无' : '最近 ${logs.length}',
+                icon: Icons.receipt_long_rounded,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (visibleLogs.isEmpty)
+            Text(
+              '调度器执行后会记录触发、未触发、行情异常和冷却原因。',
+              style: TextStyle(
+                color: secondaryTextColor(context),
+                fontSize: 12,
+              ),
+            )
+          else
+            ...visibleLogs.map(
+              (log) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _ScanLogTile(
+                  log: log,
+                  isDeleting: deletingIds.contains(log.id),
+                  onDelete: () => onDelete(log),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScanLogTile extends StatelessWidget {
+  const _ScanLogTile({
+    required this.log,
+    required this.isDeleting,
+    required this.onDelete,
+  });
+
+  final StrategyMonitorScanLog log;
+  final bool isDeleting;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _scanLogStatusColor(context, log.status);
+    final detailLabel = _scanLogDetailLabel(log);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.26)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(_scanLogStatusIcon(log.status), color: color, size: 18),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${_scanLogStatusLabel(log.status)} · ${log.code}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: primaryTextColor(context),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${_strategyCodeLabel(log.strategyCode)} · ${_scanLogStageLabel(log.stage)} · ${_timeLabel(log.scannedAt)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: secondaryTextColor(context),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (log.message.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    log.message,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: primaryTextColor(context),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+                if (detailLabel.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    detailLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: secondaryTextColor(context),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          IconButton(
+            tooltip: '删除日志',
+            onPressed: isDeleting ? null : onDelete,
+            icon: isDeleting
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.delete_outline_rounded),
           ),
         ],
       ),
@@ -1067,6 +1262,90 @@ String _timeLabel(DateTime? value) {
   final hour = local.hour.toString().padLeft(2, '0');
   final minute = local.minute.toString().padLeft(2, '0');
   return '$month/$day $hour:$minute';
+}
+
+String _scanLogStatusLabel(String status) {
+  return switch (status) {
+    'triggered' => '已触发',
+    'not_triggered' => '未触发',
+    'cooldown' => '冷却中',
+    'insufficient_klines' => 'K线不足',
+    'market_error' => '行情异常',
+    'strategy_error' => '策略异常',
+    'duplicate_signal' => '已去重',
+    _ => '记录',
+  };
+}
+
+String _scanLogStageLabel(String stage) {
+  return switch (stage) {
+    'load_candles' => '行情',
+    'strategy_lookup' => '策略',
+    'minimum_candles' => '样本',
+    'evaluate' => '评估',
+    'dedupe' => '去重',
+    'dispatch' => '分发',
+    'cooldown' => '冷却',
+    _ => stage,
+  };
+}
+
+String _strategyCodeLabel(String strategyCode) {
+  return switch (strategyCode) {
+    'ma_cross' => '均线交叉',
+    'price_break_ma' => '突破均线',
+    'rsi_reversal' => 'RSI反转',
+    _ => strategyCode,
+  };
+}
+
+IconData _scanLogStatusIcon(String status) {
+  return switch (status) {
+    'triggered' => Icons.flash_on_rounded,
+    'not_triggered' => Icons.remove_done_rounded,
+    'cooldown' => Icons.hourglass_bottom_rounded,
+    'insufficient_klines' => Icons.timeline_rounded,
+    'market_error' => Icons.cloud_off_rounded,
+    'strategy_error' => Icons.error_outline_rounded,
+    'duplicate_signal' => Icons.filter_alt_off_rounded,
+    _ => Icons.receipt_long_rounded,
+  };
+}
+
+Color _scanLogStatusColor(BuildContext context, String status) {
+  return switch (status) {
+    'triggered' => const Color(0xFF20C997),
+    'market_error' || 'strategy_error' => const Color(0xFFFF4D67),
+    'cooldown' => const Color(0xFF4DB6FF),
+    'duplicate_signal' => const Color(0xFFE6A93A),
+    _ => secondaryTextColor(context),
+  };
+}
+
+String _scanLogDetailLabel(StrategyMonitorScanLog log) {
+  final parts = <String>[];
+  final latestClose = log.detail['latest_close'];
+  if (latestClose is num) {
+    parts.add('最新价 ${latestClose.toStringAsFixed(2)}');
+  }
+  final candles = log.detail['candles'];
+  final minimumCandles = log.detail['minimum_candles'];
+  if (candles is num && minimumCandles is num) {
+    parts.add('样本 ${candles.toInt()}/${minimumCandles.toInt()}');
+  }
+  final signalType = log.detail['signal_type'];
+  if (signalType is String && signalType.isNotEmpty) {
+    parts.add(signalType);
+  }
+  final loadError = log.detail['load_error'];
+  if (loadError is String && loadError.isNotEmpty) {
+    parts.add('行情：$loadError');
+  }
+  final pushError = log.detail['push_error'];
+  if (pushError is String && pushError.isNotEmpty) {
+    parts.add('推送：$pushError');
+  }
+  return parts.join(' · ');
 }
 
 String _schedulerResultLabel(StrategyMonitorSchedulerStatus? status) {

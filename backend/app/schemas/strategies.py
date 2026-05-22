@@ -87,6 +87,23 @@ class StrategyMonitor(StrategyMonitorBase):
     updated_at: datetime
 
 
+class StrategyMonitorScanLogCreate(BaseModel):
+    monitor_id: str = Field(min_length=1)
+    code: str = Field(min_length=1)
+    strategy_code: str = Field(min_length=1)
+    stage: str = Field(min_length=1)
+    status: str = Field(min_length=1)
+    message: str = ""
+    detail: dict[str, Any] = Field(default_factory=dict)
+    scanned_at: datetime | None = None
+
+
+class StrategyMonitorScanLog(StrategyMonitorScanLogCreate):
+    id: str
+    scanned_at: datetime
+    created_at: datetime
+
+
 class StrategyMonitorSchedulerUpdate(BaseModel):
     poll_interval_seconds: int | None = Field(default=None, ge=10, le=3600)
     refresh: bool | None = None

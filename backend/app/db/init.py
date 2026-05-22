@@ -288,6 +288,40 @@ def init_database(*, seed_defaults: bool = True) -> None:
             ON strategy_monitors (strategy_code)
             """,
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS strategy_monitor_scan_logs (
+                id TEXT PRIMARY KEY,
+                monitor_id TEXT NOT NULL,
+                code TEXT NOT NULL,
+                strategy_code TEXT NOT NULL,
+                stage TEXT NOT NULL,
+                status TEXT NOT NULL,
+                message TEXT NOT NULL,
+                detail TEXT NOT NULL,
+                scanned_at TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """,
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_strategy_monitor_scan_logs_monitor_time
+            ON strategy_monitor_scan_logs (monitor_id, scanned_at DESC)
+            """,
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_strategy_monitor_scan_logs_code_time
+            ON strategy_monitor_scan_logs (code, scanned_at DESC)
+            """,
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_strategy_monitor_scan_logs_status_time
+            ON strategy_monitor_scan_logs (status, scanned_at DESC)
+            """,
+        )
         _ensure_column(connection, "backtest_runs", "name", "TEXT NOT NULL DEFAULT ''")
         connection.execute(
             """
