@@ -60,18 +60,19 @@ class _QuantMarketBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = market.isEmpty ? '--' : market;
+    final accent = appAccentColor(context);
     return Container(
       width: 42,
       alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF38BDF8).withValues(alpha: 0.16),
+        color: appAccentContainerColor(context),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
         text,
-        style: const TextStyle(
-          color: Color(0xFF38BDF8),
+        style: TextStyle(
+          color: accent,
           fontSize: 11,
           fontWeight: FontWeight.w900,
         ),

@@ -199,10 +199,8 @@ class _AppShellState extends State<AppShell> {
         height: 64,
         backgroundColor: isDarkMode(context)
             ? const Color(0xFF0B141D)
-            : const Color(0xFFEAF6FF),
-        indicatorColor: isDarkMode(context)
-            ? const Color(0xFF1C3445)
-            : const Color(0xFFD1E9FF),
+            : Colors.white,
+        indicatorColor: appAccentContainerColor(context),
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) =>
             setState(() => _selectedIndex = index),

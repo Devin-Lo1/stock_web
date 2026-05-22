@@ -40,7 +40,7 @@ class DisplaySettingsScreen extends StatelessWidget {
             _DisplayModeTile(
               icon: Icons.light_mode_outlined,
               title: '日间模式',
-              subtitle: '白色背景、黑色文字、浅蓝色卡片',
+              subtitle: '纯白背景、黑色文字、中性卡片',
               selected: displayMode == DisplayMode.light,
               onTap: () => onDisplayModeChanged(DisplayMode.light),
             ),
@@ -74,13 +74,15 @@ class _DisplayModeTile extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(
-          color: selected ? const Color(0xFF38BDF8) : borderColor(context),
+          color: selected ? appAccentColor(context) : borderColor(context),
         ),
       ),
-      leading: Icon(icon, color: selected ? const Color(0xFF38BDF8) : null),
+      leading: Icon(icon, color: selected ? appAccentColor(context) : null),
       title: Text(title),
       subtitle: Text(subtitle),
-      trailing: selected ? const Icon(Icons.check_rounded) : null,
+      trailing: selected
+          ? Icon(Icons.check_rounded, color: appAccentColor(context))
+          : null,
     );
   }
 }

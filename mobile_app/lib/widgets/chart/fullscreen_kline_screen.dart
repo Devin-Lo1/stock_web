@@ -500,7 +500,7 @@ class _FullPeriodTab extends StatelessWidget {
           width: 28,
           height: 3,
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF38BDF8) : Colors.transparent,
+            color: isSelected ? appAccentColor(context) : Colors.transparent,
             borderRadius: BorderRadius.circular(99),
           ),
         ),

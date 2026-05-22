@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../utils/theme_helpers.dart';
+
 class AppTag extends StatelessWidget {
   const AppTag({super.key, required this.text});
 
@@ -7,16 +9,17 @@ class AppTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = appAccentColor(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF38BDF8).withValues(alpha: 0.13),
+        color: appAccentContainerColor(context),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         text,
-        style: const TextStyle(
-          color: Color(0xFF38BDF8),
+        style: TextStyle(
+          color: accent,
           fontSize: 12,
           fontWeight: FontWeight.w800,
         ),

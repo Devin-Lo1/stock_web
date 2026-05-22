@@ -302,7 +302,7 @@ class _SettingTile extends StatelessWidget {
         onTap: onTap,
         tileColor: cardColor(context),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        leading: Icon(icon, color: const Color(0xFF38BDF8)),
+        leading: Icon(icon, color: appAccentColor(context)),
         title: Text(title),
         subtitle: Text(subtitle),
         trailing: AppTag(text: status),

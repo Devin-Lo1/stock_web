@@ -98,7 +98,7 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return RefreshIndicator(
       onRefresh: onRefresh,
-      color: const Color(0xFF38BDF8),
+      color: appAccentColor(context),
       backgroundColor: cardColor(context),
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),

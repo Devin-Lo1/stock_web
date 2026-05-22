@@ -93,7 +93,7 @@ class _NotificationSettingsScreenState
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(
                     Icons.notifications_active_outlined,
-                    color: const Color(0xFF38BDF8),
+                    color: appAccentColor(context),
                   ),
                   title: const Text('测试通知'),
                   subtitle: Text(_testSubtitle),
@@ -200,7 +200,7 @@ class _DeviceCard extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(Icons.phone_android_rounded, color: const Color(0xFF38BDF8)),
+            Icon(Icons.phone_android_rounded, color: appAccentColor(context)),
             const SizedBox(width: 10),
             Expanded(
               child: Text(

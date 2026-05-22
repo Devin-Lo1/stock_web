@@ -52,7 +52,7 @@ class KLineChartTabs extends StatelessWidget {
                     height: 3,
                     decoration: BoxDecoration(
                       color: period == selectedPeriod
-                          ? const Color(0xFF38BDF8)
+                          ? appAccentColor(context)
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(99),
                     ),

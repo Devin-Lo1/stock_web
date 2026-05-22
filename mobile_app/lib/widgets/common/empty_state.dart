@@ -30,7 +30,7 @@ class EmptyState extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(icon, color: const Color(0xFF38BDF8), size: 38),
+          Icon(icon, color: appAccentColor(context), size: 38),
           const SizedBox(height: 10),
           Text(
             title,
@@ -78,7 +78,7 @@ class ReadOnlyEmptyState extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(icon, color: const Color(0xFF38BDF8), size: 38),
+          Icon(icon, color: appAccentColor(context), size: 38),
           const SizedBox(height: 10),
           Text(
             title,

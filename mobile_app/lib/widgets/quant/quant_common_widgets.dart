@@ -38,7 +38,7 @@ class QuantPanelHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: const Color(0xFF38BDF8)),
+        Icon(icon, color: appAccentColor(context)),
         const SizedBox(width: 8),
         Expanded(
           child: Text(

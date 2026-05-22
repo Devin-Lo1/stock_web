@@ -13,6 +13,7 @@ class BacktestEquityChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = appAccentColor(context);
     return SizedBox(
       height: 190,
       width: double.infinity,
@@ -21,8 +22,8 @@ class BacktestEquityChart extends StatelessWidget {
           points: points,
           gridColor: borderColor(context).withValues(alpha: 0.62),
           textColor: secondaryTextColor(context),
-          lineColor: const Color(0xFF38BDF8),
-          fillColor: const Color(0xFF38BDF8).withValues(alpha: 0.12),
+          lineColor: accent,
+          fillColor: accent.withValues(alpha: 0.08),
           axisColor: mutedIconColor(context).withValues(alpha: 0.72),
         ),
       ),
