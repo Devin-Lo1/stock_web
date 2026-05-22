@@ -21,7 +21,7 @@ Color softCardColor(BuildContext context) {
 Color borderColor(BuildContext context) {
   return isDarkMode(context)
       ? const Color(0xFF243242)
-      : const Color(0xFFE5E7EB);
+      : const Color(0xFFD1D5DB);
 }
 
 Color primaryTextColor(BuildContext context) {

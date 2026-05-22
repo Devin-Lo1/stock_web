@@ -45,8 +45,8 @@ class _StockSignalAppState extends State<StockSignalApp> {
             surface: Colors.white,
             surfaceTint: Colors.transparent,
             onSurface: const Color(0xFF111827),
-            outline: const Color(0xFFE5E7EB),
-            outlineVariant: const Color(0xFFE5E7EB),
+            outline: const Color(0xFFD1D5DB),
+            outlineVariant: const Color(0xFFD1D5DB),
           );
     final theme = ThemeData(
       useMaterial3: true,
