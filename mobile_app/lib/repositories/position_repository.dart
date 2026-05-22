@@ -1,5 +1,6 @@
 import '../data/sample_positions.dart';
 import '../models/position_snapshot.dart';
+import '../models/position_trade.dart';
 import '../models/quote_snapshot.dart';
 import '../models/stock_position.dart';
 import '../services/position_api_service.dart';
@@ -157,6 +158,48 @@ class PositionRepository {
       }
     }
   }
+
+  Future<List<PositionTrade>> loadPositionTrades(
+    StockPosition position, {
+    int limit = 50,
+  }) async {
+    final apiService = _apiService;
+    final positionId = position.id;
+    if (apiService == null || positionId == null) return const [];
+    return apiService.fetchPositionTrades(positionId, limit: limit);
+  }
+
+  Future<List<PositionSnapshot>> loadPositionSnapshotHistory(
+    StockPosition position, {
+    int limit = 80,
+  }) async {
+    final apiService = _apiService;
+    final positionId = position.id;
+    if (apiService == null || positionId == null) return const [];
+    return apiService.fetchPositionSnapshots(positionId, limit: limit);
+  }
+
+  Future<PositionTradeMutationResult> createPositionTrade(
+    StockPosition position,
+    PositionTradeDraft draft,
+  ) async {
+    final apiService = _apiService;
+    final positionId = position.id;
+    if (apiService == null || positionId == null) {
+      return PositionTradeMutationResult(
+        positions: const [],
+        trade: null,
+        updatedPosition: null,
+      );
+    }
+    final trade = await apiService.createPositionTrade(positionId, draft);
+    final refreshed = await loadPositions();
+    return PositionTradeMutationResult(
+      positions: refreshed.positions,
+      trade: trade,
+      updatedPosition: _findLatestPosition(refreshed.positions, position),
+    );
+  }
 }
 
 class PositionLoadResult {
@@ -196,6 +239,18 @@ class PositionLoadResult {
 }
 
 enum PositionLoadSource { remote, local }
+
+class PositionTradeMutationResult {
+  const PositionTradeMutationResult({
+    required this.positions,
+    required this.trade,
+    required this.updatedPosition,
+  });
+
+  final List<StockPosition> positions;
+  final PositionTrade? trade;
+  final StockPosition? updatedPosition;
+}
 
 StockPosition _positionWithQuote(StockPosition position, QuoteSnapshot quote) {
   return StockPosition(
@@ -344,4 +399,19 @@ StockPosition _positionWithSnapshot(
     snapshotPositionWeight: snapshot.positionWeight,
     snapshotTime: snapshot.snapshotTime,
   );
+}
+
+StockPosition? _findLatestPosition(
+  List<StockPosition> positions,
+  StockPosition current,
+) {
+  for (final position in positions) {
+    if (current.id != null && position.id == current.id) return position;
+  }
+  for (final position in positions) {
+    if (position.code.toUpperCase() == current.code.toUpperCase()) {
+      return position;
+    }
+  }
+  return null;
 }

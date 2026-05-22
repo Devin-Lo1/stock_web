@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../models/app_enums.dart';
 import '../models/backend_connection_state.dart';
 import '../models/candle.dart';
+import '../models/position_snapshot.dart';
+import '../models/position_trade.dart';
 import '../models/stock_position.dart';
 import '../models/trade_signal.dart';
 import '../utils/formatters.dart';
@@ -27,6 +29,9 @@ class DashboardScreen extends StatelessWidget {
     required this.onDeletePosition,
     required this.onRefresh,
     required this.onLoadCandles,
+    required this.onLoadPositionTrades,
+    required this.onLoadPositionSnapshots,
+    required this.onCreatePositionTrade,
     required this.isRefreshing,
     required this.backendState,
     required this.lastUpdatedAt,
@@ -43,6 +48,15 @@ class DashboardScreen extends StatelessWidget {
   final Future<List<StockPosition>> Function() onRefresh;
   final Future<List<Candle>> Function(String code, {String period, int limit})
   onLoadCandles;
+  final Future<List<PositionTrade>> Function(StockPosition position)
+  onLoadPositionTrades;
+  final Future<List<PositionSnapshot>> Function(StockPosition position)
+  onLoadPositionSnapshots;
+  final Future<StockPosition?> Function(
+    StockPosition position,
+    PositionTradeDraft draft,
+  )
+  onCreatePositionTrade;
   final bool isRefreshing;
   final BackendConnectionState backendState;
   final DateTime? lastUpdatedAt;
@@ -123,6 +137,9 @@ class DashboardScreen extends StatelessWidget {
                     () => onDeletePosition(position),
                     onRefresh,
                     onLoadCandles,
+                    onLoadPositionTrades,
+                    onLoadPositionSnapshots,
+                    onCreatePositionTrade,
                   ),
                 ),
               );
@@ -379,6 +396,15 @@ void _openPositionDetail(
   Future<List<StockPosition>> Function() onRefresh,
   Future<List<Candle>> Function(String code, {String period, int limit})
   onLoadCandles,
+  Future<List<PositionTrade>> Function(StockPosition position)
+  onLoadPositionTrades,
+  Future<List<PositionSnapshot>> Function(StockPosition position)
+  onLoadPositionSnapshots,
+  Future<StockPosition?> Function(
+    StockPosition position,
+    PositionTradeDraft draft,
+  )
+  onCreatePositionTrade,
 ) {
   Navigator.of(context).push(
     MaterialPageRoute<void>(
@@ -388,6 +414,9 @@ void _openPositionDetail(
         onDelete: onDelete,
         onRefresh: onRefresh,
         onLoadCandles: onLoadCandles,
+        onLoadPositionTrades: onLoadPositionTrades,
+        onLoadPositionSnapshots: onLoadPositionSnapshots,
+        onCreatePositionTrade: onCreatePositionTrade,
       ),
     ),
   );

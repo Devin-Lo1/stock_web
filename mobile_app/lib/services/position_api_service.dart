@@ -1,4 +1,5 @@
 import '../models/position_snapshot.dart';
+import '../models/position_trade.dart';
 import '../models/stock_position.dart';
 import 'api_client.dart';
 
@@ -58,6 +59,47 @@ class PositionApiService {
         .whereType<Map<String, dynamic>>()
         .map(PositionSnapshot.fromJson)
         .toList();
+  }
+
+  Future<List<PositionTrade>> fetchPositionTrades(
+    String positionId, {
+    int limit = 50,
+  }) async {
+    final decoded = await _apiClient.get(
+      '/api/v1/positions/$positionId/trades',
+      query: {'limit': '$limit'},
+    );
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(PositionTrade.fromJson)
+        .toList();
+  }
+
+  Future<List<PositionSnapshot>> fetchPositionSnapshots(
+    String positionId, {
+    int limit = 80,
+  }) async {
+    final decoded = await _apiClient.get(
+      '/api/v1/positions/$positionId/snapshots',
+      query: {'limit': '$limit'},
+    );
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(PositionSnapshot.fromJson)
+        .toList();
+  }
+
+  Future<PositionTrade> createPositionTrade(
+    String positionId,
+    PositionTradeDraft draft,
+  ) async {
+    final decoded = await _apiClient.post(
+      '/api/v1/positions/$positionId/trades',
+      draft.toBackendJson(),
+    );
+    return PositionTrade.fromJson(decoded as Map<String, dynamic>);
   }
 }
 

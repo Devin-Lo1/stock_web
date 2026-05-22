@@ -6,6 +6,8 @@ import '../data/sample_positions.dart';
 import '../models/app_enums.dart';
 import '../models/backend_connection_state.dart';
 import '../models/candle.dart';
+import '../models/position_snapshot.dart';
+import '../models/position_trade.dart';
 import '../models/strategy_settings.dart';
 import '../models/stock_position.dart';
 import '../models/trade_signal.dart';
@@ -114,6 +116,9 @@ class _AppShellState extends State<AppShell> {
         onDeletePosition: _deletePosition,
         onRefresh: _refreshPositions,
         onLoadCandles: _loadCandles,
+        onLoadPositionTrades: _loadPositionTrades,
+        onLoadPositionSnapshots: _loadPositionSnapshots,
+        onCreatePositionTrade: _createPositionTrade,
         isRefreshing: _isRefreshing,
         backendState: _backendState,
         lastUpdatedAt: _lastUpdatedAt,
@@ -127,6 +132,9 @@ class _AppShellState extends State<AppShell> {
         onDeletePosition: _deletePosition,
         onRefresh: _refreshPositions,
         onLoadCandles: _loadCandles,
+        onLoadPositionTrades: _loadPositionTrades,
+        onLoadPositionSnapshots: _loadPositionSnapshots,
+        onCreatePositionTrade: _createPositionTrade,
       ),
       QuantScreen(
         positions: visible,
@@ -286,6 +294,30 @@ class _AppShellState extends State<AppShell> {
     }
     if (!mounted) return;
     setState(() => _positions = nextPositions);
+  }
+
+  Future<List<PositionTrade>> _loadPositionTrades(StockPosition position) {
+    return _positionRepository.loadPositionTrades(position);
+  }
+
+  Future<List<PositionSnapshot>> _loadPositionSnapshots(
+    StockPosition position,
+  ) {
+    return _positionRepository.loadPositionSnapshotHistory(position);
+  }
+
+  Future<StockPosition?> _createPositionTrade(
+    StockPosition position,
+    PositionTradeDraft draft,
+  ) async {
+    final result = await _positionRepository.createPositionTrade(
+      position,
+      draft,
+    );
+    if (result.positions.isNotEmpty && mounted) {
+      setState(() => _positions = result.positions);
+    }
+    return result.updatedPosition;
   }
 
   Future<void> _loadStoredPositions() async {
