@@ -605,6 +605,7 @@ class _QuantScreenState extends State<QuantScreen> {
         spec.label,
       ),
       StrategyParameterValueType.option => _parseOption(text, spec),
+      StrategyParameterValueType.multiOption => _parseMultiOption(text, spec),
     };
   }
 
@@ -612,6 +613,18 @@ class _QuantScreenState extends State<QuantScreen> {
     final value = text.trim();
     if (spec.options.any((option) => option.value == value)) return value;
     return _QuantValidationError('请选择${spec.label}');
+  }
+
+  Object _parseMultiOption(String text, StrategyParameterSpec spec) {
+    final allowed = {for (final option in spec.options) option.value};
+    final values = text
+        .split(',')
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet()
+        .toList();
+    if (values.length >= 2 && values.every(allowed.contains)) return values;
+    return _QuantValidationError('${spec.label}至少选择两个');
   }
 
   _QuantValidationError? _validateStrategyParameterRelations(
@@ -651,6 +664,88 @@ class _QuantScreenState extends State<QuantScreen> {
       if (direction is! String ||
           !{'break_down', 'recover_up', 'both'}.contains(direction)) {
         return const _QuantValidationError('请选择有效触发方向');
+      }
+      return null;
+    }
+
+    if (strategyCode == 'volume_breakout') {
+      final lookback = parameters['lookback_window'];
+      final volumeWindow = parameters['volume_window'];
+      final multiplier = parameters['volume_multiplier'];
+      if (lookback is int && lookback <= 1) {
+        return const _QuantValidationError('突破窗口必须大于 1');
+      }
+      if (volumeWindow is int && volumeWindow <= 1) {
+        return const _QuantValidationError('均量窗口必须大于 1');
+      }
+      if (multiplier is double && multiplier <= 0) {
+        return const _QuantValidationError('放量倍数必须大于 0');
+      }
+      return null;
+    }
+
+    if (strategyCode == 'ma_breakdown_stop') {
+      final maWindow = parameters['ma_window'];
+      final buffer = parameters['stop_buffer_pct'];
+      if (maWindow is int && maWindow <= 1) {
+        return const _QuantValidationError('止损均线必须大于 1');
+      }
+      if (buffer is double && (buffer < 0 || buffer >= 50)) {
+        return const _QuantValidationError('缓冲比例需在 0 到 50 之间');
+      }
+      return null;
+    }
+
+    if (strategyCode == 'atr_trailing_stop') {
+      final atrWindow = parameters['atr_window'];
+      final multiplier = parameters['atr_multiplier'];
+      final entryMa = parameters['entry_ma_window'];
+      if (atrWindow is int && atrWindow <= 1) {
+        return const _QuantValidationError('ATR 周期必须大于 1');
+      }
+      if (entryMa is int && entryMa <= 1) {
+        return const _QuantValidationError('入场均线必须大于 1');
+      }
+      if (multiplier is double && multiplier <= 0) {
+        return const _QuantValidationError('ATR 倍数必须大于 0');
+      }
+      return null;
+    }
+
+    if (strategyCode == 'rsi_oversold_rebound') {
+      final window = parameters['rsi_window'];
+      final oversold = parameters['oversold'];
+      final overbought = parameters['overbought'];
+      if (window is int && window <= 1) {
+        return const _QuantValidationError('RSI 周期必须大于 1');
+      }
+      if (oversold is double &&
+          overbought is double &&
+          oversold >= overbought) {
+        return const _QuantValidationError('超卖线必须小于止盈线');
+      }
+      return null;
+    }
+
+    if (strategyCode == 'trend_score') {
+      final buyScore = parameters['buy_score'];
+      final sellScore = parameters['sell_score'];
+      if (buyScore is int &&
+          sellScore is int &&
+          (sellScore < 0 || sellScore >= buyScore || buyScore > 4)) {
+        return const _QuantValidationError('转弱分必须小于转强分，且最高为 4');
+      }
+      return null;
+    }
+
+    if (strategyCode == 'composite_factor') {
+      final factorCodes = parameters['factor_codes'];
+      final confirmWindow = parameters['confirm_window'];
+      if (factorCodes is List && factorCodes.length < 2) {
+        return const _QuantValidationError('组合因子至少选择两个');
+      }
+      if (confirmWindow is int && confirmWindow < 1) {
+        return const _QuantValidationError('确认窗口必须大于 0');
       }
       return null;
     }

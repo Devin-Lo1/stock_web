@@ -9,6 +9,7 @@ import '../utils/theme_helpers.dart';
 import '../widgets/common/app_tag.dart';
 import '../widgets/common/page_title.dart';
 import 'display_settings_screen.dart';
+import 'factor_guide_screen.dart';
 import 'notification_settings_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -83,6 +84,17 @@ class SettingsScreen extends StatelessWidget {
                   notificationService: notificationService,
                   onRefresh: onRefresh,
                 ),
+              ),
+            ),
+          ),
+          _SettingTile(
+            icon: Icons.menu_book_outlined,
+            title: '因子说明',
+            subtitle: '策略因子、组合因子与使用注意',
+            status: '说明',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (context) => const FactorGuideScreen(),
               ),
             ),
           ),

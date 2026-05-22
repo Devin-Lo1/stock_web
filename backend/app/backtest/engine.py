@@ -221,6 +221,12 @@ def _failure_message(reason: str) -> str:
         "invalid_rsi_parameters": "RSI 参数不合法，周期必须大于 1，且超卖线小于超买线",
         "invalid_macd_parameters": "MACD 参数不合法，快线周期必须小于慢线周期",
         "invalid_price_break_ma_parameters": "价格跌破均线参数不合法，均线周期必须大于 1，方向必须为跌破、站回或双向",
+        "invalid_volume_breakout_parameters": "放量突破参数不合法，窗口必须大于 1，量能倍数必须大于 0",
+        "invalid_ma_breakdown_stop_parameters": "跌破均线止损参数不合法，均线周期必须大于 1，缓冲比例需在 0 到 50% 之间",
+        "invalid_atr_trailing_stop_parameters": "ATR 动态止损参数不合法，ATR 周期、入场均线周期和 ATR 倍数都必须大于 0",
+        "invalid_rsi_oversold_rebound_parameters": "RSI 超跌反弹参数不合法，周期必须大于 1，且超卖线小于超买线",
+        "invalid_trend_score_parameters": "趋势评分参数不合法，窗口必须大于 1，且卖出评分必须小于买入评分",
+        "invalid_composite_factor_parameters": "组合因子参数不合法，至少选择两个因子，确认模式和确认窗口需有效",
         "not_enough_candles": "K 线数据不足，无法完成回测",
     }.get(reason, "回测失败，请检查参数和 K 线数据")
 

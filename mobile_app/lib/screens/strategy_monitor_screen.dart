@@ -488,9 +488,25 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
         case StrategyParameterValueType.option:
           if (raw.isEmpty) return null;
           parameters[spec.key] = raw;
+        case StrategyParameterValueType.multiOption:
+          final values = _readMultiOption(raw, spec);
+          if (values == null || values.length < 2) return null;
+          parameters[spec.key] = values;
       }
     }
     return parameters;
+  }
+
+  List<String>? _readMultiOption(String raw, StrategyParameterSpec spec) {
+    final allowed = {for (final option in spec.options) option.value};
+    final values = raw
+        .split(',')
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet()
+        .toList();
+    if (values.any((value) => !allowed.contains(value))) return null;
+    return values;
   }
 
   int? _positiveInt(String raw) {
@@ -1299,6 +1315,40 @@ class _ParameterField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (spec.valueType == StrategyParameterValueType.multiOption) {
+      final selected = value
+          .split(',')
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .toSet();
+      return InputDecorator(
+        decoration: InputDecoration(
+          labelText: spec.label,
+          isDense: true,
+          border: const OutlineInputBorder(),
+        ),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final option in spec.options)
+              FilterChip(
+                label: Text(option.label),
+                selected: selected.contains(option.value),
+                onSelected: (checked) {
+                  final next = {...selected};
+                  if (checked) {
+                    next.add(option.value);
+                  } else {
+                    next.remove(option.value);
+                  }
+                  onChanged(next.join(','));
+                },
+              ),
+          ],
+        ),
+      );
+    }
     if (spec.valueType == StrategyParameterValueType.option) {
       return DropdownButtonFormField<String>(
         initialValue: spec.options.any((option) => option.value == value)
@@ -1585,9 +1635,15 @@ String _scanLogStageLabel(String stage) {
 
 String _strategyCodeLabel(String strategyCode) {
   return switch (strategyCode) {
+    'atr_trailing_stop' => 'ATR止损',
+    'composite_factor' => '组合因子',
+    'ma_breakdown_stop' => '均线止损',
     'ma_cross' => '均线交叉',
     'price_break_ma' => '突破均线',
+    'rsi_oversold_rebound' => 'RSI反弹',
     'rsi_reversal' => 'RSI反转',
+    'trend_score' => '趋势评分',
+    'volume_breakout' => '放量突破',
     _ => strategyCode,
   };
 }

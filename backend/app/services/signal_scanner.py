@@ -19,7 +19,14 @@ from ..services.signal_scan_config import (
 )
 from ..strategies import get_strategy
 from ..strategies.base import StrategyConfigurationError, StrategySignal
-from ..strategies.factors import macd, moving_average, relative_strength_index
+from ..strategies.factors import (
+    average_true_range,
+    macd,
+    moving_average,
+    relative_strength_index,
+    rolling_high,
+    rolling_low,
+)
 
 
 def scan_strategy_signals(*, refresh: bool = False) -> SignalScanResult:
@@ -218,6 +225,14 @@ def _condition_values(
         if side == "buy":
             return ("RSI 超卖后回升", float(rsi_values[index] or 0), oversold)
         return ("RSI 高位回落", float(rsi_values[index] or 0), overbought)
+    if config.strategy_code == "rsi_oversold_rebound":
+        window = int(config.parameters["rsi_window"])
+        oversold = float(config.parameters["oversold"])
+        overbought = float(config.parameters["overbought"])
+        rsi_values = relative_strength_index(closes, window)
+        if side == "buy":
+            return ("RSI 超跌反弹", float(rsi_values[index] or 0), oversold)
+        return ("RSI 高位回落止盈", float(rsi_values[index] or 0), overbought)
     if config.strategy_code == "macd_trend":
         fast_window = int(config.parameters["fast_window"])
         slow_window = int(config.parameters["slow_window"])
@@ -225,11 +240,86 @@ def _condition_values(
         _, _, histogram = macd(closes, fast_window, slow_window, signal_window)
         label = "转正" if side == "buy" else "转负"
         return (f"MACD 柱体{label}", float(histogram[index] or 0), 0)
+    if config.strategy_code == "volume_breakout":
+        lookback_window = int(config.parameters["lookback_window"])
+        highs = rolling_high(closes, lookback_window)
+        lows = rolling_low(closes, lookback_window)
+        label = "放量突破" if side == "buy" else "放量跌破"
+        threshold = highs[index - 1] if side == "buy" else lows[index - 1]
+        return (f"收盘价{label}{lookback_window}期区间", closes[index], float(threshold or 0))
+    if config.strategy_code == "ma_breakdown_stop":
+        window = int(config.parameters["ma_window"])
+        buffer_pct = float(config.parameters.get("stop_buffer_pct", 0))
+        ma_values = moving_average(closes, window)
+        label = "站回" if side == "buy" else "跌破止损线"
+        threshold = float(ma_values[index] or 0)
+        if side == "sell":
+            threshold *= 1 - buffer_pct / 100
+        return (f"收盘价{label} MA{window}", closes[index], threshold)
+    if config.strategy_code == "atr_trailing_stop":
+        atr_window = int(config.parameters["atr_window"])
+        atr_multiplier = float(config.parameters["atr_multiplier"])
+        highs = [candle.high for candle in candles]
+        lows = [candle.low for candle in candles]
+        atr_values = average_true_range(highs, lows, closes, atr_window)
+        recent_peak = max(closes[max(0, index - atr_window + 1) : index + 1])
+        stop_value = recent_peak - float(atr_values[index] or 0) * atr_multiplier
+        label = "站回入场均线" if side == "buy" else "跌破 ATR 动态止损"
+        return (label, closes[index], stop_value)
+    if config.strategy_code == "trend_score":
+        ma_window = int(config.parameters["ma_window"])
+        momentum_window = int(config.parameters["momentum_window"])
+        volume_window = int(config.parameters["volume_window"])
+        ma_values = moving_average(closes, ma_window)
+        volume_ma = moving_average([candle.volume for candle in candles], volume_window)
+        threshold = float(
+            config.parameters["buy_score" if side == "buy" else "sell_score"],
+        )
+        label = "趋势评分转强" if side == "buy" else "趋势评分转弱"
+        score = _trend_score_value(
+            index,
+            closes,
+            [candle.volume for candle in candles],
+            ma_values,
+            volume_ma,
+            momentum_window,
+        )
+        return (label, float(score), threshold)
+    if config.strategy_code == "composite_factor":
+        factor_codes = config.parameters.get("factor_codes", [])
+        factor_count = len(factor_codes) if isinstance(factor_codes, list) else 0
+        label = "组合因子确认转强" if side == "buy" else "组合因子确认转弱"
+        return (label, float(factor_count), float(factor_count))
     return ("策略条件触发", closes[index], 0)
 
 
 def _parameter_key(parameters: dict[str, object]) -> str:
     return ",".join(f"{key}={parameters[key]}" for key in sorted(parameters))
+
+
+def _trend_score_value(
+    index: int,
+    closes: list[float],
+    volumes: list[float],
+    ma_values: list[float | None],
+    volume_ma: list[float | None],
+    momentum_window: int,
+) -> int:
+    if index <= 0:
+        return 0
+    score = 0
+    current_ma = ma_values[index]
+    previous_ma = ma_values[index - 1]
+    average_volume = volume_ma[index]
+    if current_ma is not None and closes[index] > current_ma:
+        score += 1
+    if current_ma is not None and previous_ma is not None and current_ma > previous_ma:
+        score += 1
+    if index >= momentum_window and closes[index] > closes[index - momentum_window]:
+        score += 1
+    if average_volume is not None and volumes[index] >= average_volume:
+        score += 1
+    return score
 
 
 def _triggered_at(signal_date: date) -> datetime:

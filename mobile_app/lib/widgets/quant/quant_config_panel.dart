@@ -156,7 +156,9 @@ class _StrategyParameterFields extends StatelessWidget {
           children: [
             for (final spec in specs)
               SizedBox(
-                width: itemWidth,
+                width: spec.valueType == StrategyParameterValueType.multiOption
+                    ? constraints.maxWidth
+                    : itemWidth,
                 child: _StrategyParameterField(
                   spec: spec,
                   controller: controllers[spec.key]!,
@@ -177,6 +179,36 @@ class _StrategyParameterField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (spec.valueType == StrategyParameterValueType.multiOption) {
+      final selected = controller.text
+          .split(',')
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .toSet();
+      return InputDecorator(
+        decoration: InputDecoration(labelText: spec.label),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final option in spec.options)
+              FilterChip(
+                label: Text(option.label),
+                selected: selected.contains(option.value),
+                onSelected: (checked) {
+                  final next = {...selected};
+                  if (checked) {
+                    next.add(option.value);
+                  } else {
+                    next.remove(option.value);
+                  }
+                  controller.text = next.join(',');
+                },
+              ),
+          ],
+        ),
+      );
+    }
     if (spec.valueType != StrategyParameterValueType.option) {
       return QuantNumberField(controller: controller, label: spec.label);
     }

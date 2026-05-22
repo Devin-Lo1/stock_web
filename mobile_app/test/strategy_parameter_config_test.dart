@@ -41,6 +41,47 @@ void main() {
     ]);
   });
 
+  test('strategyParameterSpecsFor returns new factor parameters', () {
+    expect(
+      strategyParameterSpecsFor('volume_breakout').map((spec) => spec.key),
+      ['lookback_window', 'volume_window', 'volume_multiplier', 'direction'],
+    );
+    expect(
+      strategyParameterSpecsFor('ma_breakdown_stop').map((spec) => spec.key),
+      ['ma_window', 'stop_buffer_pct', 'direction'],
+    );
+    expect(
+      strategyParameterSpecsFor('atr_trailing_stop').map((spec) => spec.key),
+      ['atr_window', 'atr_multiplier', 'entry_ma_window', 'direction'],
+    );
+    expect(
+      strategyParameterSpecsFor('rsi_oversold_rebound').map((spec) => spec.key),
+      ['rsi_window', 'oversold', 'overbought', 'exit_mode'],
+    );
+    expect(strategyParameterSpecsFor('trend_score').map((spec) => spec.key), [
+      'ma_window',
+      'momentum_window',
+      'volume_window',
+      'buy_score',
+      'sell_score',
+    ]);
+  });
+
+  test('strategyParameterSpecsFor returns composite factor parameters', () {
+    final specs = strategyParameterSpecsFor('composite_factor');
+
+    expect(specs.map((spec) => spec.key), [
+      'factor_codes',
+      'mode',
+      'confirm_window',
+    ]);
+    expect(specs[0].valueType, StrategyParameterValueType.multiOption);
+    expect(
+      specs[0].options.map((option) => option.value),
+      contains('trend_score'),
+    );
+  });
+
   test('strategyParameterDefaultText reads backend defaults', () {
     const strategy = StrategyDefinition(
       id: 'strategy-1',
@@ -87,5 +128,25 @@ void main() {
 
     expect(strategyParameterDefaultText(strategy, specs[0]), '10');
     expect(strategyParameterDefaultText(strategy, specs[1]), 'break_down');
+  });
+
+  test('strategyParameterDefaultText reads list defaults', () {
+    const strategy = StrategyDefinition(
+      id: 'strategy-4',
+      code: 'composite_factor',
+      name: 'Composite Factor',
+      description: '',
+      defaultParameters: {
+        'factor_codes': ['volume_breakout', 'trend_score'],
+        'mode': 'all',
+        'confirm_window': 3,
+      },
+    );
+    final specs = strategyParameterSpecsFor(strategy.code);
+
+    expect(
+      strategyParameterDefaultText(strategy, specs[0]),
+      'volume_breakout,trend_score',
+    );
   });
 }

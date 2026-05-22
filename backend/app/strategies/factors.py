@@ -12,6 +12,54 @@ def moving_average(values: list[float], window: int) -> list[float | None]:
     return averages
 
 
+def rolling_high(values: list[float], window: int) -> list[float | None]:
+    highs: list[float | None] = []
+    for index in range(len(values)):
+        if index + 1 < window:
+            highs.append(None)
+            continue
+        highs.append(max(values[index + 1 - window : index + 1]))
+    return highs
+
+
+def rolling_low(values: list[float], window: int) -> list[float | None]:
+    lows: list[float | None] = []
+    for index in range(len(values)):
+        if index + 1 < window:
+            lows.append(None)
+            continue
+        lows.append(min(values[index + 1 - window : index + 1]))
+    return lows
+
+
+def average_true_range(
+    highs: list[float],
+    lows: list[float],
+    closes: list[float],
+    window: int,
+) -> list[float | None]:
+    result: list[float | None] = [None] * len(closes)
+    if window <= 0 or len(closes) < window:
+        return result
+
+    true_ranges: list[float] = []
+    for index in range(len(closes)):
+        if index == 0:
+            true_ranges.append(highs[index] - lows[index])
+            continue
+        true_ranges.append(
+            max(
+                highs[index] - lows[index],
+                abs(highs[index] - closes[index - 1]),
+                abs(lows[index] - closes[index - 1]),
+            ),
+        )
+
+    for index in range(window - 1, len(closes)):
+        result[index] = mean(true_ranges[index + 1 - window : index + 1])
+    return result
+
+
 def exponential_moving_average(
     values: list[float],
     window: int,

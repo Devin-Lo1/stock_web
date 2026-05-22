@@ -32,9 +32,21 @@ def test_seed_strategy_definitions_includes_rsi_and_macd() -> None:
     assert "rsi_reversal" in by_code
     assert "macd_trend" in by_code
     assert "price_break_ma" in by_code
+    assert "volume_breakout" in by_code
+    assert "ma_breakdown_stop" in by_code
+    assert "atr_trailing_stop" in by_code
+    assert "rsi_oversold_rebound" in by_code
+    assert "trend_score" in by_code
+    assert "composite_factor" in by_code
     assert by_code["rsi_reversal"].default_parameters["rsi_window"] == 14
     assert by_code["macd_trend"].default_parameters["fast_window"] == 12
     assert by_code["price_break_ma"].default_parameters["ma_window"] == 10
+    assert by_code["volume_breakout"].default_parameters["volume_multiplier"] == 1.5
+    assert by_code["ma_breakdown_stop"].default_parameters["ma_window"] == 20
+    assert by_code["atr_trailing_stop"].default_parameters["atr_multiplier"] == 3
+    assert by_code["rsi_oversold_rebound"].default_parameters["exit_mode"] == "overbought"
+    assert by_code["trend_score"].default_parameters["buy_score"] == 3
+    assert by_code["composite_factor"].default_parameters["mode"] == "all"
 
 
 def test_backtest_run_create_and_get_result() -> None:
@@ -892,4 +904,464 @@ def test_price_break_ma_invalid_parameters_have_readable_message() -> None:
 
     assert result.run.status == "failed"
     assert result.run.summary["error"] == "invalid_price_break_ma_parameters"
+    assert result.run.summary["error_message"]
+
+
+def test_volume_breakout_backtest_generates_result() -> None:
+    start = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    closes = [10, 10.2, 10.1, 10.3, 10.2, 11.2, 11.5, 11.6, 10.8, 9.8]
+    volumes = [1000, 1000, 1000, 1000, 1000, 3000, 1100, 1000, 1200, 4200]
+    candles = [
+        Candle(
+            code="HK.01810",
+            market="HK",
+            period="day",
+            time=start + timedelta(days=index),
+            open=close,
+            high=close,
+            low=close,
+            close=close,
+            volume=volumes[index],
+            turnover=close * volumes[index],
+        )
+        for index, close in enumerate(closes)
+    ]
+    database.upsert_candles(candles)
+    run = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="volume_breakout",
+            stock_code="HK.01810",
+            period="day",
+            start_date=date(2026, 6, 1),
+            end_date=date(2026, 6, 10),
+            initial_cash=100000,
+            fee_rate=0.001,
+            slippage_rate=0.001,
+            parameters={
+                "lookback_window": 3,
+                "volume_window": 3,
+                "volume_multiplier": 1.8,
+                "direction": "both",
+            },
+        ),
+    )
+
+    result = run_backtest(run)
+
+    assert result.run.status == "completed"
+    assert result.run.summary["strategy_code"] == "volume_breakout"
+    assert [trade.side for trade in result.trades] == ["buy", "sell"]
+
+
+def test_volume_breakout_invalid_parameters_have_readable_message() -> None:
+    run = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="volume_breakout",
+            stock_code="HK.02628",
+            period="day",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 30),
+            initial_cash=100000,
+            fee_rate=0.001,
+            slippage_rate=0.001,
+            parameters={
+                "lookback_window": 1,
+                "volume_window": 3,
+                "volume_multiplier": 0,
+                "direction": "both",
+            },
+        ),
+    )
+
+    result = run_backtest(run)
+
+    assert result.run.status == "failed"
+    assert result.run.summary["error"] == "invalid_volume_breakout_parameters"
+    assert result.run.summary["error_message"]
+
+
+def test_ma_breakdown_stop_backtest_generates_result() -> None:
+    start = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    closes = [10, 10, 10, 9, 8, 11, 12, 12, 10, 8]
+    candles = [
+        Candle(
+            code="HK.01810",
+            market="HK",
+            period="day",
+            time=start + timedelta(days=index),
+            open=close,
+            high=close,
+            low=close,
+            close=close,
+            volume=1000,
+            turnover=close * 1000,
+        )
+        for index, close in enumerate(closes)
+    ]
+    database.upsert_candles(candles)
+    run = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="ma_breakdown_stop",
+            stock_code="HK.01810",
+            period="day",
+            start_date=date(2026, 7, 1),
+            end_date=date(2026, 7, 10),
+            initial_cash=100000,
+            fee_rate=0.001,
+            slippage_rate=0.001,
+            parameters={"ma_window": 3, "stop_buffer_pct": 0, "direction": "both"},
+        ),
+    )
+
+    result = run_backtest(run)
+
+    assert result.run.status == "completed"
+    assert result.run.summary["strategy_code"] == "ma_breakdown_stop"
+    assert [trade.side for trade in result.trades] == ["buy", "sell"]
+
+
+def test_ma_breakdown_stop_invalid_parameters_have_readable_message() -> None:
+    run = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="ma_breakdown_stop",
+            stock_code="HK.02628",
+            period="day",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 30),
+            initial_cash=100000,
+            fee_rate=0.001,
+            slippage_rate=0.001,
+            parameters={"ma_window": 1, "stop_buffer_pct": 60, "direction": "both"},
+        ),
+    )
+
+    result = run_backtest(run)
+
+    assert result.run.status == "failed"
+    assert result.run.summary["error"] == "invalid_ma_breakdown_stop_parameters"
+    assert result.run.summary["error_message"]
+
+
+def test_atr_trailing_stop_backtest_generates_result() -> None:
+    start = datetime(2026, 8, 1, tzinfo=timezone.utc)
+    closes = [10, 10, 9, 11, 11.5, 12, 12.5, 13, 12, 10]
+    candles = [
+        Candle(
+            code="HK.01810",
+            market="HK",
+            period="day",
+            time=start + timedelta(days=index),
+            open=close,
+            high=close + 0.3,
+            low=close - 0.3,
+            close=close,
+            volume=1000,
+            turnover=close * 1000,
+        )
+        for index, close in enumerate(closes)
+    ]
+    database.upsert_candles(candles)
+    run = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="atr_trailing_stop",
+            stock_code="HK.01810",
+            period="day",
+            start_date=date(2026, 8, 1),
+            end_date=date(2026, 8, 10),
+            initial_cash=100000,
+            fee_rate=0.001,
+            slippage_rate=0.001,
+            parameters={
+                "atr_window": 3,
+                "atr_multiplier": 1.5,
+                "entry_ma_window": 3,
+                "direction": "reentry_and_stop",
+            },
+        ),
+    )
+
+    result = run_backtest(run)
+
+    assert result.run.status == "completed"
+    assert result.run.summary["strategy_code"] == "atr_trailing_stop"
+    assert [trade.side for trade in result.trades] == ["buy", "sell"]
+
+
+def test_atr_trailing_stop_invalid_parameters_have_readable_message() -> None:
+    run = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="atr_trailing_stop",
+            stock_code="HK.02628",
+            period="day",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 30),
+            initial_cash=100000,
+            fee_rate=0.001,
+            slippage_rate=0.001,
+            parameters={
+                "atr_window": 1,
+                "atr_multiplier": 0,
+                "entry_ma_window": 3,
+                "direction": "stop_only",
+            },
+        ),
+    )
+
+    result = run_backtest(run)
+
+    assert result.run.status == "failed"
+    assert result.run.summary["error"] == "invalid_atr_trailing_stop_parameters"
+    assert result.run.summary["error_message"]
+
+
+def test_rsi_oversold_rebound_backtest_generates_result() -> None:
+    start = datetime(2026, 9, 1, tzinfo=timezone.utc)
+    closes = [
+        50,
+        47,
+        44,
+        41,
+        38,
+        35,
+        37,
+        39,
+        42,
+        45,
+        48,
+        52,
+        56,
+        60,
+        58,
+        55,
+        52,
+        49,
+    ]
+    candles = [
+        Candle(
+            code="HK.01810",
+            market="HK",
+            period="day",
+            time=start + timedelta(days=index),
+            open=close,
+            high=close,
+            low=close,
+            close=close,
+            volume=1000,
+            turnover=close * 1000,
+        )
+        for index, close in enumerate(closes)
+    ]
+    database.upsert_candles(candles)
+    run = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="rsi_oversold_rebound",
+            stock_code="HK.01810",
+            period="day",
+            start_date=date(2026, 9, 1),
+            end_date=date(2026, 9, 18),
+            initial_cash=100000,
+            fee_rate=0.001,
+            slippage_rate=0.001,
+            parameters={
+                "rsi_window": 3,
+                "oversold": 35,
+                "overbought": 75,
+                "exit_mode": "overbought",
+            },
+        ),
+    )
+
+    result = run_backtest(run)
+
+    assert result.run.status == "completed"
+    assert result.run.summary["strategy_code"] == "rsi_oversold_rebound"
+    assert [trade.side for trade in result.trades] == ["buy", "sell"]
+
+
+def test_rsi_oversold_rebound_invalid_parameters_have_readable_message() -> None:
+    run = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="rsi_oversold_rebound",
+            stock_code="HK.02628",
+            period="day",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 30),
+            initial_cash=100000,
+            fee_rate=0.001,
+            slippage_rate=0.001,
+            parameters={
+                "rsi_window": 1,
+                "oversold": 80,
+                "overbought": 20,
+                "exit_mode": "bad",
+            },
+        ),
+    )
+
+    result = run_backtest(run)
+
+    assert result.run.status == "failed"
+    assert result.run.summary["error"] == "invalid_rsi_oversold_rebound_parameters"
+    assert result.run.summary["error_message"]
+
+
+def test_trend_score_backtest_generates_result() -> None:
+    start = datetime(2026, 10, 1, tzinfo=timezone.utc)
+    closes = [10, 10, 9, 10, 11, 12, 13, 14, 12, 10, 9, 8]
+    volumes = [1000, 1000, 800, 1300, 1500, 1600, 1700, 1800, 900, 800, 700, 700]
+    candles = [
+        Candle(
+            code="HK.01810",
+            market="HK",
+            period="day",
+            time=start + timedelta(days=index),
+            open=close,
+            high=close,
+            low=close,
+            close=close,
+            volume=volumes[index],
+            turnover=close * volumes[index],
+        )
+        for index, close in enumerate(closes)
+    ]
+    database.upsert_candles(candles)
+    run = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="trend_score",
+            stock_code="HK.01810",
+            period="day",
+            start_date=date(2026, 10, 1),
+            end_date=date(2026, 10, 12),
+            initial_cash=100000,
+            fee_rate=0.001,
+            slippage_rate=0.001,
+            parameters={
+                "ma_window": 3,
+                "momentum_window": 2,
+                "volume_window": 3,
+                "buy_score": 3,
+                "sell_score": 1,
+            },
+        ),
+    )
+
+    result = run_backtest(run)
+
+    assert result.run.status == "completed"
+    assert result.run.summary["strategy_code"] == "trend_score"
+    assert [trade.side for trade in result.trades] == ["buy", "sell"]
+
+
+def test_trend_score_invalid_parameters_have_readable_message() -> None:
+    run = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="trend_score",
+            stock_code="HK.02628",
+            period="day",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 30),
+            initial_cash=100000,
+            fee_rate=0.001,
+            slippage_rate=0.001,
+            parameters={
+                "ma_window": 1,
+                "momentum_window": 1,
+                "volume_window": 3,
+                "buy_score": 1,
+                "sell_score": 3,
+            },
+        ),
+    )
+
+    result = run_backtest(run)
+
+    assert result.run.status == "failed"
+    assert result.run.summary["error"] == "invalid_trend_score_parameters"
+    assert result.run.summary["error_message"]
+
+
+def test_composite_factor_backtest_generates_result() -> None:
+    start = datetime(2026, 11, 1, tzinfo=timezone.utc)
+    closes = [10, 10, 9, 10, 11, 12, 13, 14, 12, 10, 9, 8]
+    volumes = [1000, 1000, 800, 1300, 1800, 1900, 1700, 1800, 900, 2600, 700, 700]
+    candles = [
+        Candle(
+            code="HK.01810",
+            market="HK",
+            period="day",
+            time=start + timedelta(days=index),
+            open=close,
+            high=close,
+            low=close,
+            close=close,
+            volume=volumes[index],
+            turnover=close * volumes[index],
+        )
+        for index, close in enumerate(closes)
+    ]
+    database.upsert_candles(candles)
+    run = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="composite_factor",
+            stock_code="HK.01810",
+            period="day",
+            start_date=date(2026, 11, 1),
+            end_date=date(2026, 11, 12),
+            initial_cash=100000,
+            fee_rate=0.001,
+            slippage_rate=0.001,
+            parameters={
+                "factor_codes": ["volume_breakout", "trend_score"],
+                "mode": "all",
+                "confirm_window": 3,
+                "factor_parameters": {
+                    "volume_breakout": {
+                        "lookback_window": 3,
+                        "volume_window": 3,
+                        "volume_multiplier": 1.1,
+                        "direction": "both",
+                    },
+                    "trend_score": {
+                        "ma_window": 3,
+                        "momentum_window": 2,
+                        "volume_window": 3,
+                        "buy_score": 3,
+                        "sell_score": 1,
+                    },
+                },
+            },
+        ),
+    )
+
+    result = run_backtest(run)
+
+    assert result.run.status == "completed"
+    assert result.run.summary["strategy_code"] == "composite_factor"
+    assert len(result.trades) >= 1
+    assert result.trades[0].side == "buy"
+
+
+def test_composite_factor_invalid_parameters_have_readable_message() -> None:
+    run = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="composite_factor",
+            stock_code="HK.02628",
+            period="day",
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 30),
+            initial_cash=100000,
+            fee_rate=0.001,
+            slippage_rate=0.001,
+            parameters={
+                "factor_codes": ["volume_breakout"],
+                "mode": "bad",
+                "confirm_window": -1,
+            },
+        ),
+    )
+
+    result = run_backtest(run)
+
+    assert result.run.status == "failed"
+    assert result.run.summary["error"] == "invalid_composite_factor_parameters"
     assert result.run.summary["error_message"]

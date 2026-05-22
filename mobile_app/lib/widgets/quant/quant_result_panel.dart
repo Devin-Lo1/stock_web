@@ -437,9 +437,15 @@ List<_SnapshotItem> _strategyParameterItems(BacktestRun run) {
 String _strategyLabel(String code) {
   return switch (code) {
     'ma_cross' => 'MA Cross',
+    'atr_trailing_stop' => 'ATR Trailing Stop',
+    'composite_factor' => 'Composite Factor',
+    'ma_breakdown_stop' => 'MA Breakdown Stop',
     'macd_trend' => 'MACD Trend',
     'price_break_ma' => 'Price Break MA',
+    'rsi_oversold_rebound' => 'RSI Oversold Rebound',
     'rsi_reversal' => 'RSI Reversal',
+    'trend_score' => 'Trend Score',
+    'volume_breakout' => 'Volume Breakout',
     _ => code,
   };
 }
@@ -496,6 +502,12 @@ String? _failureMessage(BacktestRun run) {
     'invalid_rsi_parameters' => 'RSI 参数不合法，请检查周期和超买超卖线',
     'invalid_macd_parameters' => 'MACD 参数不合法，请检查快线和慢线周期',
     'invalid_price_break_ma_parameters' => '价格跌破均线参数不合法，请检查均线周期和触发方向',
+    'invalid_volume_breakout_parameters' => '放量突破参数不合法，请检查窗口和放量倍数',
+    'invalid_ma_breakdown_stop_parameters' => '跌破均线止损参数不合法，请检查均线和缓冲比例',
+    'invalid_atr_trailing_stop_parameters' => 'ATR 动态止损参数不合法，请检查 ATR 周期和倍数',
+    'invalid_rsi_oversold_rebound_parameters' => 'RSI 超跌反弹参数不合法，请检查周期和阈值',
+    'invalid_trend_score_parameters' => '趋势评分参数不合法，请检查窗口和评分阈值',
+    'invalid_composite_factor_parameters' => '组合因子参数不合法，请至少选择两个因子',
     'not_enough_candles' => 'K 线数据不足，无法完成回测',
     String value when value.isNotEmpty => value,
     _ => '回测失败，请检查参数和 K 线数据',
