@@ -66,7 +66,7 @@ class StrategyMonitorRepository {
     String? monitorId,
     String? code,
     String? status,
-    int limit = 50,
+    int limit = 10,
   }) {
     return _apiService.fetchScanLogs(
       monitorId: monitorId,

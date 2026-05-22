@@ -53,7 +53,7 @@ def list_strategy_monitor_scan_logs(
     monitor_id: str | None = None,
     code: str | None = None,
     status: str | None = None,
-    limit: int = 50,
+    limit: int = 10,
 ) -> list[StrategyMonitorScanLog]:
     clauses: list[str] = []
     parameters: list[object] = []
@@ -68,7 +68,7 @@ def list_strategy_monitor_scan_logs(
         parameters.append(status.strip())
 
     where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-    bounded_limit = max(1, min(limit, 200))
+    bounded_limit = max(1, min(limit, 10))
     parameters.append(bounded_limit)
     with _connect() as connection:
         rows = connection.execute(

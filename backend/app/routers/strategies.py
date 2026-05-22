@@ -106,7 +106,7 @@ def api_list_strategy_monitor_scan_logs(
     monitor_id: str | None = Query(default=None),
     code: str | None = Query(default=None),
     status: str | None = Query(default=None),
-    limit: int = Query(default=50, ge=1, le=200),
+    limit: int = Query(default=10, ge=1, le=10),
 ) -> list[StrategyMonitorScanLog]:
     return list_strategy_monitor_scan_logs(
         monitor_id=monitor_id,

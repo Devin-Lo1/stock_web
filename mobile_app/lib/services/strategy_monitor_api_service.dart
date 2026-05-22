@@ -104,7 +104,7 @@ class StrategyMonitorApiService {
     String? monitorId,
     String? code,
     String? status,
-    int limit = 50,
+    int limit = 10,
   }) async {
     final decoded = await _apiClient.get(
       '/api/v1/strategies/monitors/scan-logs',

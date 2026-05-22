@@ -12,6 +12,8 @@ import '../utils/theme_helpers.dart';
 import '../widgets/common/empty_state.dart';
 import '../widgets/common/page_title.dart';
 
+const _scanLogLimit = 10;
+
 class StrategyMonitorScreen extends StatefulWidget {
   const StrategyMonitorScreen({
     super.key,
@@ -109,7 +111,7 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
         widget.backtestRepository.loadStrategies(),
         widget.monitorRepository.loadMonitors(limit: 200),
         widget.monitorRepository.loadSchedulerStatus(),
-        widget.monitorRepository.loadScanLogs(limit: 50),
+        widget.monitorRepository.loadScanLogs(limit: _scanLogLimit),
       ]);
       if (!mounted) return;
       final strategies = result[0] as List<StrategyDefinition>;
@@ -398,7 +400,7 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
   Future<void> _reloadMonitorState() async {
     final result = await Future.wait<Object>([
       widget.monitorRepository.loadMonitors(limit: 200),
-      widget.monitorRepository.loadScanLogs(limit: 50),
+      widget.monitorRepository.loadScanLogs(limit: _scanLogLimit),
     ]);
     if (!mounted) return;
     setState(() {
@@ -833,7 +835,7 @@ class _ScanLogPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visibleLogs = logs.take(8).toList();
+    final visibleLogs = logs.take(_scanLogLimit).toList();
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -857,7 +859,7 @@ class _ScanLogPanel extends StatelessWidget {
                 ),
               ),
               _InfoChip(
-                label: logs.isEmpty ? '暂无' : '最近 ${logs.length}',
+                label: visibleLogs.isEmpty ? '暂无' : '最新 ${visibleLogs.length}',
                 icon: Icons.receipt_long_rounded,
               ),
             ],
@@ -872,17 +874,60 @@ class _ScanLogPanel extends StatelessWidget {
               ),
             )
           else
-            ...visibleLogs.map(
-              (log) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _ScanLogTile(
-                  log: log,
-                  isDeleting: deletingIds.contains(log.id),
-                  onDelete: () => onDelete(log),
-                ),
-              ),
+            _ScanLogList(
+              logs: visibleLogs,
+              deletingIds: deletingIds,
+              onDelete: onDelete,
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _ScanLogList extends StatelessWidget {
+  const _ScanLogList({
+    required this.logs,
+    required this.deletingIds,
+    required this.onDelete,
+  });
+
+  final List<StrategyMonitorScanLog> logs;
+  final Set<String> deletingIds;
+  final ValueChanged<StrategyMonitorScanLog> onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    if (logs.length <= 3) {
+      return Column(
+        children: [
+          for (var index = 0; index < logs.length; index++) ...[
+            if (index > 0) const SizedBox(height: 8),
+            _ScanLogTile(
+              log: logs[index],
+              isDeleting: deletingIds.contains(logs[index].id),
+              onDelete: () => onDelete(logs[index]),
+            ),
+          ],
+        ],
+      );
+    }
+
+    return SizedBox(
+      height: 324,
+      child: ListView.separated(
+        primary: false,
+        padding: EdgeInsets.zero,
+        itemCount: logs.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 8),
+        itemBuilder: (context, index) {
+          final log = logs[index];
+          return _ScanLogTile(
+            log: log,
+            isDeleting: deletingIds.contains(log.id),
+            onDelete: () => onDelete(log),
+          );
+        },
       ),
     );
   }
