@@ -68,7 +68,7 @@ class PositionDetailScreen extends StatefulWidget {
   )
   onLoadPositionPushRecords;
   final Future<void> Function(TradeSignal signal) onIgnoreSignal;
-  final ValueChanged<StockPosition> onOpenStrategyMonitor;
+  final Future<void> Function(StockPosition position) onOpenStrategyMonitor;
 
   @override
   State<PositionDetailScreen> createState() => _PositionDetailScreenState();
@@ -349,6 +349,12 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
     }
   }
 
+  Future<void> _openStrategyMonitor() async {
+    await widget.onOpenStrategyMonitor(_position);
+    if (!mounted) return;
+    await _loadActivityData(silent: true);
+  }
+
   @override
   Widget build(BuildContext context) {
     final dailyColor = _profitColor(_position.dailyProfit);
@@ -577,8 +583,7 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
               error: _activityError,
               onRetry: () => _loadActivityData(),
               onIgnoreSignal: _ignoreSignal,
-              onOpenStrategyMonitor: () =>
-                  widget.onOpenStrategyMonitor(_position),
+              onOpenStrategyMonitor: _openStrategyMonitor,
             ),
           ],
         ),

@@ -375,8 +375,8 @@ class _AppShellState extends State<AppShell> {
     return records.take(20).toList();
   }
 
-  void _openStrategyMonitorForPosition(StockPosition position) {
-    Navigator.of(context).push(
+  Future<void> _openStrategyMonitorForPosition(StockPosition position) async {
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => StrategyMonitorScreen(
           positions: _positions,

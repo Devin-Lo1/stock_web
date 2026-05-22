@@ -71,7 +71,7 @@ class PositionsScreen extends StatelessWidget {
   )
   onLoadPositionPushRecords;
   final Future<void> Function(TradeSignal signal) onIgnoreSignal;
-  final ValueChanged<StockPosition> onOpenStrategyMonitor;
+  final Future<void> Function(StockPosition position) onOpenStrategyMonitor;
 
   @override
   Widget build(BuildContext context) {
@@ -203,7 +203,7 @@ void _openPositionDetail(
   )
   onLoadPositionPushRecords,
   Future<void> Function(TradeSignal signal) onIgnoreSignal,
-  ValueChanged<StockPosition> onOpenStrategyMonitor,
+  Future<void> Function(StockPosition position) onOpenStrategyMonitor,
 ) {
   Navigator.of(context).push(
     MaterialPageRoute<void>(
