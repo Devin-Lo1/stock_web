@@ -45,6 +45,8 @@ class NotificationApiService {
   Future<List<PushRecord>> fetchPushRecords({
     String? signalEventId,
     String? deviceId,
+    String? code,
+    String? status,
     int limit = 50,
   }) async {
     final query = <String, String>{'limit': '$limit'};
@@ -53,6 +55,12 @@ class NotificationApiService {
     }
     if (deviceId != null && deviceId.trim().isNotEmpty) {
       query['device_id'] = deviceId.trim();
+    }
+    if (code != null && code.trim().isNotEmpty) {
+      query['code'] = code.trim().toUpperCase();
+    }
+    if (status != null && status.trim().isNotEmpty) {
+      query['status'] = status.trim();
     }
     final decoded = await _apiClient.get(
       '/api/v1/notifications/push-records',
@@ -63,5 +71,17 @@ class NotificationApiService {
         .whereType<Map<String, dynamic>>()
         .map(PushRecord.fromJson)
         .toList();
+  }
+
+  Future<PushRecord> retryPushRecord(String recordId) async {
+    final json = await _apiClient.post(
+      '/api/v1/notifications/push-records/$recordId/retry',
+      const {},
+    );
+    return PushRecord.fromJson((json as Map<String, dynamic>?) ?? const {});
+  }
+
+  Future<void> deletePushRecord(String recordId) {
+    return _apiClient.delete('/api/v1/notifications/push-records/$recordId');
   }
 }

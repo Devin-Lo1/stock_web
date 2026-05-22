@@ -3,7 +3,10 @@ from typing import Any
 
 from ..repositories.notifications import (
     create_push_record,
+    get_notification_device,
+    get_push_record,
     get_push_record_by_signal_event_and_device,
+    get_signal_event,
     list_notification_devices,
 )
 from ..schemas import (
@@ -52,6 +55,25 @@ def dispatch_signal_event_to_devices(event: SignalEvent) -> PushDispatchResult:
         created_count=created_count,
         reason="" if devices else "no_registered_devices",
     )
+
+
+def retry_push_record(record_id: str) -> PushRecord | None:
+    record = get_push_record(record_id)
+    if record is None or record.signal_event_id is None:
+        return None
+    event = get_signal_event(record.signal_event_id)
+    device = get_notification_device(record.device_id)
+    if event is None or device is None:
+        return None
+    if event.source == "test" or event.signal_type == "notification_test":
+        return dispatch_notification_to_device(
+            device=device,
+            event=event,
+            title=event.title,
+            message=event.message,
+            data={"source": "notification_test"},
+        )
+    return _dispatch_signal_event_to_device(device=device, event=event)
 
 
 def dispatch_notification_to_device(

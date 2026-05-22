@@ -18,14 +18,30 @@ class PushRecordsScreen extends StatefulWidget {
 }
 
 class _PushRecordsScreenState extends State<PushRecordsScreen> {
+  static const _statusOptions = <String, String>{
+    'all': '全部',
+    'sent': '已发送',
+    'failed': '失败',
+    'skipped': '跳过',
+    'queued': '队列中',
+  };
+
+  final _codeController = TextEditingController();
   List<PushRecord> _records = const [];
   bool _isLoading = true;
+  String _statusFilter = 'all';
   Object? _error;
 
   @override
   void initState() {
     super.initState();
     unawaited(_loadRecords());
+  }
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadRecords() async {
@@ -35,6 +51,8 @@ class _PushRecordsScreenState extends State<PushRecordsScreen> {
     });
     try {
       final records = await widget.notificationRepository.loadPushRecords(
+        code: _codeController.text,
+        status: _statusFilter == 'all' ? null : _statusFilter,
         limit: 100,
       );
       if (!mounted) return;
@@ -44,6 +62,59 @@ class _PushRecordsScreenState extends State<PushRecordsScreen> {
       setState(() => _error = error);
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _retryRecord(PushRecord record) async {
+    try {
+      await widget.notificationRepository.retryPushRecord(record.id);
+      if (!mounted) return;
+      await _loadRecords();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('已重新发起推送')));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('重试失败：$error')));
+    }
+  }
+
+  Future<void> _deleteRecord(PushRecord record) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除推送记录'),
+        content: const Text('删除后列表和单股详情页都不会再显示这条记录。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await widget.notificationRepository.deletePushRecord(record.id);
+      if (!mounted) return;
+      setState(() {
+        _records = _records.where((item) => item.id != record.id).toList();
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('推送记录已删除')));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('删除失败：$error')));
     }
   }
 
@@ -83,6 +154,18 @@ class _PushRecordsScreenState extends State<PushRecordsScreen> {
                 ],
               ),
               const SizedBox(height: 14),
+              _PushRecordFilters(
+                codeController: _codeController,
+                statusOptions: _statusOptions,
+                selectedStatus: _statusFilter,
+                isLoading: _isLoading,
+                onSubmitted: _loadRecords,
+                onStatusChanged: (status) {
+                  setState(() => _statusFilter = status);
+                  unawaited(_loadRecords());
+                },
+              ),
+              const SizedBox(height: 14),
               if (_isLoading)
                 const Center(child: CircularProgressIndicator(strokeWidth: 2))
               else if (_error != null)
@@ -103,7 +186,13 @@ class _PushRecordsScreenState extends State<PushRecordsScreen> {
                 ..._records.map(
                   (record) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: _PushRecordTile(record: record),
+                    child: _PushRecordTile(
+                      record: record,
+                      onRetry: record.signalEventId == null
+                          ? null
+                          : () => _retryRecord(record),
+                      onDelete: () => _deleteRecord(record),
+                    ),
                   ),
                 ),
             ],
@@ -114,10 +203,85 @@ class _PushRecordsScreenState extends State<PushRecordsScreen> {
   }
 }
 
+class _PushRecordFilters extends StatelessWidget {
+  const _PushRecordFilters({
+    required this.codeController,
+    required this.statusOptions,
+    required this.selectedStatus,
+    required this.isLoading,
+    required this.onSubmitted,
+    required this.onStatusChanged,
+  });
+
+  final TextEditingController codeController;
+  final Map<String, String> statusOptions;
+  final String selectedStatus;
+  final bool isLoading;
+  final VoidCallback onSubmitted;
+  final ValueChanged<String> onStatusChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cardColor(context),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor(context)),
+      ),
+      child: Column(
+        children: [
+          TextField(
+            controller: codeController,
+            enabled: !isLoading,
+            textInputAction: TextInputAction.search,
+            textCapitalization: TextCapitalization.characters,
+            decoration: InputDecoration(
+              labelText: '股票代码',
+              hintText: '例如 HK.02318',
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: IconButton(
+                tooltip: '查询',
+                onPressed: isLoading ? null : onSubmitted,
+                icon: const Icon(Icons.arrow_forward_rounded),
+              ),
+            ),
+            onSubmitted: (_) => onSubmitted(),
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final entry in statusOptions.entries)
+                  FilterChip(
+                    label: Text(entry.value),
+                    selected: selectedStatus == entry.key,
+                    onSelected: isLoading
+                        ? null
+                        : (_) => onStatusChanged(entry.key),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PushRecordTile extends StatelessWidget {
-  const _PushRecordTile({required this.record});
+  const _PushRecordTile({
+    required this.record,
+    required this.onRetry,
+    required this.onDelete,
+  });
 
   final PushRecord record;
+  final VoidCallback? onRetry;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -149,6 +313,31 @@ class _PushRecordTile extends StatelessWidget {
                 ),
               ),
               _StatusBadge(label: _statusLabel(record.status), color: color),
+              const SizedBox(width: 4),
+              PopupMenuButton<_PushRecordAction>(
+                tooltip: '更多操作',
+                onSelected: (action) {
+                  switch (action) {
+                    case _PushRecordAction.retry:
+                      onRetry?.call();
+                      break;
+                    case _PushRecordAction.delete:
+                      onDelete();
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: _PushRecordAction.retry,
+                    enabled: onRetry != null,
+                    child: const Text('重试'),
+                  ),
+                  const PopupMenuItem(
+                    value: _PushRecordAction.delete,
+                    child: Text('删除'),
+                  ),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -192,6 +381,8 @@ class _PushRecordTile extends StatelessWidget {
     );
   }
 }
+
+enum _PushRecordAction { retry, delete }
 
 class _StatusBadge extends StatelessWidget {
   const _StatusBadge({required this.label, required this.color});

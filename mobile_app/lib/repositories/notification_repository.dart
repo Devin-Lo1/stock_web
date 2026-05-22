@@ -39,12 +39,24 @@ class NotificationRepository {
   Future<List<PushRecord>> loadPushRecords({
     String? signalEventId,
     String? deviceId,
+    String? code,
+    String? status,
     int limit = 50,
   }) {
     return _apiService.fetchPushRecords(
       signalEventId: signalEventId,
       deviceId: deviceId,
+      code: code,
+      status: status,
       limit: limit,
     );
+  }
+
+  Future<PushRecord> retryPushRecord(String recordId) {
+    return _apiService.retryPushRecord(recordId);
+  }
+
+  Future<void> deletePushRecord(String recordId) {
+    return _apiService.deletePushRecord(recordId);
   }
 }

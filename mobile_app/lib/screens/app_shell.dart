@@ -351,30 +351,10 @@ class _AppShellState extends State<AppShell> {
     StockPosition position,
     List<TradeSignal> signals,
   ) async {
-    final code = position.code.toUpperCase();
-    final signalIds = <String>{
-      for (final signal in signals)
-        if (signal.id.isNotEmpty &&
-            (signal.code.isEmpty || signal.code.toUpperCase() == code))
-          signal.id,
-    }.take(8).toList();
-    if (signalIds.isEmpty) return const [];
-
-    final batches = await Future.wait<List<PushRecord>>(
-      signalIds.map(
-        (id) => _notificationRepository.loadPushRecords(
-          signalEventId: id,
-          limit: 10,
-        ),
-      ),
+    return _notificationRepository.loadPushRecords(
+      code: position.code,
+      limit: 20,
     );
-    final records = batches.expand((batch) => batch).toList()
-      ..sort(
-        (left, right) => (right.sentAt ?? right.createdAt).compareTo(
-          left.sentAt ?? left.createdAt,
-        ),
-      );
-    return records.take(20).toList();
   }
 
   Future<StrategyMonitor> _updateStrategyMonitor(

@@ -107,6 +107,124 @@ def test_push_record_create_and_list() -> None:
     assert rows[0].device_id == device.id
     assert rows[0].request_payload["message"]["token"] == "token-2"
 
+    by_code = database.list_push_records(code="hk.09988", status="queued")
+    assert [row.id for row in by_code] == [record.id]
+
+
+def test_push_record_endpoint_filters_by_code_and_status() -> None:
+    client = TestClient(app)
+    device = database.upsert_notification_device(
+        NotificationDeviceUpsert(
+            platform="android",
+            push_provider="unknown",
+            push_token="token-filter",
+        ),
+    )
+    event = database.create_signal_event(
+        SignalEventCreate(
+            code="HK.02318",
+            signal_type="ma_cross_buy",
+            level="important",
+            title="中国平安触发观察",
+            message="MA5 上穿 MA20。",
+            dedupe_key="HK.02318:ma_cross_buy:filter",
+            payload={"push_candidate": True},
+        ),
+    )
+    other_event = database.create_signal_event(
+        SignalEventCreate(
+            code="HK.09988",
+            signal_type="ma_cross_buy",
+            level="important",
+            title="阿里巴巴触发观察",
+            message="MA5 上穿 MA20。",
+            dedupe_key="HK.09988:ma_cross_buy:filter",
+            payload={"push_candidate": True},
+        ),
+    )
+    record = database.create_push_record(
+        PushRecordCreate(
+            signal_event_id=event.id,
+            device_id=device.id,
+            provider="unknown",
+            status="skipped",
+        ),
+    )
+    database.create_push_record(
+        PushRecordCreate(
+            signal_event_id=other_event.id,
+            device_id=device.id,
+            provider="unknown",
+            status="failed",
+            error_message="send_failed",
+        ),
+    )
+
+    response = client.get(
+        "/api/v1/notifications/push-records?code=hk.02318&status=skipped",
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [item["id"] for item in body] == [record.id]
+
+
+def test_push_record_retry_and_delete_endpoints(monkeypatch) -> None:
+    client = TestClient(app)
+
+    def fake_send_fcm_message(**kwargs):
+        assert kwargs["token"] == "retry-token"
+        assert kwargs["data"]["code"] == "HK.02318"
+        return {"message_id": "projects/test/messages/retry-1"}
+
+    monkeypatch.setattr(push_service, "send_fcm_message", fake_send_fcm_message)
+    device = database.upsert_notification_device(
+        NotificationDeviceUpsert(
+            platform="android",
+            push_provider="fcm",
+            push_token="retry-token",
+        ),
+    )
+    event = database.create_signal_event(
+        SignalEventCreate(
+            source="strategy_monitor",
+            code="HK.02318",
+            signal_type="ma_cross_buy",
+            level="important",
+            title="中国平安触发观察",
+            message="MA5 上穿 MA20。",
+            dedupe_key="HK.02318:ma_cross_buy:retry",
+            payload={"source_category": "strategy", "push_candidate": True},
+        ),
+    )
+    failed = database.create_push_record(
+        PushRecordCreate(
+            signal_event_id=event.id,
+            device_id=device.id,
+            provider="fcm",
+            status="failed",
+            error_message="send_failed",
+            attempt_count=1,
+        ),
+    )
+
+    retry_response = client.post(
+        f"/api/v1/notifications/push-records/{failed.id}/retry",
+    )
+
+    assert retry_response.status_code == 200
+    retry_body = retry_response.json()
+    assert retry_body["id"] != failed.id
+    assert retry_body["status"] == "sent"
+    assert retry_body["attempt_count"] == 1
+
+    delete_response = client.delete(
+        f"/api/v1/notifications/push-records/{failed.id}",
+    )
+
+    assert delete_response.status_code == 204
+    assert database.get_push_record(failed.id) is None
+
 
 def test_notification_device_and_test_endpoints() -> None:
     client = TestClient(app)

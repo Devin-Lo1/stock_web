@@ -346,6 +346,23 @@ def list_notification_devices(*, enabled_only: bool = False) -> list[Notificatio
     return [_row_to_notification_device(row) for row in rows]
 
 
+def get_notification_device(device_id: str) -> NotificationDevice | None:
+    with _connect() as connection:
+        row = connection.execute(
+            """
+            SELECT id, platform, push_provider, push_token, device_name,
+                   app_version, enabled, important_enabled, last_seen_at,
+                   created_at, updated_at
+            FROM notification_devices
+            WHERE id = ?
+            """,
+            (device_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    return _row_to_notification_device(row)
+
+
 def create_push_record(payload: PushRecordCreate) -> PushRecord:
     now = _now()
     record = PushRecord(
@@ -373,32 +390,73 @@ def list_push_records(
     *,
     signal_event_id: str | None = None,
     device_id: str | None = None,
+    code: str | None = None,
+    status: str | None = None,
     limit: int = 50,
 ) -> list[PushRecord]:
     clauses: list[str] = []
     parameters: list[object] = []
     if signal_event_id:
-        clauses.append("signal_event_id = ?")
+        clauses.append("records.signal_event_id = ?")
         parameters.append(signal_event_id)
     if device_id:
-        clauses.append("device_id = ?")
+        clauses.append("records.device_id = ?")
         parameters.append(device_id)
+    if code:
+        clauses.append("events.code = ?")
+        parameters.append(code.strip().upper())
+    if status:
+        clauses.append("records.status = ?")
+        parameters.append(status.strip())
     where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     safe_limit = max(1, min(limit, 200))
     with _connect() as connection:
         rows = connection.execute(
             f"""
-            SELECT id, signal_event_id, device_id, provider, status,
-                   request_payload, response_payload, error_message,
-                   attempt_count, sent_at, created_at, updated_at
-            FROM push_records
+            SELECT records.id, records.signal_event_id, records.device_id,
+                   records.provider, records.status, records.request_payload,
+                   records.response_payload, records.error_message,
+                   records.attempt_count, records.sent_at, records.created_at,
+                   records.updated_at
+            FROM push_records records
+            LEFT JOIN signal_events events
+              ON events.id = records.signal_event_id
             {where_sql}
-            ORDER BY created_at DESC
+            ORDER BY records.created_at DESC
             LIMIT ?
             """,
             (*parameters, safe_limit),
         ).fetchall()
     return [_row_to_push_record(row) for row in rows]
+
+
+def get_push_record(record_id: str) -> PushRecord | None:
+    with _connect() as connection:
+        row = connection.execute(
+            """
+            SELECT id, signal_event_id, device_id, provider, status,
+                   request_payload, response_payload, error_message,
+                   attempt_count, sent_at, created_at, updated_at
+            FROM push_records
+            WHERE id = ?
+            """,
+            (record_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    return _row_to_push_record(row)
+
+
+def delete_push_record(record_id: str) -> bool:
+    with _connect() as connection:
+        cursor = connection.execute(
+            """
+            DELETE FROM push_records
+            WHERE id = ?
+            """,
+            (record_id,),
+        )
+        return bool(cursor.rowcount)
 
 
 def get_push_record_by_signal_event_and_device(

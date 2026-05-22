@@ -3,6 +3,7 @@ from fastapi import APIRouter, Query, status
 from ..errors import not_found_error
 from ..repositories.notifications import (
     create_signal_event,
+    delete_push_record,
     get_signal_event,
     list_notification_devices,
     list_push_records,
@@ -24,6 +25,7 @@ from ..schemas import (
 from ..services.push_service import (
     dispatch_notification_to_device,
     dispatch_signal_event_to_devices,
+    retry_push_record,
 )
 
 router = APIRouter(prefix="/api/v1/notifications", tags=["notifications"])
@@ -106,13 +108,31 @@ def api_mark_signal_event_ignored(event_id: str) -> SignalEvent:
 def api_list_push_records(
     signal_event_id: str | None = Query(default=None),
     device_id: str | None = Query(default=None),
+    code: str | None = Query(default=None),
+    status: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
 ) -> list[PushRecord]:
     return list_push_records(
         signal_event_id=signal_event_id,
         device_id=device_id,
+        code=code,
+        status=status,
         limit=limit,
     )
+
+
+@router.post("/push-records/{record_id}/retry", response_model=PushRecord)
+def api_retry_push_record(record_id: str) -> PushRecord:
+    record = retry_push_record(record_id)
+    if record is None:
+        raise not_found_error("推送记录或关联信号不存在", record_id=record_id)
+    return record
+
+
+@router.delete("/push-records/{record_id}", status_code=status.HTTP_204_NO_CONTENT)
+def api_delete_push_record(record_id: str) -> None:
+    if not delete_push_record(record_id):
+        raise not_found_error("推送记录不存在", record_id=record_id)
 
 
 @router.post(
