@@ -129,6 +129,8 @@ class _AppShellState extends State<AppShell> {
         onLoadStrategyMonitors: _loadPositionStrategyMonitors,
         onLoadPositionSignals: _loadPositionSignalHistory,
         onLoadPositionPushRecords: _loadPositionPushRecords,
+        onUpdateStrategyMonitor: _updateStrategyMonitor,
+        onDeleteStrategyMonitor: _deleteStrategyMonitor,
         onIgnoreSignal: _ignoreSignalEvent,
         onOpenStrategyMonitor: _openStrategyMonitorForPosition,
         isRefreshing: _isRefreshing,
@@ -151,6 +153,8 @@ class _AppShellState extends State<AppShell> {
         onLoadStrategyMonitors: _loadPositionStrategyMonitors,
         onLoadPositionSignals: _loadPositionSignalHistory,
         onLoadPositionPushRecords: _loadPositionPushRecords,
+        onUpdateStrategyMonitor: _updateStrategyMonitor,
+        onDeleteStrategyMonitor: _deleteStrategyMonitor,
         onIgnoreSignal: _ignoreSignalEvent,
         onOpenStrategyMonitor: _openStrategyMonitorForPosition,
       ),
@@ -373,6 +377,22 @@ class _AppShellState extends State<AppShell> {
         ),
       );
     return records.take(20).toList();
+  }
+
+  Future<StrategyMonitor> _updateStrategyMonitor(
+    StrategyMonitor monitor, {
+    bool? enabled,
+    bool? pushCandidate,
+  }) {
+    return _strategyMonitorRepository.updateMonitor(
+      monitor.id,
+      enabled: enabled,
+      pushCandidate: pushCandidate,
+    );
+  }
+
+  Future<void> _deleteStrategyMonitor(StrategyMonitor monitor) {
+    return _strategyMonitorRepository.deleteMonitor(monitor.id);
   }
 
   Future<void> _openStrategyMonitorForPosition(StockPosition position) async {

@@ -34,6 +34,8 @@ class PositionsScreen extends StatelessWidget {
     required this.onLoadStrategyMonitors,
     required this.onLoadPositionSignals,
     required this.onLoadPositionPushRecords,
+    required this.onUpdateStrategyMonitor,
+    required this.onDeleteStrategyMonitor,
     required this.onIgnoreSignal,
     required this.onOpenStrategyMonitor,
   });
@@ -70,6 +72,13 @@ class PositionsScreen extends StatelessWidget {
     List<TradeSignal> signals,
   )
   onLoadPositionPushRecords;
+  final Future<StrategyMonitor> Function(
+    StrategyMonitor monitor, {
+    bool? enabled,
+    bool? pushCandidate,
+  })
+  onUpdateStrategyMonitor;
+  final Future<void> Function(StrategyMonitor monitor) onDeleteStrategyMonitor;
   final Future<void> Function(TradeSignal signal) onIgnoreSignal;
   final Future<void> Function(StockPosition position) onOpenStrategyMonitor;
 
@@ -164,6 +173,8 @@ class PositionsScreen extends StatelessWidget {
               onLoadStrategyMonitors,
               onLoadPositionSignals,
               onLoadPositionPushRecords,
+              onUpdateStrategyMonitor,
+              onDeleteStrategyMonitor,
               onIgnoreSignal,
               onOpenStrategyMonitor,
             ),
@@ -202,6 +213,13 @@ void _openPositionDetail(
     List<TradeSignal> signals,
   )
   onLoadPositionPushRecords,
+  Future<StrategyMonitor> Function(
+    StrategyMonitor monitor, {
+    bool? enabled,
+    bool? pushCandidate,
+  })
+  onUpdateStrategyMonitor,
+  Future<void> Function(StrategyMonitor monitor) onDeleteStrategyMonitor,
   Future<void> Function(TradeSignal signal) onIgnoreSignal,
   Future<void> Function(StockPosition position) onOpenStrategyMonitor,
 ) {
@@ -220,6 +238,8 @@ void _openPositionDetail(
         onLoadStrategyMonitors: onLoadStrategyMonitors,
         onLoadPositionSignals: onLoadPositionSignals,
         onLoadPositionPushRecords: onLoadPositionPushRecords,
+        onUpdateStrategyMonitor: onUpdateStrategyMonitor,
+        onDeleteStrategyMonitor: onDeleteStrategyMonitor,
         onIgnoreSignal: onIgnoreSignal,
         onOpenStrategyMonitor: onOpenStrategyMonitor,
       ),

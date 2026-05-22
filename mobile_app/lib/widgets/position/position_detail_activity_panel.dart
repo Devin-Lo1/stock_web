@@ -14,7 +14,11 @@ class PositionDetailActivityPanel extends StatelessWidget {
     required this.pushRecords,
     required this.isLoading,
     required this.error,
+    required this.updatingMonitorIds,
     required this.onRetry,
+    required this.onMonitorEnabledChanged,
+    required this.onMonitorPushChanged,
+    required this.onDeleteMonitor,
     required this.onIgnoreSignal,
     required this.onOpenStrategyMonitor,
   });
@@ -24,7 +28,13 @@ class PositionDetailActivityPanel extends StatelessWidget {
   final List<PushRecord> pushRecords;
   final bool isLoading;
   final Object? error;
+  final Set<String> updatingMonitorIds;
   final VoidCallback onRetry;
+  final void Function(StrategyMonitor monitor, bool enabled)
+  onMonitorEnabledChanged;
+  final void Function(StrategyMonitor monitor, bool pushCandidate)
+  onMonitorPushChanged;
+  final ValueChanged<StrategyMonitor> onDeleteMonitor;
   final ValueChanged<TradeSignal> onIgnoreSignal;
   final VoidCallback onOpenStrategyMonitor;
 
@@ -98,8 +108,17 @@ class PositionDetailActivityPanel extends StatelessWidget {
                 subtitle: '创建后会按策略扫描这只股票。',
               ),
               children: monitors
-                  .take(3)
-                  .map((monitor) => _MonitorRow(monitor: monitor))
+                  .map(
+                    (monitor) => _MonitorRow(
+                      monitor: monitor,
+                      isUpdating: updatingMonitorIds.contains(monitor.id),
+                      onEnabledChanged: (enabled) =>
+                          onMonitorEnabledChanged(monitor, enabled),
+                      onPushChanged: (pushCandidate) =>
+                          onMonitorPushChanged(monitor, pushCandidate),
+                      onDelete: () => onDeleteMonitor(monitor),
+                    ),
+                  )
                   .toList(),
             ),
             const SizedBox(height: 14),
@@ -186,9 +205,19 @@ class _PanelSection extends StatelessWidget {
 }
 
 class _MonitorRow extends StatelessWidget {
-  const _MonitorRow({required this.monitor});
+  const _MonitorRow({
+    required this.monitor,
+    required this.isUpdating,
+    required this.onEnabledChanged,
+    required this.onPushChanged,
+    required this.onDelete,
+  });
 
   final StrategyMonitor monitor;
+  final bool isUpdating;
+  final ValueChanged<bool> onEnabledChanged;
+  final ValueChanged<bool> onPushChanged;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -203,6 +232,80 @@ class _MonitorRow extends StatelessWidget {
       meta:
           '扫描 ${_timeLabel(monitor.lastScannedAt)} · 触发 ${_timeLabel(monitor.lastTriggeredAt)}',
       badge: monitor.enabled ? '启用' : '停用',
+      trailing: _MonitorActions(
+        monitor: monitor,
+        isUpdating: isUpdating,
+        onEnabledChanged: onEnabledChanged,
+        onPushChanged: onPushChanged,
+        onDelete: onDelete,
+      ),
+    );
+  }
+}
+
+class _MonitorActions extends StatelessWidget {
+  const _MonitorActions({
+    required this.monitor,
+    required this.isUpdating,
+    required this.onEnabledChanged,
+    required this.onPushChanged,
+    required this.onDelete,
+  });
+
+  final StrategyMonitor monitor;
+  final bool isUpdating;
+  final ValueChanged<bool> onEnabledChanged;
+  final ValueChanged<bool> onPushChanged;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isUpdating) {
+      return const SizedBox(
+        width: 144,
+        height: 40,
+        child: Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+    return SizedBox(
+      width: 144,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          IconButton(
+            tooltip: monitor.enabled ? '停用监控' : '启用监控',
+            onPressed: () => onEnabledChanged(!monitor.enabled),
+            icon: Icon(
+              Icons.power_settings_new_rounded,
+              color: monitor.enabled
+                  ? const Color(0xFF20C997)
+                  : secondaryTextColor(context),
+            ),
+          ),
+          IconButton(
+            tooltip: monitor.pushCandidate ? '关闭推送' : '开启推送',
+            onPressed: monitor.enabled
+                ? () => onPushChanged(!monitor.pushCandidate)
+                : null,
+            icon: Icon(
+              monitor.pushCandidate
+                  ? Icons.notifications_active_outlined
+                  : Icons.notifications_off_outlined,
+            ),
+          ),
+          IconButton(
+            tooltip: '删除监控',
+            onPressed: onDelete,
+            icon: const Icon(Icons.delete_outline_rounded),
+          ),
+        ],
+      ),
     );
   }
 }

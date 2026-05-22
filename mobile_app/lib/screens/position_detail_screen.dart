@@ -34,6 +34,8 @@ class PositionDetailScreen extends StatefulWidget {
     required this.onLoadStrategyMonitors,
     required this.onLoadPositionSignals,
     required this.onLoadPositionPushRecords,
+    required this.onUpdateStrategyMonitor,
+    required this.onDeleteStrategyMonitor,
     required this.onIgnoreSignal,
     required this.onOpenStrategyMonitor,
   });
@@ -67,6 +69,13 @@ class PositionDetailScreen extends StatefulWidget {
     List<TradeSignal> signals,
   )
   onLoadPositionPushRecords;
+  final Future<StrategyMonitor> Function(
+    StrategyMonitor monitor, {
+    bool? enabled,
+    bool? pushCandidate,
+  })
+  onUpdateStrategyMonitor;
+  final Future<void> Function(StrategyMonitor monitor) onDeleteStrategyMonitor;
   final Future<void> Function(TradeSignal signal) onIgnoreSignal;
   final Future<void> Function(StockPosition position) onOpenStrategyMonitor;
 
@@ -82,6 +91,7 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
   List<StrategyMonitor> _strategyMonitors = const [];
   List<TradeSignal> _positionSignals = const [];
   List<PushRecord> _pushRecords = const [];
+  final Set<String> _updatingMonitorIds = <String>{};
   bool _isLoadingCandles = true;
   bool _isLoadingDetail = true;
   bool _isLoadingActivity = true;
@@ -349,6 +359,83 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
     }
   }
 
+  Future<void> _updateStrategyMonitor(
+    StrategyMonitor monitor, {
+    bool? enabled,
+    bool? pushCandidate,
+  }) async {
+    if (_updatingMonitorIds.contains(monitor.id)) return;
+    setState(() => _updatingMonitorIds.add(monitor.id));
+    try {
+      final updated = await widget.onUpdateStrategyMonitor(
+        monitor,
+        enabled: enabled,
+        pushCandidate: pushCandidate,
+      );
+      if (!mounted) return;
+      setState(() => _replaceStrategyMonitor(updated));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('监控保存失败：$error')));
+    } finally {
+      if (mounted) setState(() => _updatingMonitorIds.remove(monitor.id));
+    }
+  }
+
+  Future<void> _deleteStrategyMonitor(StrategyMonitor monitor) async {
+    if (_updatingMonitorIds.contains(monitor.id)) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除策略监控'),
+        content: Text('删除“${monitor.strategyName}”后，这只股票将不再按该策略扫描。确认删除吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _updatingMonitorIds.add(monitor.id));
+    try {
+      await widget.onDeleteStrategyMonitor(monitor);
+      if (!mounted) return;
+      setState(() {
+        _strategyMonitors = _strategyMonitors
+            .where((item) => item.id != monitor.id)
+            .toList();
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('策略监控已删除')));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('监控删除失败：$error')));
+    } finally {
+      if (mounted) setState(() => _updatingMonitorIds.remove(monitor.id));
+    }
+  }
+
+  void _replaceStrategyMonitor(StrategyMonitor updated) {
+    final index = _strategyMonitors.indexWhere((item) => item.id == updated.id);
+    if (index == -1) return;
+    _strategyMonitors = [
+      ..._strategyMonitors.take(index),
+      updated,
+      ..._strategyMonitors.skip(index + 1),
+    ];
+  }
+
   Future<void> _openStrategyMonitor() async {
     await widget.onOpenStrategyMonitor(_position);
     if (!mounted) return;
@@ -581,7 +668,13 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
               pushRecords: _pushRecords,
               isLoading: _isLoadingActivity,
               error: _activityError,
+              updatingMonitorIds: _updatingMonitorIds,
               onRetry: () => _loadActivityData(),
+              onMonitorEnabledChanged: (monitor, enabled) =>
+                  _updateStrategyMonitor(monitor, enabled: enabled),
+              onMonitorPushChanged: (monitor, pushCandidate) =>
+                  _updateStrategyMonitor(monitor, pushCandidate: pushCandidate),
+              onDeleteMonitor: _deleteStrategyMonitor,
               onIgnoreSignal: _ignoreSignal,
               onOpenStrategyMonitor: _openStrategyMonitor,
             ),

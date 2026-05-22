@@ -10,6 +10,11 @@ void main() {
     tester,
   ) async {
     var openedMonitor = false;
+    StrategyMonitor? enabledMonitor;
+    bool? enabledValue;
+    StrategyMonitor? pushMonitor;
+    bool? pushValue;
+    StrategyMonitor? deletedMonitor;
     TradeSignal? ignoredSignal;
 
     await tester.pumpWidget(
@@ -64,7 +69,17 @@ void main() {
             ],
             isLoading: false,
             error: null,
+            updatingMonitorIds: const {},
             onRetry: () {},
+            onMonitorEnabledChanged: (monitor, enabled) {
+              enabledMonitor = monitor;
+              enabledValue = enabled;
+            },
+            onMonitorPushChanged: (monitor, pushCandidate) {
+              pushMonitor = monitor;
+              pushValue = pushCandidate;
+            },
+            onDeleteMonitor: (monitor) => deletedMonitor = monitor,
             onIgnoreSignal: (signal) => ignoredSignal = signal,
             onOpenStrategyMonitor: () => openedMonitor = true,
           ),
@@ -79,6 +94,17 @@ void main() {
     expect(find.text('收盘价跌破 MA5'), findsOneWidget);
     expect(find.text('推送记录'), findsOneWidget);
     expect(find.text('已发送'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('停用监控'));
+    expect(enabledMonitor?.id, 'monitor-1');
+    expect(enabledValue, isFalse);
+
+    await tester.tap(find.byTooltip('关闭推送'));
+    expect(pushMonitor?.id, 'monitor-1');
+    expect(pushValue, isFalse);
+
+    await tester.tap(find.byTooltip('删除监控'));
+    expect(deletedMonitor?.id, 'monitor-1');
 
     await tester.tap(find.text('创建监控'));
 
