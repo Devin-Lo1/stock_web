@@ -4,6 +4,7 @@ from ..repositories.positions import get_position, list_positions
 from ..repositories.position_trades import (
     PositionTradeError,
     create_position_trade_for_position,
+    delete_position_trade_for_position,
     list_position_trades,
 )
 from ..repositories.position_snapshots import (
@@ -104,6 +105,27 @@ def api_create_position_trade(
             str(error),
             {"position_id": position_id},
         ) from error
+
+
+@router.delete(
+    "/{position_id}/trades/{trade_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def api_delete_position_trade(position_id: str, trade_id: str) -> None:
+    position = get_position(position_id)
+    if position is None:
+        raise not_found_error("position not found", position_id=position_id)
+    try:
+        deleted = delete_position_trade_for_position(position, trade_id)
+    except PositionTradeError as error:
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "POSITION_TRADE_DELETE_INVALID",
+            str(error),
+            {"position_id": position_id, "trade_id": trade_id},
+        ) from error
+    if not deleted:
+        raise not_found_error("交易记录不存在", trade_id=trade_id)
 
 
 @router.put("/{position_id}", response_model=Position)

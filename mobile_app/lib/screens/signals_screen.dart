@@ -30,6 +30,7 @@ class SignalsScreen extends StatelessWidget {
     required this.strategyMonitorRepository,
     required this.notificationRepository,
     this.onLoadCategory,
+    this.onIgnoreSignal,
     this.onLoadConfigs,
     this.onUpdateConfig,
   });
@@ -46,6 +47,7 @@ class SignalsScreen extends StatelessWidget {
   final NotificationRepository notificationRepository;
   final Future<List<TradeSignal>> Function(SignalCategory category)?
   onLoadCategory;
+  final Future<void> Function(TradeSignal signal)? onIgnoreSignal;
   final Future<List<SignalScanConfig>> Function()? onLoadConfigs;
   final Future<SignalScanConfig> Function(
     String configId, {
@@ -165,6 +167,7 @@ class SignalsScreen extends StatelessWidget {
                   category: category,
                   signals: _signalsForCategory(category),
                   onLoadCategory: onLoadCategory,
+                  onIgnoreSignal: onIgnoreSignal,
                 ),
               ),
             ),
@@ -175,7 +178,11 @@ class SignalsScreen extends StatelessWidget {
 
   List<TradeSignal> _signalsForCategory(SignalCategory category) {
     if (category == SignalCategory.important) {
-      return signals.where((signal) => signal.level == '高').toList();
+      return signals
+          .where(
+            (signal) => signal.readStatus != 'ignored' && signal.level == '高',
+          )
+          .toList();
     }
     if (category == SignalCategory.ignored) {
       return signals.where((signal) => signal.readStatus == 'ignored').toList();
@@ -189,12 +196,14 @@ class _SignalCategoryTile extends StatelessWidget {
     required this.category,
     required this.signals,
     required this.onLoadCategory,
+    required this.onIgnoreSignal,
   });
 
   final SignalCategory category;
   final List<TradeSignal> signals;
   final Future<List<TradeSignal>> Function(SignalCategory category)?
   onLoadCategory;
+  final Future<void> Function(TradeSignal signal)? onIgnoreSignal;
 
   @override
   Widget build(BuildContext context) {
@@ -210,6 +219,7 @@ class _SignalCategoryTile extends StatelessWidget {
                     category: category,
                     signals: signals,
                     onLoadSignals: onLoadCategory,
+                    onIgnoreSignal: onIgnoreSignal,
                   ),
                 ),
               );
@@ -292,12 +302,14 @@ class SignalCategoryScreen extends StatelessWidget {
     required this.category,
     required this.signals,
     this.onLoadSignals,
+    this.onIgnoreSignal,
   });
 
   final SignalCategory category;
   final List<TradeSignal> signals;
   final Future<List<TradeSignal>> Function(SignalCategory category)?
   onLoadSignals;
+  final Future<void> Function(TradeSignal signal)? onIgnoreSignal;
 
   @override
   Widget build(BuildContext context) {
@@ -305,6 +317,7 @@ class SignalCategoryScreen extends StatelessWidget {
       category: category,
       initialSignals: signals,
       onLoadSignals: onLoadSignals,
+      onIgnoreSignal: onIgnoreSignal,
     );
   }
 }
@@ -314,12 +327,14 @@ class _SignalCategoryScaffold extends StatefulWidget {
     required this.category,
     required this.initialSignals,
     required this.onLoadSignals,
+    required this.onIgnoreSignal,
   });
 
   final SignalCategory category;
   final List<TradeSignal> initialSignals;
   final Future<List<TradeSignal>> Function(SignalCategory category)?
   onLoadSignals;
+  final Future<void> Function(TradeSignal signal)? onIgnoreSignal;
 
   @override
   State<_SignalCategoryScaffold> createState() =>
@@ -352,7 +367,13 @@ class _SignalCategoryScaffoldState extends State<_SignalCategoryScaffold> {
     try {
       final signals = await loader(widget.category);
       if (!mounted) return;
-      setState(() => _signals = signals);
+      setState(() {
+        _signals = widget.category == SignalCategory.ignored
+            ? signals
+            : signals
+                  .where((signal) => signal.readStatus != 'ignored')
+                  .toList();
+      });
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = error);
@@ -384,6 +405,44 @@ class _SignalCategoryScaffoldState extends State<_SignalCategoryScaffold> {
       _selectedStrategyCode = '';
       _selectedSignalType = '';
     });
+  }
+
+  Future<void> _ignoreSignal(TradeSignal signal) async {
+    final ignore = widget.onIgnoreSignal;
+    if (ignore == null || signal.id.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('忽略历史信号'),
+        content: const Text('这条信号会移到“已忽略”，不再出现在当前分类列表。确认忽略吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('忽略'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await ignore(signal);
+      if (!mounted) return;
+      setState(() {
+        _signals = _signals.where((item) => item.id != signal.id).toList();
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('信号已忽略')));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('信号忽略失败：$error')));
+    }
   }
 
   @override
@@ -456,7 +515,12 @@ class _SignalCategoryScaffoldState extends State<_SignalCategoryScaffold> {
               ...visibleSignals.map(
                 (signal) => Padding(
                   padding: const EdgeInsets.only(bottom: 10),
-                  child: SignalTile(signal: signal),
+                  child: SignalTile(
+                    signal: signal,
+                    onIgnore: widget.category == SignalCategory.ignored
+                        ? null
+                        : _ignoreSignal,
+                  ),
                 ),
               ),
           ],

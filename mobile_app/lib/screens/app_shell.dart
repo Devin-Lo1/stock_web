@@ -6,10 +6,12 @@ import '../data/sample_positions.dart';
 import '../models/app_enums.dart';
 import '../models/backend_connection_state.dart';
 import '../models/candle.dart';
+import '../models/notification_models.dart';
 import '../models/position_snapshot.dart';
 import '../models/position_trade.dart';
 import '../models/strategy_settings.dart';
 import '../models/stock_position.dart';
+import '../models/strategy_monitor.dart';
 import '../models/trade_signal.dart';
 import '../repositories/backtest_repository.dart';
 import '../repositories/notification_repository.dart';
@@ -35,6 +37,7 @@ import 'positions_screen.dart';
 import 'quant_screen.dart';
 import 'settings_screen.dart';
 import 'signals_screen.dart';
+import 'strategy_monitor_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({
@@ -103,11 +106,14 @@ class _AppShellState extends State<AppShell> {
         .where((position) => position.market == _marketFilter)
         .toList();
     final localSignals = buildSignals(visible, _settings);
-    final signals = _backendSignals.isEmpty ? localSignals : _backendSignals;
+    final allSignals = _backendSignals.isEmpty ? localSignals : _backendSignals;
+    final visibleSignals = allSignals
+        .where((signal) => signal.readStatus != 'ignored')
+        .toList();
     final pages = [
       DashboardScreen(
         positions: visible,
-        signals: signals,
+        signals: visibleSignals,
         selectedMarket: _marketFilter,
         onMarketChanged: (market) => setState(() => _marketFilter = market),
         onAccountTap: _openAccount,
@@ -119,6 +125,12 @@ class _AppShellState extends State<AppShell> {
         onLoadPositionTrades: _loadPositionTrades,
         onLoadPositionSnapshots: _loadPositionSnapshots,
         onCreatePositionTrade: _createPositionTrade,
+        onDeletePositionTrade: _deletePositionTrade,
+        onLoadStrategyMonitors: _loadPositionStrategyMonitors,
+        onLoadPositionSignals: _loadPositionSignalHistory,
+        onLoadPositionPushRecords: _loadPositionPushRecords,
+        onIgnoreSignal: _ignoreSignalEvent,
+        onOpenStrategyMonitor: _openStrategyMonitorForPosition,
         isRefreshing: _isRefreshing,
         backendState: _backendState,
         lastUpdatedAt: _lastUpdatedAt,
@@ -135,6 +147,12 @@ class _AppShellState extends State<AppShell> {
         onLoadPositionTrades: _loadPositionTrades,
         onLoadPositionSnapshots: _loadPositionSnapshots,
         onCreatePositionTrade: _createPositionTrade,
+        onDeletePositionTrade: _deletePositionTrade,
+        onLoadStrategyMonitors: _loadPositionStrategyMonitors,
+        onLoadPositionSignals: _loadPositionSignalHistory,
+        onLoadPositionPushRecords: _loadPositionPushRecords,
+        onIgnoreSignal: _ignoreSignalEvent,
+        onOpenStrategyMonitor: _openStrategyMonitorForPosition,
       ),
       QuantScreen(
         positions: visible,
@@ -142,7 +160,7 @@ class _AppShellState extends State<AppShell> {
         onLoadBacktestCandles: _loadBacktestCandles,
       ),
       SignalsScreen(
-        signals: signals,
+        signals: allSignals,
         isLoading: _isLoadingSignals,
         isScanning: _isScanningSignals,
         usingBackendSignals: _backendSignals.isNotEmpty,
@@ -153,6 +171,7 @@ class _AppShellState extends State<AppShell> {
         strategyMonitorRepository: _strategyMonitorRepository,
         notificationRepository: _notificationRepository,
         onLoadCategory: _backendSignals.isEmpty ? null : _loadSignalCategory,
+        onIgnoreSignal: _ignoreSignalEvent,
         onLoadConfigs: _signalRepository.loadScanConfigs,
         onUpdateConfig: _signalRepository.updateScanConfig,
       ),
@@ -306,6 +325,69 @@ class _AppShellState extends State<AppShell> {
     return _positionRepository.loadPositionSnapshotHistory(position);
   }
 
+  Future<List<StrategyMonitor>> _loadPositionStrategyMonitors(
+    StockPosition position,
+  ) {
+    return _strategyMonitorRepository.loadMonitors(
+      code: position.code,
+      limit: 50,
+    );
+  }
+
+  Future<List<TradeSignal>> _loadPositionSignalHistory(StockPosition position) {
+    return _signalRepository
+        .loadSignals(code: position.code, limit: 80)
+        .then(
+          (signals) => signals
+              .where((signal) => signal.readStatus != 'ignored')
+              .take(60)
+              .toList(),
+        );
+  }
+
+  Future<List<PushRecord>> _loadPositionPushRecords(
+    StockPosition position,
+    List<TradeSignal> signals,
+  ) async {
+    final code = position.code.toUpperCase();
+    final signalIds = <String>{
+      for (final signal in signals)
+        if (signal.id.isNotEmpty &&
+            (signal.code.isEmpty || signal.code.toUpperCase() == code))
+          signal.id,
+    }.take(8).toList();
+    if (signalIds.isEmpty) return const [];
+
+    final batches = await Future.wait<List<PushRecord>>(
+      signalIds.map(
+        (id) => _notificationRepository.loadPushRecords(
+          signalEventId: id,
+          limit: 10,
+        ),
+      ),
+    );
+    final records = batches.expand((batch) => batch).toList()
+      ..sort(
+        (left, right) => (right.sentAt ?? right.createdAt).compareTo(
+          left.sentAt ?? left.createdAt,
+        ),
+      );
+    return records.take(20).toList();
+  }
+
+  void _openStrategyMonitorForPosition(StockPosition position) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => StrategyMonitorScreen(
+          positions: _positions,
+          backtestRepository: _backtestRepository,
+          monitorRepository: _strategyMonitorRepository,
+          initialCode: position.code,
+        ),
+      ),
+    );
+  }
+
   Future<StockPosition?> _createPositionTrade(
     StockPosition position,
     PositionTradeDraft draft,
@@ -318,6 +400,53 @@ class _AppShellState extends State<AppShell> {
       setState(() => _positions = result.positions);
     }
     return result.updatedPosition;
+  }
+
+  Future<StockPosition?> _deletePositionTrade(
+    StockPosition position,
+    PositionTrade trade,
+  ) async {
+    final result = await _positionRepository.deletePositionTrade(
+      position,
+      trade,
+    );
+    if (result.positions.isNotEmpty && mounted) {
+      setState(() => _positions = result.positions);
+    }
+    return result.updatedPosition;
+  }
+
+  Future<void> _ignoreSignalEvent(TradeSignal signal) async {
+    if (signal.id.isEmpty) return;
+    await _signalRepository.ignoreSignalEvent(signal.id);
+    if (!mounted) return;
+    setState(() {
+      _backendSignals = _backendSignals
+          .map(
+            (item) => item.id == signal.id
+                ? TradeSignal(
+                    id: item.id,
+                    code: item.code,
+                    type: item.type,
+                    stock: item.stock,
+                    time: item.time,
+                    level: item.level,
+                    signalType: item.signalType,
+                    tone: item.tone,
+                    message: item.message,
+                    strategyCode: item.strategyCode,
+                    strategyName: item.strategyName,
+                    conditionLabel: item.conditionLabel,
+                    triggerValue: item.triggerValue,
+                    thresholdValue: item.thresholdValue,
+                    pushCandidate: item.pushCandidate,
+                    sourceCategory: item.sourceCategory,
+                    readStatus: 'ignored',
+                  )
+                : item,
+          )
+          .toList();
+    });
   }
 
   Future<void> _loadStoredPositions() async {

@@ -1,4 +1,5 @@
 import math
+import socket
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -8,6 +9,7 @@ from ..schemas import Candle, QuoteSnapshot
 
 FUTU_HOST = "127.0.0.1"
 FUTU_PORT = 11111
+FUTU_CONNECT_TIMEOUT_SECONDS = 2
 
 
 class FutuDependencyError(RuntimeError):
@@ -23,6 +25,7 @@ def check_futu_health() -> dict[str, Any]:
     if sdk is None:
         raise FutuDependencyError("futu-api is not installed")
 
+    _ensure_futu_port_available()
     quote_context = sdk.OpenQuoteContext(host=FUTU_HOST, port=FUTU_PORT)
     try:
         ret, data = quote_context.get_global_state()
@@ -43,6 +46,7 @@ def get_futu_quote(code: str) -> QuoteSnapshot:
         raise FutuDependencyError("futu-api is not installed")
 
     normalized_code = code.strip().upper()
+    _ensure_futu_port_available()
     quote_context = sdk.OpenQuoteContext(host=FUTU_HOST, port=FUTU_PORT)
     try:
         ret, data = quote_context.get_market_snapshot([normalized_code])
@@ -84,6 +88,7 @@ def get_history_kline_quota() -> dict[str, Any]:
     if sdk is None:
         raise FutuDependencyError("futu-api is not installed")
 
+    _ensure_futu_port_available()
     quote_context = sdk.OpenQuoteContext(host=FUTU_HOST, port=FUTU_PORT)
     try:
         ret, data = quote_context.get_history_kl_quota(get_detail=True)
@@ -115,6 +120,7 @@ def request_history_klines(
         actual_end,
     )
     ktype = _futu_ktype(sdk, normalized_period)
+    _ensure_futu_port_available()
     quote_context = sdk.OpenQuoteContext(host=FUTU_HOST, port=FUTU_PORT)
     try:
         ret, data, _ = quote_context.request_history_kline(
@@ -219,6 +225,19 @@ def _futu_ktype(sdk: Any, period: str) -> str:
     if period not in mapping:
         raise FutuOpenDError(f"Unsupported kline period: {period}")
     return mapping[period]
+
+
+def _ensure_futu_port_available() -> None:
+    try:
+        with socket.create_connection(
+            (FUTU_HOST, FUTU_PORT),
+            timeout=FUTU_CONNECT_TIMEOUT_SECONDS,
+        ):
+            return
+    except OSError as error:
+        raise FutuOpenDError(
+            f"FutuOpenD is not reachable at {FUTU_HOST}:{FUTU_PORT}",
+        ) from error
 
 
 def _normalize_quota(data: Any) -> dict[str, Any]:

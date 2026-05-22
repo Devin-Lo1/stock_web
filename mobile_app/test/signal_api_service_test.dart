@@ -91,4 +91,30 @@ void main() {
     expect(body, contains('"enabled":false'));
     expect(config.enabled, isFalse);
   });
+
+  test('ignoreSignalEvent calls backend ignore endpoint', () async {
+    late String method;
+    late Uri requestedUri;
+    final service = SignalApiService(
+      ApiClient(
+        baseUrl: 'http://test.local',
+        httpClient: MockClient((request) async {
+          method = request.method;
+          requestedUri = request.url;
+          return http.Response(
+            '{"id":"event-1","code":"HK.00700","signal_type":"risk",'
+            '"level":"warning","title":"Risk signal","message":"hidden",'
+            '"read_status":"ignored","triggered_at":"2026-05-21T00:00:00Z"}',
+            200,
+          );
+        }),
+      ),
+    );
+
+    final signal = await service.ignoreSignalEvent('event-1');
+
+    expect(method, 'PUT');
+    expect(requestedUri.path, '/api/v1/signals/events/event-1/ignore');
+    expect(signal.readStatus, 'ignored');
+  });
 }

@@ -6,9 +6,10 @@ import '../common/app_tag.dart';
 import 'signal_presentation.dart';
 
 class SignalTile extends StatelessWidget {
-  const SignalTile({super.key, required this.signal});
+  const SignalTile({super.key, required this.signal, this.onIgnore});
 
   final TradeSignal signal;
+  final ValueChanged<TradeSignal>? onIgnore;
 
   @override
   Widget build(BuildContext context) {
@@ -80,6 +81,14 @@ class SignalTile extends StatelessWidget {
             ),
           ),
           AppTag(text: signal.level),
+          if (onIgnore != null && signal.id.isNotEmpty) ...[
+            const SizedBox(width: 6),
+            IconButton(
+              tooltip: '忽略信号',
+              onPressed: () => onIgnore!(signal),
+              icon: const Icon(Icons.visibility_off_outlined),
+            ),
+          ],
         ],
       ),
     );

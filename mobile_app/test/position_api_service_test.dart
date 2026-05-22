@@ -132,6 +132,26 @@ void main() {
     expect(trade.actionLabel, '加仓');
   });
 
+  test('deletePositionTrade calls backend delete endpoint', () async {
+    late String method;
+    late Uri requestedUri;
+    final service = PositionApiService(
+      ApiClient(
+        baseUrl: 'http://test.local',
+        httpClient: MockClient((request) async {
+          method = request.method;
+          requestedUri = request.url;
+          return http.Response('', 204);
+        }),
+      ),
+    );
+
+    await service.deletePositionTrade('position-1', 'trade-1');
+
+    expect(method, 'DELETE');
+    expect(requestedUri.path, '/api/v1/positions/position-1/trades/trade-1');
+  });
+
   test('fetchPositionSnapshots reads one position curve data', () async {
     late Uri requestedUri;
     final service = PositionApiService(

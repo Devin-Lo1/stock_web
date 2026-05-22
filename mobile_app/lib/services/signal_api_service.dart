@@ -76,4 +76,14 @@ class SignalApiService {
       (decoded as Map<String, dynamic>?) ?? const {},
     );
   }
+
+  Future<TradeSignal> ignoreSignalEvent(String eventId) async {
+    final decoded = await _apiClient.put(
+      '/api/v1/signals/events/$eventId/ignore',
+      const {},
+    );
+    return TradeSignal.fromSignalEvent(
+      (decoded as Map<String, dynamic>?) ?? const {},
+    );
+  }
 }

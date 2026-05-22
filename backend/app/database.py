@@ -38,6 +38,8 @@ from .repositories.positions import (
 )
 from .repositories.position_trades import (
     create_position_trade_for_position,
+    delete_position_trade_for_position,
+    get_position_trade,
     list_position_trades,
 )
 from .repositories.position_snapshots import (
@@ -73,6 +75,8 @@ __all__ = [
     "get_position",
     "list_position_trades",
     "create_position_trade_for_position",
+    "delete_position_trade_for_position",
+    "get_position_trade",
     "list_position_snapshots",
     "list_latest_position_snapshots",
     "save_position_snapshots",

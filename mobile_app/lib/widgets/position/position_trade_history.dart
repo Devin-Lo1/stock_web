@@ -5,9 +5,14 @@ import '../../utils/formatters.dart';
 import '../../utils/theme_helpers.dart';
 
 class PositionTradeHistory extends StatelessWidget {
-  const PositionTradeHistory({super.key, required this.trades});
+  const PositionTradeHistory({
+    super.key,
+    required this.trades,
+    this.onDeleteTrade,
+  });
 
   final List<PositionTrade> trades;
+  final ValueChanged<PositionTrade>? onDeleteTrade;
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +59,9 @@ class PositionTradeHistory extends StatelessWidget {
               (trade) => _TradeHistoryRow(
                 trade: trade,
                 showBorder: trade != rows.last,
+                onDelete: onDeleteTrade == null
+                    ? null
+                    : () => onDeleteTrade!(trade),
               ),
             ),
         ],
@@ -63,10 +71,15 @@ class PositionTradeHistory extends StatelessWidget {
 }
 
 class _TradeHistoryRow extends StatelessWidget {
-  const _TradeHistoryRow({required this.trade, required this.showBorder});
+  const _TradeHistoryRow({
+    required this.trade,
+    required this.showBorder,
+    required this.onDelete,
+  });
 
   final PositionTrade trade;
   final bool showBorder;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -130,6 +143,14 @@ class _TradeHistoryRow extends StatelessWidget {
               ],
             ),
           ),
+          if (onDelete != null) ...[
+            const SizedBox(width: 6),
+            IconButton(
+              tooltip: '删除交易记录',
+              onPressed: onDelete,
+              icon: const Icon(Icons.delete_outline_rounded),
+            ),
+          ],
         ],
       ),
     );

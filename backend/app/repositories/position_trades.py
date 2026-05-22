@@ -62,6 +62,80 @@ def create_position_trade_for_position(
     return trade
 
 
+def delete_position_trade_for_position(position: Position, trade_id: str) -> bool:
+    trade = get_position_trade(trade_id)
+    if trade is None or trade.position_id != position.id:
+        return False
+
+    remaining_trades = _list_position_trades_for_replay(
+        position_id=position.id,
+        exclude_trade_id=trade_id,
+    )
+    updated_position = _replay_position_trades(position, remaining_trades)
+    with _connect() as connection:
+        cursor = connection.execute(
+            "DELETE FROM position_trades WHERE id = ? AND position_id = ?",
+            (trade_id, position.id),
+        )
+        if cursor.rowcount == 0:
+            return False
+        _update_position_snapshot(connection, updated_position)
+    return True
+
+
+def get_position_trade(trade_id: str) -> PositionTrade | None:
+    with _connect() as connection:
+        row = connection.execute(
+            f"""
+            SELECT {_POSITION_TRADE_COLUMNS}
+            FROM position_trades
+            WHERE id = ?
+            """,
+            (trade_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    return _row_to_position_trade(row)
+
+
+def _list_position_trades_for_replay(
+    *,
+    position_id: str,
+    exclude_trade_id: str,
+) -> list[PositionTrade]:
+    with _connect() as connection:
+        rows = connection.execute(
+            f"""
+            SELECT {_POSITION_TRADE_COLUMNS}
+            FROM position_trades
+            WHERE position_id = ?
+              AND id != ?
+            ORDER BY trade_time ASC, created_at ASC
+            """,
+            (position_id, exclude_trade_id),
+        ).fetchall()
+    return [_row_to_position_trade(row) for row in rows]
+
+
+def _replay_position_trades(
+    position: Position,
+    trades: list[PositionTrade],
+) -> Position:
+    replayed = position.model_copy(
+        update={
+            "quantity": 0,
+            "cost_price": 0,
+            "avg_cost_price": 0,
+            "adjusted_cost_price": 0,
+            "realized_profit": 0,
+            "updated_at": _now(),
+        },
+    )
+    for trade in trades:
+        replayed = _apply_trade_to_position(replayed, trade)
+    return replayed.model_copy(update={"updated_at": _now()})
+
+
 def _build_position_trade(
     position: Position,
     payload: PositionTradeCreate,

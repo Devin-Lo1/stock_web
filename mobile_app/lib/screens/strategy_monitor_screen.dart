@@ -18,11 +18,13 @@ class StrategyMonitorScreen extends StatefulWidget {
     required this.positions,
     required this.backtestRepository,
     required this.monitorRepository,
+    this.initialCode,
   });
 
   final List<StockPosition> positions;
   final BacktestRepository backtestRepository;
   final StrategyMonitorRepository monitorRepository;
+  final String? initialCode;
 
   @override
   State<StrategyMonitorScreen> createState() => _StrategyMonitorScreenState();
@@ -52,9 +54,10 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedPosition = widget.positions.isEmpty
-        ? null
-        : widget.positions.first;
+    _selectedPosition = _selectInitialPosition(
+      widget.positions,
+      widget.initialCode,
+    );
     unawaited(_load());
   }
 
@@ -65,9 +68,20 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
       _selectedPosition = null;
       return;
     }
+    if (oldWidget.initialCode != widget.initialCode &&
+        widget.initialCode != null) {
+      _selectedPosition = _selectInitialPosition(
+        widget.positions,
+        widget.initialCode,
+      );
+      return;
+    }
     if (_selectedPosition == null ||
         !widget.positions.any((item) => item.code == _selectedPosition!.code)) {
-      _selectedPosition = widget.positions.first;
+      _selectedPosition = _selectInitialPosition(
+        widget.positions,
+        widget.initialCode,
+      );
     }
   }
 
@@ -1021,6 +1035,20 @@ String _marketFromCode(String code) {
   if (upper.startsWith('SH.')) return 'SH';
   if (upper.startsWith('SZ.')) return 'SZ';
   return 'HK';
+}
+
+StockPosition? _selectInitialPosition(
+  List<StockPosition> positions,
+  String? initialCode,
+) {
+  if (positions.isEmpty) return null;
+  final normalized = initialCode?.trim().toUpperCase() ?? '';
+  if (normalized.isNotEmpty) {
+    for (final position in positions) {
+      if (position.code.toUpperCase() == normalized) return position;
+    }
+  }
+  return positions.first;
 }
 
 String _periodLabel(String period) {

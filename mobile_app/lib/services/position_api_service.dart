@@ -101,6 +101,10 @@ class PositionApiService {
     );
     return PositionTrade.fromJson(decoded as Map<String, dynamic>);
   }
+
+  Future<void> deletePositionTrade(String positionId, String tradeId) {
+    return _apiClient.delete('/api/v1/positions/$positionId/trades/$tradeId');
+  }
 }
 
 StockPosition _positionFromBackendJson(Map<String, dynamic> json) {

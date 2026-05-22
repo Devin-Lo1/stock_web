@@ -34,6 +34,10 @@ class SignalRepository {
     return _apiService.scanSignals(refresh: refresh);
   }
 
+  Future<TradeSignal> ignoreSignalEvent(String eventId) {
+    return _apiService.ignoreSignalEvent(eventId);
+  }
+
   Future<List<SignalScanConfig>> loadScanConfigs() {
     return _apiService.fetchSignalScanConfigs();
   }

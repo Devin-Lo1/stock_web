@@ -200,6 +200,28 @@ class PositionRepository {
       updatedPosition: _findLatestPosition(refreshed.positions, position),
     );
   }
+
+  Future<PositionTradeMutationResult> deletePositionTrade(
+    StockPosition position,
+    PositionTrade trade,
+  ) async {
+    final apiService = _apiService;
+    final positionId = position.id;
+    if (apiService == null || positionId == null) {
+      return PositionTradeMutationResult(
+        positions: const [],
+        trade: null,
+        updatedPosition: null,
+      );
+    }
+    await apiService.deletePositionTrade(positionId, trade.id);
+    final refreshed = await loadPositions();
+    return PositionTradeMutationResult(
+      positions: refreshed.positions,
+      trade: trade,
+      updatedPosition: _findLatestPosition(refreshed.positions, position),
+    );
+  }
 }
 
 class PositionLoadResult {

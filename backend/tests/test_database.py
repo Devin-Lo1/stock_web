@@ -133,6 +133,62 @@ def test_position_trade_endpoints() -> None:
     assert current_position["cost_price"] == pytest.approx(95.0625)
     assert current_position["realized_profit"] == pytest.approx(39.5)
 
+    delete_response = client.delete(
+        f"/api/v1/positions/{position_id}/trades/{create_trade_response.json()['id']}",
+    )
+    restored_position = client.get("/api/v1/positions").json()[0]
+    restored_trades = client.get(f"/api/v1/positions/{position_id}/trades").json()
+
+    assert delete_response.status_code == 204
+    assert restored_position["quantity"] == 10
+    assert restored_position["cost_price"] == 100
+    assert restored_position["avg_cost_price"] == 100
+    assert restored_position["adjusted_cost_price"] == 100
+    assert restored_position["realized_profit"] == 0
+    assert [item["action"] for item in restored_trades] == ["open"]
+
+
+def test_position_trade_delete_replays_remaining_trades() -> None:
+    created = database.create_position(
+        PositionCreate(
+            market="HK",
+            code="HK.00700",
+            name="Tencent",
+            quantity=100,
+            cost_price=10,
+            currency="HKD",
+        ),
+    )
+    opening = database.list_position_trades(position_id=created.id)[0]
+    add = database.create_position_trade_for_position(
+        database.get_position(created.id) or created,
+        PositionTradeCreate(action="add", quantity=100, price=20),
+    )
+    reduce = database.create_position_trade_for_position(
+        database.get_position(created.id) or created,
+        PositionTradeCreate(action="reduce", quantity=50, price=30),
+    )
+
+    position_after_reduce = database.get_position(created.id)
+    assert position_after_reduce is not None
+    assert position_after_reduce.quantity == 150
+    assert position_after_reduce.realized_profit == pytest.approx(750)
+
+    deleted = database.delete_position_trade_for_position(
+        position_after_reduce,
+        reduce.id,
+    )
+    replayed = database.get_position(created.id)
+    trades = database.list_position_trades(position_id=created.id)
+
+    assert deleted is True
+    assert replayed is not None
+    assert replayed.quantity == 200
+    assert replayed.avg_cost_price == pytest.approx(15)
+    assert replayed.adjusted_cost_price == pytest.approx(15)
+    assert replayed.realized_profit == 0
+    assert {trade.id for trade in trades} == {opening.id, add.id}
+
 
 def test_position_trade_close_updates_position_snapshot() -> None:
     client = TestClient(app)

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../models/candle.dart';
+import '../models/notification_models.dart';
 import '../models/position_snapshot.dart';
 import '../models/position_trade.dart';
 import '../models/stock_position.dart';
+import '../models/strategy_monitor.dart';
+import '../models/trade_signal.dart';
 import '../sheets/position_trade_sheet.dart';
 import '../utils/formatters.dart';
 import '../utils/theme_helpers.dart';
@@ -10,6 +13,7 @@ import '../widgets/chart/fullscreen_kline_screen.dart';
 import '../widgets/chart/position_kline_chart.dart';
 import '../widgets/common/app_tag.dart';
 import '../widgets/chart/kline_chart_period.dart';
+import '../widgets/position/position_detail_activity_panel.dart';
 import '../widgets/position/position_profit_curve.dart';
 import '../widgets/position/position_detail_metric.dart';
 import '../widgets/position/position_trade_history.dart';
@@ -26,6 +30,12 @@ class PositionDetailScreen extends StatefulWidget {
     required this.onLoadPositionTrades,
     required this.onLoadPositionSnapshots,
     required this.onCreatePositionTrade,
+    required this.onDeletePositionTrade,
+    required this.onLoadStrategyMonitors,
+    required this.onLoadPositionSignals,
+    required this.onLoadPositionPushRecords,
+    required this.onIgnoreSignal,
+    required this.onOpenStrategyMonitor,
   });
 
   final StockPosition position;
@@ -43,6 +53,22 @@ class PositionDetailScreen extends StatefulWidget {
     PositionTradeDraft draft,
   )
   onCreatePositionTrade;
+  final Future<StockPosition?> Function(
+    StockPosition position,
+    PositionTrade trade,
+  )
+  onDeletePositionTrade;
+  final Future<List<StrategyMonitor>> Function(StockPosition position)
+  onLoadStrategyMonitors;
+  final Future<List<TradeSignal>> Function(StockPosition position)
+  onLoadPositionSignals;
+  final Future<List<PushRecord>> Function(
+    StockPosition position,
+    List<TradeSignal> signals,
+  )
+  onLoadPositionPushRecords;
+  final Future<void> Function(TradeSignal signal) onIgnoreSignal;
+  final ValueChanged<StockPosition> onOpenStrategyMonitor;
 
   @override
   State<PositionDetailScreen> createState() => _PositionDetailScreenState();
@@ -53,10 +79,15 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
   List<Candle> _candles = const [];
   List<PositionTrade> _trades = const [];
   List<PositionSnapshot> _snapshots = const [];
+  List<StrategyMonitor> _strategyMonitors = const [];
+  List<TradeSignal> _positionSignals = const [];
+  List<PushRecord> _pushRecords = const [];
   bool _isLoadingCandles = true;
   bool _isLoadingDetail = true;
+  bool _isLoadingActivity = true;
   Object? _candleError;
   Object? _detailError;
+  Object? _activityError;
   KLineChartPeriod _selectedPeriod = KLineChartPeriod.day;
 
   @override
@@ -64,12 +95,18 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
     super.initState();
     _loadCandles();
     _loadDetailData();
+    _loadActivityData();
   }
 
   Future<void> _editPosition() async {
     final updated = await widget.onEdit(_position);
     if (updated != null && mounted) {
       setState(() => _position = updated);
+      await Future.wait([
+        _loadCandles(silent: true),
+        _loadDetailData(silent: true),
+        _loadActivityData(silent: true),
+      ]);
     }
   }
 
@@ -94,8 +131,9 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
     final positionsFuture = widget.onRefresh();
     final candlesFuture = _loadCandles(silent: true);
     final detailFuture = _loadDetailData(silent: true);
+    final activityFuture = _loadActivityData(silent: true);
     final positions = await positionsFuture;
-    await Future.wait([candlesFuture, detailFuture]);
+    await Future.wait([candlesFuture, detailFuture, activityFuture]);
     if (!mounted) return;
     final latest = _findLatestPosition(positions, _position);
     if (latest != null) {
@@ -127,6 +165,40 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
       setState(() {
         _isLoadingDetail = false;
         _detailError = error;
+      });
+    }
+  }
+
+  Future<void> _loadActivityData({bool silent = false}) async {
+    if (!silent && mounted) {
+      setState(() {
+        _isLoadingActivity = true;
+        _activityError = null;
+      });
+    }
+    try {
+      final result = await Future.wait<Object>([
+        widget.onLoadStrategyMonitors(_position),
+        widget.onLoadPositionSignals(_position),
+      ]);
+      final signals = result[1] as List<TradeSignal>;
+      final pushRecords = await widget.onLoadPositionPushRecords(
+        _position,
+        signals,
+      );
+      if (!mounted) return;
+      setState(() {
+        _strategyMonitors = result[0] as List<StrategyMonitor>;
+        _positionSignals = signals;
+        _pushRecords = pushRecords;
+        _isLoadingActivity = false;
+        _activityError = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingActivity = false;
+        _activityError = error;
       });
     }
   }
@@ -186,11 +258,94 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
         setState(() => _position = updated);
       }
       await _loadDetailData();
+      await _loadActivityData(silent: true);
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('交易记录保存失败：$error')));
+    }
+  }
+
+  Future<void> _deleteTrade(PositionTrade trade) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除交易记录'),
+        content: const Text('删除后会重新计算持仓数量、成本和已实现盈亏。确认删除这条记录吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      final updated = await widget.onDeletePositionTrade(_position, trade);
+      if (updated != null && mounted) {
+        setState(() => _position = updated);
+      }
+      await Future.wait([
+        _loadDetailData(silent: true),
+        _loadActivityData(silent: true),
+      ]);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('交易记录已删除，持仓已重算')));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('交易记录删除失败：$error')));
+    }
+  }
+
+  Future<void> _ignoreSignal(TradeSignal signal) async {
+    if (signal.id.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('忽略历史信号'),
+        content: const Text('这条信号会移到“已忽略”，不再出现在当前股票详情页。确认忽略吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('忽略'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await widget.onIgnoreSignal(signal);
+      if (!mounted) return;
+      setState(() {
+        _positionSignals = _positionSignals
+            .where((item) => item.id != signal.id)
+            .toList();
+        _pushRecords = _pushRecords
+            .where((item) => item.signalEventId != signal.id)
+            .toList();
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('信号已忽略')));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('信号忽略失败：$error')));
     }
   }
 
@@ -408,8 +563,23 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
             else ...[
               PositionProfitCurve(snapshots: _snapshots),
               const SizedBox(height: 12),
-              PositionTradeHistory(trades: _trades),
+              PositionTradeHistory(
+                trades: _trades,
+                onDeleteTrade: _deleteTrade,
+              ),
             ],
+            const SizedBox(height: 12),
+            PositionDetailActivityPanel(
+              monitors: _strategyMonitors,
+              signals: _positionSignals,
+              pushRecords: _pushRecords,
+              isLoading: _isLoadingActivity,
+              error: _activityError,
+              onRetry: () => _loadActivityData(),
+              onIgnoreSignal: _ignoreSignal,
+              onOpenStrategyMonitor: () =>
+                  widget.onOpenStrategyMonitor(_position),
+            ),
           ],
         ),
       ),

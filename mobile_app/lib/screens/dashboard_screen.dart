@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import '../models/app_enums.dart';
 import '../models/backend_connection_state.dart';
 import '../models/candle.dart';
+import '../models/notification_models.dart';
 import '../models/position_snapshot.dart';
 import '../models/position_trade.dart';
 import '../models/stock_position.dart';
+import '../models/strategy_monitor.dart';
 import '../models/trade_signal.dart';
 import '../utils/formatters.dart';
 import '../utils/theme_helpers.dart';
@@ -32,6 +34,12 @@ class DashboardScreen extends StatelessWidget {
     required this.onLoadPositionTrades,
     required this.onLoadPositionSnapshots,
     required this.onCreatePositionTrade,
+    required this.onDeletePositionTrade,
+    required this.onLoadStrategyMonitors,
+    required this.onLoadPositionSignals,
+    required this.onLoadPositionPushRecords,
+    required this.onIgnoreSignal,
+    required this.onOpenStrategyMonitor,
     required this.isRefreshing,
     required this.backendState,
     required this.lastUpdatedAt,
@@ -57,6 +65,22 @@ class DashboardScreen extends StatelessWidget {
     PositionTradeDraft draft,
   )
   onCreatePositionTrade;
+  final Future<StockPosition?> Function(
+    StockPosition position,
+    PositionTrade trade,
+  )
+  onDeletePositionTrade;
+  final Future<List<StrategyMonitor>> Function(StockPosition position)
+  onLoadStrategyMonitors;
+  final Future<List<TradeSignal>> Function(StockPosition position)
+  onLoadPositionSignals;
+  final Future<List<PushRecord>> Function(
+    StockPosition position,
+    List<TradeSignal> signals,
+  )
+  onLoadPositionPushRecords;
+  final Future<void> Function(TradeSignal signal) onIgnoreSignal;
+  final ValueChanged<StockPosition> onOpenStrategyMonitor;
   final bool isRefreshing;
   final BackendConnectionState backendState;
   final DateTime? lastUpdatedAt;
@@ -140,6 +164,12 @@ class DashboardScreen extends StatelessWidget {
                     onLoadPositionTrades,
                     onLoadPositionSnapshots,
                     onCreatePositionTrade,
+                    onDeletePositionTrade,
+                    onLoadStrategyMonitors,
+                    onLoadPositionSignals,
+                    onLoadPositionPushRecords,
+                    onIgnoreSignal,
+                    onOpenStrategyMonitor,
                   ),
                 ),
               );
@@ -405,6 +435,19 @@ void _openPositionDetail(
     PositionTradeDraft draft,
   )
   onCreatePositionTrade,
+  Future<StockPosition?> Function(StockPosition position, PositionTrade trade)
+  onDeletePositionTrade,
+  Future<List<StrategyMonitor>> Function(StockPosition position)
+  onLoadStrategyMonitors,
+  Future<List<TradeSignal>> Function(StockPosition position)
+  onLoadPositionSignals,
+  Future<List<PushRecord>> Function(
+    StockPosition position,
+    List<TradeSignal> signals,
+  )
+  onLoadPositionPushRecords,
+  Future<void> Function(TradeSignal signal) onIgnoreSignal,
+  ValueChanged<StockPosition> onOpenStrategyMonitor,
 ) {
   Navigator.of(context).push(
     MaterialPageRoute<void>(
@@ -417,6 +460,12 @@ void _openPositionDetail(
         onLoadPositionTrades: onLoadPositionTrades,
         onLoadPositionSnapshots: onLoadPositionSnapshots,
         onCreatePositionTrade: onCreatePositionTrade,
+        onDeletePositionTrade: onDeletePositionTrade,
+        onLoadStrategyMonitors: onLoadStrategyMonitors,
+        onLoadPositionSignals: onLoadPositionSignals,
+        onLoadPositionPushRecords: onLoadPositionPushRecords,
+        onIgnoreSignal: onIgnoreSignal,
+        onOpenStrategyMonitor: onOpenStrategyMonitor,
       ),
     ),
   );
