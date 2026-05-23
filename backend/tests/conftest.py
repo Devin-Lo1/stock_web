@@ -30,6 +30,9 @@ TABLES = (
     "position_snapshots",
     "position_trades",
     "positions",
+    "fund_navs",
+    "fund_trades",
+    "fund_positions",
 )
 
 

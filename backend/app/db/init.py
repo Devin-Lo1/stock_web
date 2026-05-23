@@ -126,6 +126,75 @@ def init_database(*, seed_defaults: bool = True) -> None:
         )
         connection.execute(
             """
+            CREATE TABLE IF NOT EXISTS fund_positions (
+                id TEXT PRIMARY KEY,
+                fund_code TEXT NOT NULL,
+                name TEXT NOT NULL,
+                fund_type TEXT NOT NULL,
+                shares REAL NOT NULL,
+                avg_cost_nav REAL NOT NULL,
+                invested_amount REAL NOT NULL,
+                realized_profit REAL NOT NULL,
+                currency TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """,
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_fund_positions_code
+            ON fund_positions (fund_code)
+            """,
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS fund_trades (
+                id TEXT PRIMARY KEY,
+                fund_position_id TEXT NOT NULL,
+                fund_code TEXT NOT NULL,
+                name TEXT NOT NULL,
+                action TEXT NOT NULL,
+                shares REAL NOT NULL,
+                nav REAL NOT NULL,
+                fee REAL NOT NULL,
+                trade_date TEXT NOT NULL,
+                note TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """,
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_fund_trades_position_date
+            ON fund_trades (fund_position_id, trade_date DESC)
+            """,
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS fund_navs (
+                fund_code TEXT NOT NULL,
+                nav_date TEXT NOT NULL,
+                unit_nav REAL NOT NULL,
+                accumulated_nav REAL NOT NULL,
+                daily_growth_rate REAL NOT NULL,
+                subscribe_status TEXT NOT NULL,
+                redeem_status TEXT NOT NULL,
+                source TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (fund_code, nav_date)
+            )
+            """,
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_fund_navs_code_date
+            ON fund_navs (fund_code, nav_date DESC)
+            """,
+        )
+        connection.execute(
+            """
             CREATE TABLE IF NOT EXISTS quote_snapshots (
                 code TEXT PRIMARY KEY,
                 market TEXT NOT NULL,

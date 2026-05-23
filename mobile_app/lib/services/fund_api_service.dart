@@ -1,0 +1,62 @@
+import '../models/fund_models.dart';
+import 'api_client.dart';
+
+class FundApiService {
+  const FundApiService(this._client);
+
+  final ApiClient _client;
+
+  Future<List<FundSearchResult>> searchFunds(String query) async {
+    final payload = await _client.get(
+      '/api/v1/funds/search',
+      query: {'query': query, 'limit': '20'},
+    );
+    if (payload is! List) return const [];
+    return payload
+        .whereType<Map<String, dynamic>>()
+        .map(FundSearchResult.fromJson)
+        .toList();
+  }
+
+  Future<List<FundPositionSummary>> fetchPositionSummaries({
+    bool refresh = true,
+  }) async {
+    final payload = await _client.get(
+      '/api/v1/funds/positions/summary',
+      query: {'refresh': '$refresh'},
+    );
+    if (payload is! List) return const [];
+    return payload
+        .whereType<Map<String, dynamic>>()
+        .map(FundPositionSummary.fromJson)
+        .toList();
+  }
+
+  Future<FundPosition> createPosition({
+    required FundSearchResult fund,
+    required double shares,
+    required double costNav,
+    required double fee,
+  }) async {
+    final payload = await _client.post('/api/v1/funds/positions', {
+      'fund_code': fund.code,
+      'name': fund.name,
+      'fund_type': fund.fundType,
+      'shares': shares,
+      'cost_nav': costNav,
+      'fee': fee,
+    });
+    return FundPosition.fromJson(payload as Map<String, dynamic>);
+  }
+
+  Future<void> deletePosition(String positionId) {
+    return _client.delete('/api/v1/funds/positions/$positionId');
+  }
+
+  Future<void> createTrade(String positionId, FundTradeDraft draft) async {
+    await _client.post(
+      '/api/v1/funds/positions/$positionId/trades',
+      draft.toJson(),
+    );
+  }
+}

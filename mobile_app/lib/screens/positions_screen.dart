@@ -26,6 +26,7 @@ class PositionsScreen extends StatelessWidget {
     required this.onAddPosition,
     required this.onEditPosition,
     required this.onDeletePosition,
+    required this.onOpenFunds,
     required this.onRefresh,
     required this.onLoadCandles,
     required this.onLoadCapitalFlow,
@@ -48,6 +49,7 @@ class PositionsScreen extends StatelessWidget {
   final VoidCallback onAddPosition;
   final Future<StockPosition?> Function(StockPosition position) onEditPosition;
   final ValueChanged<StockPosition> onDeletePosition;
+  final VoidCallback onOpenFunds;
   final Future<List<StockPosition>> Function() onRefresh;
   final Future<List<Candle>> Function(String code, {String period, int limit})
   onLoadCandles;
@@ -130,6 +132,12 @@ class PositionsScreen extends StatelessWidget {
                   MarketSwitch(
                     selectedMarket: selectedMarket,
                     onChanged: onMarketChanged,
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.tonalIcon(
+                    onPressed: onOpenFunds,
+                    icon: const Icon(Icons.savings_outlined),
+                    label: const Text('基金'),
                   ),
                   const SizedBox(width: 8),
                   FilledButton.tonalIcon(

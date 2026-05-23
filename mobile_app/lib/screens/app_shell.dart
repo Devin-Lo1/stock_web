@@ -15,12 +15,14 @@ import '../models/stock_position.dart';
 import '../models/strategy_monitor.dart';
 import '../models/trade_signal.dart';
 import '../repositories/backtest_repository.dart';
+import '../repositories/fund_repository.dart';
 import '../repositories/notification_repository.dart';
 import '../repositories/position_repository.dart';
 import '../repositories/signal_repository.dart';
 import '../repositories/strategy_monitor_repository.dart';
 import '../services/api_client.dart';
 import '../services/backtest_api_service.dart';
+import '../services/fund_api_service.dart';
 import '../services/local_signal_service.dart';
 import '../services/notification_api_service.dart';
 import '../services/notification_service.dart';
@@ -34,6 +36,7 @@ import '../sheets/add_position_sheet.dart';
 import '../utils/theme_helpers.dart';
 import 'account_screen.dart';
 import 'dashboard_screen.dart';
+import 'funds_screen.dart';
 import 'positions_screen.dart';
 import 'quant_screen.dart';
 import 'settings_screen.dart';
@@ -60,6 +63,7 @@ class _AppShellState extends State<AppShell> {
   late final PositionRepository _positionRepository;
   late final QuoteApiService _quoteApiService;
   late final BacktestRepository _backtestRepository;
+  late final FundRepository _fundRepository;
   late final NotificationRepository _notificationRepository;
   late final NotificationService _notificationService;
   late final SignalRepository _signalRepository;
@@ -82,6 +86,7 @@ class _AppShellState extends State<AppShell> {
     _apiBaseUrl = apiClient.baseUrl;
     _quoteApiService = QuoteApiService(apiClient);
     _backtestRepository = BacktestRepository(BacktestApiService(apiClient));
+    _fundRepository = FundRepository(FundApiService(apiClient));
     _signalRepository = SignalRepository(SignalApiService(apiClient));
     _strategyMonitorRepository = StrategyMonitorRepository(
       StrategyMonitorApiService(apiClient),
@@ -146,6 +151,7 @@ class _AppShellState extends State<AppShell> {
         onAddPosition: _addPosition,
         onEditPosition: _editPosition,
         onDeletePosition: _deletePosition,
+        onOpenFunds: _openFunds,
         onRefresh: _refreshPositions,
         onLoadCandles: _loadCandles,
         onLoadCapitalFlow: _loadCapitalFlow,
@@ -246,6 +252,14 @@ class _AppShellState extends State<AppShell> {
           onDisplayModeChanged: widget.onDisplayModeChanged,
           onRefresh: _refreshPositions,
         ),
+      ),
+    );
+  }
+
+  void _openFunds() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => FundsScreen(repository: _fundRepository),
       ),
     );
   }

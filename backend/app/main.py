@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 from .db.init import init_database
-from .routers import backtests, futu, health, klines, notifications, positions, quotes, signals
+from .routers import backtests, funds, futu, health, klines, notifications, positions, quotes, signals
 from .routers import stocks, strategies
 from .services.strategy_monitor_scheduler import (
     start_strategy_monitor_scheduler_from_env,
@@ -45,3 +45,4 @@ app.include_router(stocks.router)
 app.include_router(futu.router)
 app.include_router(strategies.router)
 app.include_router(backtests.router)
+app.include_router(funds.router)

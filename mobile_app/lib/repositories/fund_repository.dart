@@ -1,0 +1,38 @@
+import '../models/fund_models.dart';
+import '../services/fund_api_service.dart';
+
+class FundRepository {
+  const FundRepository(this._apiService);
+
+  final FundApiService _apiService;
+
+  Future<List<FundSearchResult>> searchFunds(String query) {
+    return _apiService.searchFunds(query);
+  }
+
+  Future<List<FundPositionSummary>> loadSummaries({bool refresh = true}) {
+    return _apiService.fetchPositionSummaries(refresh: refresh);
+  }
+
+  Future<FundPosition> createPosition({
+    required FundSearchResult fund,
+    required double shares,
+    required double costNav,
+    required double fee,
+  }) {
+    return _apiService.createPosition(
+      fund: fund,
+      shares: shares,
+      costNav: costNav,
+      fee: fee,
+    );
+  }
+
+  Future<void> deletePosition(String positionId) {
+    return _apiService.deletePosition(positionId);
+  }
+
+  Future<void> createTrade(String positionId, FundTradeDraft draft) {
+    return _apiService.createTrade(positionId, draft);
+  }
+}
