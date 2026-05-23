@@ -137,6 +137,27 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
     }
   }
 
+  Future<void> _confirmDeletePosition() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除持仓'),
+        content: Text('删除“${_position.name}”后，这只股票的当前持仓会从列表移除。确认删除吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) _deletePosition();
+  }
+
   void _deletePosition() {
     widget.onDelete();
     Navigator.of(context).pop();
@@ -489,6 +510,66 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
     await _loadActivityData(silent: true);
   }
 
+  List<Widget> _chartAndCapitalFlowWidgets() {
+    return [
+      _ChartSwitcherTabs(
+        selectedIndex: _selectedChartIndex,
+        onChanged: (index) {
+          setState(() => _selectedChartIndex = index);
+          _chartPageController.animateToPage(
+            index,
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOutCubic,
+          );
+        },
+      ),
+      const SizedBox(height: 10),
+      AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        height: _selectedChartIndex == 0 ? 418 : 214,
+        child: PageView(
+          controller: _chartPageController,
+          onPageChanged: (index) => setState(() => _selectedChartIndex = index),
+          children: [
+            Column(
+              children: [
+                KLineChartTabs(
+                  selectedPeriod: _selectedPeriod,
+                  onPeriodChanged: _changeChartPeriod,
+                ),
+                const SizedBox(height: 8),
+                PositionKLineChart(
+                  position: _position,
+                  candles: _candles,
+                  period: _selectedPeriod,
+                  isLoading: _isLoadingCandles,
+                  hasError: _candleError != null,
+                  onRetry: _loadCandles,
+                  onOpenFullScreen: _openFullScreenChart,
+                ),
+              ],
+            ),
+            _ProfitCurvePage(
+              isLoading: _isLoadingDetail,
+              error: _detailError,
+              snapshots: _snapshots,
+              onRetry: () => _loadDetailData(),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 12),
+      CapitalFlowPanel(
+        snapshot: _capitalFlow,
+        isLoading: _isLoadingCapitalFlow,
+        error: _capitalFlowError,
+        onRetry: _loadCapitalFlow,
+      ),
+      const SizedBox(height: 16),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final dailyColor = _profitColor(_position.dailyProfit);
@@ -513,7 +594,7 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
         actions: [
           IconButton(
             tooltip: '删除持仓',
-            onPressed: _deletePosition,
+            onPressed: _confirmDeletePosition,
             icon: const Icon(Icons.delete_outline_rounded),
           ),
           IconButton(
@@ -548,6 +629,7 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
             const SizedBox(height: 18),
             QuoteOverviewGrid(position: _position),
             const SizedBox(height: 14),
+            ..._chartAndCapitalFlowWidgets(),
             if (!hasBackendMetrics || _detailError != null) ...[
               _DetailSyncNotice(
                 message: _detailError == null
@@ -670,70 +752,13 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: FilledButton.tonalIcon(
-                    onPressed: _deletePosition,
+                    onPressed: _confirmDeletePosition,
                     icon: const Icon(Icons.delete_outline_rounded),
                     label: const Text('删除'),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            _ChartSwitcherTabs(
-              selectedIndex: _selectedChartIndex,
-              onChanged: (index) {
-                setState(() => _selectedChartIndex = index);
-                _chartPageController.animateToPage(
-                  index,
-                  duration: const Duration(milliseconds: 240),
-                  curve: Curves.easeOutCubic,
-                );
-              },
-            ),
-            const SizedBox(height: 10),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
-              height: _selectedChartIndex == 0 ? 418 : 214,
-              child: PageView(
-                controller: _chartPageController,
-                onPageChanged: (index) =>
-                    setState(() => _selectedChartIndex = index),
-                children: [
-                  Column(
-                    children: [
-                      KLineChartTabs(
-                        selectedPeriod: _selectedPeriod,
-                        onPeriodChanged: _changeChartPeriod,
-                      ),
-                      const SizedBox(height: 8),
-                      PositionKLineChart(
-                        position: _position,
-                        candles: _candles,
-                        period: _selectedPeriod,
-                        isLoading: _isLoadingCandles,
-                        hasError: _candleError != null,
-                        onRetry: _loadCandles,
-                        onOpenFullScreen: _openFullScreenChart,
-                      ),
-                    ],
-                  ),
-                  _ProfitCurvePage(
-                    isLoading: _isLoadingDetail,
-                    error: _detailError,
-                    snapshots: _snapshots,
-                    onRetry: () => _loadDetailData(),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            CapitalFlowPanel(
-              snapshot: _capitalFlow,
-              isLoading: _isLoadingCapitalFlow,
-              error: _capitalFlowError,
-              onRetry: _loadCapitalFlow,
-            ),
-            const SizedBox(height: 12),
             if (_isLoadingDetail)
               const Center(
                 child: Padding(

@@ -339,6 +339,15 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
   }
 
   Future<void> _deleteMonitor(StrategyMonitor monitor) async {
+    if (_updatingIds.contains(monitor.id)) return;
+    final confirmed = await _confirmDelete(
+      title: '删除策略监控',
+      content:
+          '删除“${monitor.name} · ${monitor.strategyName}”后，这个监控不会再扫描。确认删除吗？',
+      actionLabel: '删除',
+    );
+    if (confirmed != true) return;
+    if (!mounted) return;
     setState(() => _updatingIds.add(monitor.id));
     try {
       await widget.monitorRepository.deleteMonitor(monitor.id);
@@ -356,6 +365,13 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
 
   Future<void> _deleteScanLog(StrategyMonitorScanLog log) async {
     if (_deletingLogIds.contains(log.id)) return;
+    final confirmed = await _confirmDelete(
+      title: '删除扫描日志',
+      content: '删除后这条扫描结果不会再显示。确认删除吗？',
+      actionLabel: '删除',
+    );
+    if (confirmed != true) return;
+    if (!mounted) return;
     setState(() => _deletingLogIds.add(log.id));
     try {
       await widget.monitorRepository.deleteScanLog(log.id);
@@ -526,6 +542,30 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<bool?> _confirmDelete({
+    required String title,
+    required String content,
+    required String actionLabel,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(actionLabel),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
