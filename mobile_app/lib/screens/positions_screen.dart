@@ -13,7 +13,6 @@ import '../utils/formatters.dart';
 import '../utils/theme_helpers.dart';
 import '../widgets/common/empty_state.dart';
 import '../widgets/common/market_switch.dart';
-import '../widgets/common/page_title.dart';
 import '../widgets/position/brokerage_position_table.dart';
 import 'position_detail_screen.dart';
 
@@ -123,30 +122,13 @@ class PositionsScreen extends StatelessWidget {
         separatorBuilder: (context, index) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
           if (index == 0) {
-            return PageTitle(
-              title: '持仓',
-              subtitle: '${positions.length} 只股票 · 总盈亏 $summaryProfitText',
-              action: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  MarketSwitch(
-                    selectedMarket: selectedMarket,
-                    onChanged: onMarketChanged,
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.tonalIcon(
-                    onPressed: onOpenFunds,
-                    icon: const Icon(Icons.savings_outlined),
-                    label: const Text('基金'),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.tonalIcon(
-                    onPressed: onAddPosition,
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('添加'),
-                  ),
-                ],
-              ),
+            return _PositionsHeader(
+              positionCount: positions.length,
+              summaryProfitText: summaryProfitText,
+              selectedMarket: selectedMarket,
+              onMarketChanged: onMarketChanged,
+              onOpenFunds: onOpenFunds,
+              onAddPosition: onAddPosition,
             );
           }
           if (positions.isEmpty) {
@@ -259,6 +241,88 @@ void _openPositionDetail(
       ),
     ),
   );
+}
+
+class _PositionsHeader extends StatelessWidget {
+  const _PositionsHeader({
+    required this.positionCount,
+    required this.summaryProfitText,
+    required this.selectedMarket,
+    required this.onMarketChanged,
+    required this.onOpenFunds,
+    required this.onAddPosition,
+  });
+
+  final int positionCount;
+  final String summaryProfitText;
+  final MarketFilter selectedMarket;
+  final ValueChanged<MarketFilter> onMarketChanged;
+  final VoidCallback onOpenFunds;
+  final VoidCallback onAddPosition;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              '持仓',
+              maxLines: 1,
+              style: TextStyle(
+                color: primaryTextColor(context),
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Text(
+                  '$positionCount 只股票 · 总盈亏 $summaryProfitText',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: secondaryTextColor(context),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            MarketSwitch(
+              selectedMarket: selectedMarket,
+              onChanged: onMarketChanged,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: FilledButton.tonalIcon(
+                onPressed: onOpenFunds,
+                icon: const Icon(Icons.savings_outlined, size: 18),
+                label: const Text('基金'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: FilledButton.tonalIcon(
+                onPressed: onAddPosition,
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('添加'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 class _PositionAccountSummary extends StatelessWidget {

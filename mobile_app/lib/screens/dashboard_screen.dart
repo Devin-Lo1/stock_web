@@ -205,17 +205,47 @@ class DashboardScreen extends StatelessWidget {
                       subtitle: '触发止盈、止损或当日异动后会出现在这里。',
                     )
                   else
-                    ...signals.map(
-                      (signal) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: SignalTile(signal: signal),
-                      ),
-                    ),
+                    _LatestSignalScroller(signals: signals),
                 ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _LatestSignalScroller extends StatelessWidget {
+  const _LatestSignalScroller({required this.signals});
+
+  static const int _maxSignals = 15;
+  static const int _visibleSignals = 5;
+  static const double _estimatedTileHeight = 92;
+  static const double _gap = 10;
+
+  final List<TradeSignal> signals;
+
+  @override
+  Widget build(BuildContext context) {
+    final latestSignals = signals.take(_maxSignals).toList();
+    final visibleCount = latestSignals.length < _visibleSignals
+        ? latestSignals.length
+        : _visibleSignals;
+    final listHeight =
+        visibleCount * _estimatedTileHeight + (visibleCount - 1) * _gap;
+
+    return SizedBox(
+      height: listHeight,
+      child: ListView.separated(
+        padding: EdgeInsets.zero,
+        physics: latestSignals.length > _visibleSignals
+            ? const BouncingScrollPhysics()
+            : const NeverScrollableScrollPhysics(),
+        itemCount: latestSignals.length,
+        separatorBuilder: (context, index) => const SizedBox(height: _gap),
+        itemBuilder: (context, index) =>
+            SignalTile(signal: latestSignals[index]),
       ),
     );
   }
