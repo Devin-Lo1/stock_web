@@ -6,7 +6,7 @@ import '../models/fund_models.dart';
 import '../repositories/fund_repository.dart';
 import '../utils/theme_helpers.dart';
 import '../widgets/common/empty_state.dart';
-import '../widgets/common/page_title.dart';
+import 'fund_detail_screen.dart';
 
 class FundsScreen extends StatefulWidget {
   const FundsScreen({super.key, required this.repository});
@@ -20,28 +20,42 @@ class FundsScreen extends StatefulWidget {
 class _FundsScreenState extends State<FundsScreen> {
   List<FundPositionSummary> _summaries = const [];
   bool _isLoading = true;
+  bool _isRefreshing = false;
   Object? _error;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_load());
+    unawaited(_load(refresh: false, showSpinner: true));
+    unawaited(_load(refresh: true, showSpinner: false));
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+  Future<void> _load({bool refresh = true, bool showSpinner = false}) async {
+    if (showSpinner) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    } else {
+      setState(() => _isRefreshing = true);
+    }
     try {
-      final summaries = await widget.repository.loadSummaries();
+      final summaries = await widget.repository.loadSummaries(refresh: refresh);
       if (!mounted) return;
-      setState(() => _summaries = summaries);
+      setState(() {
+        _summaries = summaries;
+        _error = null;
+      });
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = error);
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isRefreshing = false;
+        });
+      }
     }
   }
 
@@ -64,10 +78,9 @@ class _FundsScreenState extends State<FundsScreen> {
         costNav: draft.costNav,
         fee: draft.fee,
       );
-      await _load();
+      await _load(refresh: true, showSpinner: true);
     } catch (error) {
-      if (!mounted) return;
-      _showSnack('添加基金失败：$error');
+      if (mounted) _showSnack('添加基金失败：$error');
     }
   }
 
@@ -85,10 +98,29 @@ class _FundsScreenState extends State<FundsScreen> {
     if (draft == null) return;
     try {
       await widget.repository.createTrade(summary.position.id, draft);
-      await _load();
+      await _load(refresh: true);
     } catch (error) {
-      if (!mounted) return;
-      _showSnack('交易记录失败：$error');
+      if (mounted) _showSnack('交易记录失败：$error');
+    }
+  }
+
+  Future<void> _editAlert(FundPositionSummary summary) async {
+    final draft = await showModalBottomSheet<FundAlertSettingsDraft>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: cardColor(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+      ),
+      builder: (context) => _FundAlertSettingsSheet(summary: summary),
+    );
+    if (draft == null) return;
+    try {
+      await widget.repository.updateAlertSettings(summary.position.id, draft);
+      await _load(refresh: false);
+    } catch (error) {
+      if (mounted) _showSnack('保存提醒失败：$error');
     }
   }
 
@@ -113,11 +145,29 @@ class _FundsScreenState extends State<FundsScreen> {
     if (confirmed != true) return;
     try {
       await widget.repository.deletePosition(summary.position.id);
-      await _load();
+      await _load(refresh: false, showSpinner: true);
     } catch (error) {
-      if (!mounted) return;
-      _showSnack('删除失败：$error');
+      if (mounted) _showSnack('删除失败：$error');
     }
+  }
+
+  Future<void> _openDetail(FundPositionSummary summary) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (detailContext) => FundDetailScreen(
+          summary: summary,
+          repository: widget.repository,
+          onBuy: () => _trade(summary, 'buy'),
+          onSell: () => _trade(summary, 'sell'),
+          onEditAlert: () => _editAlert(summary),
+          onDelete: () {
+            Navigator.of(detailContext).pop();
+            unawaited(_delete(summary));
+          },
+        ),
+      ),
+    );
+    if (mounted) unawaited(_load(refresh: false));
   }
 
   void _showSnack(String message) {
@@ -128,80 +178,56 @@ class _FundsScreenState extends State<FundsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final totalMarketValue = _summaries.fold<double>(
-      0,
-      (sum, item) => sum + item.marketValue,
-    );
-    final totalProfit = _summaries.fold<double>(
-      0,
-      (sum, item) => sum + item.totalProfit,
-    );
-    final totalDayProfit = _summaries.fold<double>(
-      0,
-      (sum, item) => sum + item.dayProfit,
-    );
-    final hasEstimated = _summaries.any((item) => item.isEstimated);
+    final totalMarketValue = _sum((item) => item.marketValue);
+    final totalProfit = _sum((item) => item.totalProfit);
+    final totalDayProfit = _sum((item) => item.dayProfit);
     final recommendations = _summaries
         .map((item) => item.gridRecommendation)
         .whereType<FundGridRecommendation>()
         .toList();
+    final hasEstimated = _summaries.any((item) => item.isEstimated);
+
     return Scaffold(
       backgroundColor: pageBackgroundColor(context),
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: _load,
+          onRefresh: () => _load(refresh: true),
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
             children: [
-              Row(
-                children: [
-                  IconButton(
-                    tooltip: '返回',
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back_rounded),
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: PageTitle(
-                      title: '基金',
-                      subtitle:
-                          '${_summaries.length} 只基金 · 总盈亏 ${_money(totalProfit)}',
-                    ),
-                  ),
-                  IconButton.outlined(
-                    tooltip: '刷新',
-                    onPressed: _isLoading ? null : _load,
-                    icon: const Icon(Icons.refresh_rounded),
-                  ),
-                ],
+              _FundHeader(
+                isRefreshing: _isRefreshing,
+                onBack: () => Navigator.of(context).pop(),
+                onRefresh: () => _load(refresh: true),
               ),
               const SizedBox(height: 12),
-              _FundSummaryBand(
+              _FundAccountOverview(
                 marketValue: totalMarketValue,
                 dayProfit: totalDayProfit,
                 totalProfit: totalProfit,
-                valuationLabel: hasEstimated ? '盘中估算' : '正式净值',
+                label: hasEstimated ? '估算当日收益' : '当日收益',
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               if (recommendations.isNotEmpty) ...[
-                _FundGridAlerts(recommendations: recommendations),
-                const SizedBox(height: 12),
+                _FundAlertStrip(recommendations: recommendations),
+                const SizedBox(height: 10),
               ],
-              FilledButton.icon(
-                onPressed: _addFund,
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('添加场外基金'),
-              ),
-              const SizedBox(height: 12),
+              _FundToolbar(onAddFund: _addFund),
+              const SizedBox(height: 8),
               if (_isLoading)
-                const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                const Padding(
+                  padding: EdgeInsets.only(top: 80),
+                  child: Center(
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
               else if (_error != null)
                 EmptyState(
                   icon: Icons.cloud_off_rounded,
                   title: '加载失败',
                   subtitle: '基金数据暂时不可用，请稍后刷新。',
                   actionLabel: '重试',
-                  onAction: _load,
+                  onAction: () => _load(refresh: true, showSpinner: true),
                 )
               else if (_summaries.isEmpty)
                 EmptyState(
@@ -212,16 +238,10 @@ class _FundsScreenState extends State<FundsScreen> {
                   onAction: _addFund,
                 )
               else
-                ..._summaries.map(
-                  (summary) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _FundCard(
-                      summary: summary,
-                      onBuy: () => _trade(summary, 'buy'),
-                      onSell: () => _trade(summary, 'sell'),
-                      onDelete: () => _delete(summary),
-                    ),
-                  ),
+                _FundHoldingTable(
+                  summaries: _summaries,
+                  onTap: _openDetail,
+                  onEditAlert: _editAlert,
                 ),
             ],
           ),
@@ -229,63 +249,97 @@ class _FundsScreenState extends State<FundsScreen> {
       ),
     );
   }
+
+  double _sum(double Function(FundPositionSummary item) select) {
+    return _summaries.fold<double>(0, (sum, item) => sum + select(item));
+  }
 }
 
-class _FundSummaryBand extends StatelessWidget {
-  const _FundSummaryBand({
+class _FundHeader extends StatelessWidget {
+  const _FundHeader({
+    required this.isRefreshing,
+    required this.onBack,
+    required this.onRefresh,
+  });
+
+  final bool isRefreshing;
+  final VoidCallback onBack;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        IconButton(
+          tooltip: '返回',
+          onPressed: onBack,
+          icon: const Icon(Icons.arrow_back_rounded),
+        ),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            '基金',
+            style: TextStyle(
+              color: primaryTextColor(context),
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        IconButton.outlined(
+          tooltip: '刷新',
+          onPressed: isRefreshing ? null : onRefresh,
+          icon: isRefreshing
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.refresh_rounded),
+        ),
+      ],
+    );
+  }
+}
+
+class _FundAccountOverview extends StatelessWidget {
+  const _FundAccountOverview({
     required this.marketValue,
     required this.dayProfit,
     required this.totalProfit,
-    required this.valuationLabel,
+    required this.label,
   });
 
   final double marketValue;
   final double dayProfit;
   final double totalProfit;
-  final String valuationLabel;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(vertical: 18),
       decoration: BoxDecoration(
-        color: cardColor(context),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: borderColor(context)),
+        border: Border(bottom: BorderSide(color: borderColor(context))),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: _Metric(label: '基金市值', value: _money(marketValue)),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _Metric(
-                  label: '$valuationLabel当日收益',
-                  value: _money(dayProfit),
-                  valueColor: _profitColor(dayProfit),
-                ),
-              ),
-            ],
+          Expanded(
+            child: _OverviewMetric(label: '账户资产', value: _money(marketValue)),
           ),
-          const SizedBox(height: 12),
-          _Metric(
-            label: '持有总盈亏',
-            value: _money(totalProfit),
-            valueColor: _profitColor(totalProfit),
+          Expanded(
+            child: _OverviewMetric(
+              label: label,
+              value: _money(dayProfit),
+              valueColor: _profitColor(dayProfit),
+              alignEnd: true,
+            ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            valuationLabel == '盘中估算'
-                ? '盘中按估算净值计算，正式净值更新后自动切换。'
-                : '已按最新正式净值计算。盘中无新估算时保持正式净值口径。',
-            style: TextStyle(
-              color: secondaryTextColor(context),
-              fontSize: 12,
-              height: 1.25,
+          Expanded(
+            child: _OverviewMetric(
+              label: '持有收益',
+              value: _money(totalProfit),
+              valueColor: _profitColor(totalProfit),
+              alignEnd: true,
             ),
           ),
         ],
@@ -294,157 +348,331 @@ class _FundSummaryBand extends StatelessWidget {
   }
 }
 
-class _FundCard extends StatelessWidget {
-  const _FundCard({
+class _FundToolbar extends StatelessWidget {
+  const _FundToolbar({required this.onAddFund});
+
+  final VoidCallback onAddFund;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(Icons.tune_rounded, color: mutedIconColor(context)),
+        const SizedBox(width: 14),
+        Icon(Icons.grid_view_rounded, color: mutedIconColor(context)),
+        const SizedBox(width: 14),
+        Icon(Icons.flag_outlined, color: mutedIconColor(context)),
+        const Spacer(),
+        TextButton.icon(
+          onPressed: onAddFund,
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('添加场外基金'),
+        ),
+      ],
+    );
+  }
+}
+
+class _FundAlertStrip extends StatelessWidget {
+  const _FundAlertStrip({required this.recommendations});
+
+  final List<FundGridRecommendation> recommendations;
+
+  @override
+  Widget build(BuildContext context) {
+    final first = recommendations.first;
+    final color = first.isBuy
+        ? const Color(0xFFFF4D67)
+        : const Color(0xFF20C997);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.notifications_active_outlined, color: color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              recommendations.length == 1
+                  ? '${first.name} · ${first.actionLabel}'
+                  : '${recommendations.length} 只基金触发提醒',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: primaryTextColor(context),
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          Text(
+            _percent(first.changeRate),
+            style: TextStyle(color: color, fontWeight: FontWeight.w900),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FundHoldingTable extends StatelessWidget {
+  const _FundHoldingTable({
+    required this.summaries,
+    required this.onTap,
+    required this.onEditAlert,
+  });
+
+  final List<FundPositionSummary> summaries;
+  final ValueChanged<FundPositionSummary> onTap;
+  final ValueChanged<FundPositionSummary> onEditAlert;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: cardColor(context),
+        border: Border.all(color: borderColor(context)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          _TableHeader(),
+          ...summaries.map(
+            (summary) => _FundTableRow(
+              summary: summary,
+              onTap: () => onTap(summary),
+              onEditAlert: () => onEditAlert(summary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TableHeader extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final style = TextStyle(
+      color: secondaryTextColor(context),
+      fontSize: 12,
+      fontWeight: FontWeight.w800,
+    );
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: borderColor(context))),
+      ),
+      child: Row(
+        children: [
+          Expanded(flex: 44, child: Text('基金', style: style)),
+          Expanded(
+            flex: 28,
+            child: Text('当日收益', textAlign: TextAlign.right, style: style),
+          ),
+          Expanded(
+            flex: 28,
+            child: Text('持有收益', textAlign: TextAlign.right, style: style),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FundTableRow extends StatelessWidget {
+  const _FundTableRow({
     required this.summary,
-    required this.onBuy,
-    required this.onSell,
-    required this.onDelete,
+    required this.onTap,
+    required this.onEditAlert,
   });
 
   final FundPositionSummary summary;
-  final VoidCallback onBuy;
-  final VoidCallback onSell;
-  final VoidCallback onDelete;
+  final VoidCallback onTap;
+  final VoidCallback onEditAlert;
 
   @override
   Widget build(BuildContext context) {
     final position = summary.position;
-    final latest = summary.latestNav;
-    final modeLabel = _valuationLabel(summary);
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: cardColor(context),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: borderColor(context)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  position.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: primaryTextColor(context),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
+    final recommendation = summary.gridRecommendation;
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 14, 10, 14),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: borderColor(context))),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 44,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    position.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: primaryTextColor(context),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 5),
+                  Text(
+                    '¥${summary.marketValue.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      color: secondaryTextColor(context),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (recommendation != null) ...[
+                    const SizedBox(height: 6),
+                    GestureDetector(
+                      onTap: onEditAlert,
+                      child: _SmallSignalBadge(
+                        text: recommendation.actionLabel,
+                      ),
+                    ),
+                  ],
+                ],
               ),
-              IconButton(
-                tooltip: '删除',
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline_rounded),
+            ),
+            Expanded(
+              flex: 28,
+              child: _ValueColumn(
+                primary: _money(summary.dayProfit),
+                secondary: _percent(summary.dayProfitRate),
+                value: summary.dayProfit,
               ),
-            ],
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '${position.fundCode} · ${position.fundType.isEmpty ? '场外基金' : position.fundType}',
-            style: TextStyle(color: secondaryTextColor(context), fontSize: 12),
-          ),
-          if (summary.displayTime != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              '$modeLabel · ${_dateTimeLabel(summary.displayTime!)}',
-              style: TextStyle(
-                color: summary.isEstimated
-                    ? const Color(0xFFE6B450)
-                    : secondaryTextColor(context),
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
+            ),
+            Expanded(
+              flex: 28,
+              child: _ValueColumn(
+                primary: _money(summary.holdingProfit),
+                secondary: _percent(summary.holdingProfitRate),
+                value: summary.holdingProfit,
               ),
             ),
           ],
-          if (summary.gridRecommendation != null) ...[
-            const SizedBox(height: 12),
-            _FundGridAlertTile(recommendation: summary.gridRecommendation!),
-          ],
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _InfoChip(label: '份额', value: position.shares.toStringAsFixed(2)),
-              _InfoChip(
-                label: '成本净值',
-                value: position.avgCostNav.toStringAsFixed(4),
-              ),
-              _InfoChip(
-                label: summary.isEstimated ? '估算净值' : '正式净值',
-                value: summary.displayNav <= 0
-                    ? '--'
-                    : summary.displayNav.toStringAsFixed(4),
-              ),
-              _InfoChip(
-                label: summary.isEstimated ? '估算涨跌' : '日涨跌',
-                value: summary.displayNav <= 0
-                    ? '--'
-                    : _percent(summary.displayChangeRate),
-                valueColor: summary.displayNav <= 0
-                    ? secondaryTextColor(context)
-                    : _profitColor(summary.displayChangeRate),
-              ),
-              if (latest != null)
-                _InfoChip(label: '净值日', value: _shortDate(latest.navDate)),
-            ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OverviewMetric extends StatelessWidget {
+  const _OverviewMetric({
+    required this.label,
+    required this.value,
+    this.valueColor,
+    this.alignEnd = false,
+  });
+
+  final String label;
+  final String value;
+  final Color? valueColor;
+  final bool alignEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: alignEnd
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(color: secondaryTextColor(context), fontSize: 12),
+        ),
+        const SizedBox(height: 8),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: alignEnd ? Alignment.centerRight : Alignment.centerLeft,
+          child: Text(
+            value,
+            maxLines: 1,
+            style: TextStyle(
+              color: valueColor ?? primaryTextColor(context),
+              fontSize: 21,
+              fontWeight: FontWeight.w900,
+            ),
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _Metric(
-                  label: summary.isEstimated ? '预估当日收益' : '当日收益',
-                  value:
-                      '${_money(summary.dayProfit)} / ${_percent(summary.dayProfitRate)}',
-                  valueColor: _profitColor(summary.dayProfit),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _Metric(label: '市值', value: _money(summary.marketValue)),
-              ),
-            ],
+        ),
+      ],
+    );
+  }
+}
+
+class _ValueColumn extends StatelessWidget {
+  const _ValueColumn({
+    required this.primary,
+    required this.secondary,
+    required this.value,
+  });
+
+  final String primary;
+  final String secondary;
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _profitColor(value);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          primary,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.right,
+          style: TextStyle(
+            color: color,
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _Metric(
-                  label: '持有盈亏',
-                  value:
-                      '${_money(summary.holdingProfit)} / ${_percent(summary.holdingProfitRate)}',
-                  valueColor: _profitColor(summary.holdingProfit),
-                ),
-              ),
-            ],
+        ),
+        const SizedBox(height: 5),
+        Text(
+          secondary,
+          textAlign: TextAlign.right,
+          style: TextStyle(
+            color: color.withValues(alpha: 0.82),
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton.tonalIcon(
-                  onPressed: onBuy,
-                  icon: const Icon(Icons.add_rounded),
-                  label: const Text('买入'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: onSell,
-                  icon: const Icon(Icons.remove_rounded),
-                  label: const Text('卖出'),
-                ),
-              ),
-            ],
-          ),
-        ],
+        ),
+      ],
+    );
+  }
+}
+
+class _SmallSignalBadge extends StatelessWidget {
+  const _SmallSignalBadge({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: appAccentContainerColor(context),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: appAccentColor(context),
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }
@@ -483,8 +711,7 @@ class _FundAddSheetState extends State<_FundAddSheet> {
     setState(() => _isSearching = true);
     try {
       final results = await widget.repository.searchFunds(query);
-      if (!mounted) return;
-      setState(() => _results = results);
+      if (mounted) setState(() => _results = results);
     } finally {
       if (mounted) setState(() => _isSearching = false);
     }
@@ -524,14 +751,7 @@ class _FundAddSheetState extends State<_FundAddSheet> {
       child: ListView(
         shrinkWrap: true,
         children: [
-          Text(
-            '添加场外基金',
-            style: TextStyle(
-              color: primaryTextColor(context),
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
+          _SheetTitle(title: '添加场外基金'),
           const SizedBox(height: 12),
           TextField(
             controller: _queryController,
@@ -606,134 +826,6 @@ class _FundAddSheetState extends State<_FundAddSheet> {
   }
 }
 
-class _FundGridAlerts extends StatelessWidget {
-  const _FundGridAlerts({required this.recommendations});
-
-  final List<FundGridRecommendation> recommendations;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: softCardColor(context),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: borderColor(context)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.rule_rounded, color: appAccentColor(context)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '收盘前操作提醒',
-                  style: TextStyle(
-                    color: primaryTextColor(context),
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              _TinyBadge(text: '${recommendations.length} 个'),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ...recommendations.map(
-            (recommendation) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _FundGridAlertTile(recommendation: recommendation),
-            ),
-          ),
-          Text(
-            '执行后记录买入/卖出，下一次会按新操作净值重新计算。',
-            style: TextStyle(
-              color: secondaryTextColor(context),
-              fontSize: 12,
-              height: 1.25,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FundGridAlertTile extends StatelessWidget {
-  const _FundGridAlertTile({required this.recommendation});
-
-  final FundGridRecommendation recommendation;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = recommendation.isBuy
-        ? const Color(0xFFFF4D67)
-        : const Color(0xFF20C997);
-    final detail = recommendation.isBuy
-        ? '${_money(recommendation.recommendedAmount)} · 约 ${recommendation.recommendedShares.toStringAsFixed(2)} 份'
-        : '约 ${recommendation.recommendedShares.toStringAsFixed(2)} 份 · ${_money(recommendation.recommendedAmount)}';
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: cardColor(context),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            recommendation.isBuy
-                ? Icons.add_chart_rounded
-                : Icons.trending_up_rounded,
-            color: color,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${recommendation.name} · ${recommendation.actionLabel}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: primaryTextColor(context),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${recommendation.reason} · 当前 ${recommendation.currentNav.toStringAsFixed(4)}',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: secondaryTextColor(context),
-                    fontSize: 12,
-                    height: 1.25,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  detail,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _FundTradeSheet extends StatefulWidget {
   const _FundTradeSheet({required this.summary, required this.action});
 
@@ -792,13 +884,8 @@ class _FundTradeSheetState extends State<_FundTradeSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '${isBuy ? '买入' : '卖出'} ${widget.summary.position.name}',
-            style: TextStyle(
-              color: primaryTextColor(context),
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-            ),
+          _SheetTitle(
+            title: '${isBuy ? '买入' : '卖出'} ${widget.summary.position.name}',
           ),
           const SizedBox(height: 12),
           Row(
@@ -842,6 +929,138 @@ class _FundTradeSheetState extends State<_FundTradeSheet> {
   }
 }
 
+class _FundAlertSettingsSheet extends StatefulWidget {
+  const _FundAlertSettingsSheet({required this.summary});
+
+  final FundPositionSummary summary;
+
+  @override
+  State<_FundAlertSettingsSheet> createState() =>
+      _FundAlertSettingsSheetState();
+}
+
+class _FundAlertSettingsSheetState extends State<_FundAlertSettingsSheet> {
+  late bool _enabled;
+  late final TextEditingController _thresholdController;
+  late final TextEditingController _buyAmountController;
+  late final TextEditingController _sellRatioController;
+
+  @override
+  void initState() {
+    super.initState();
+    final position = widget.summary.position;
+    _enabled = position.alertEnabled;
+    _thresholdController = TextEditingController(
+      text: position.alertThresholdPercent.toStringAsFixed(1),
+    );
+    _buyAmountController = TextEditingController(
+      text: position.alertBuyAmount.toStringAsFixed(0),
+    );
+    _sellRatioController = TextEditingController(
+      text: (position.alertSellRatio * 100).toStringAsFixed(0),
+    );
+  }
+
+  @override
+  void dispose() {
+    _thresholdController.dispose();
+    _buyAmountController.dispose();
+    _sellRatioController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final threshold = double.tryParse(_thresholdController.text.trim());
+    final buyAmount = double.tryParse(_buyAmountController.text.trim());
+    final sellPercent = double.tryParse(_sellRatioController.text.trim());
+    if (threshold == null ||
+        threshold <= 0 ||
+        buyAmount == null ||
+        buyAmount < 0 ||
+        sellPercent == null ||
+        sellPercent <= 0 ||
+        sellPercent > 100) {
+      return;
+    }
+    Navigator.of(context).pop(
+      FundAlertSettingsDraft(
+        alertEnabled: _enabled,
+        thresholdPercent: threshold,
+        buyAmount: buyAmount,
+        sellRatio: sellPercent / 100,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
+      ),
+      child: ListView(
+        shrinkWrap: true,
+        children: [
+          _SheetTitle(title: '提醒规则'),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _enabled,
+            onChanged: (value) => setState(() => _enabled = value),
+            title: const Text('启用涨跌提醒'),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _thresholdController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: '涨跌阈值 %'),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _buyAmountController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: '下跌触发加仓金额'),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _sellRatioController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: '上涨触发减仓比例 %'),
+          ),
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: _submit,
+            icon: const Icon(Icons.check_rounded),
+            label: const Text('保存规则'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SheetTitle extends StatelessWidget {
+  const _SheetTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        color: primaryTextColor(context),
+        fontSize: 20,
+        fontWeight: FontWeight.w900,
+      ),
+    );
+  }
+}
+
 class _FundCreateDraft {
   const _FundCreateDraft({
     required this.fund,
@@ -854,91 +1073,6 @@ class _FundCreateDraft {
   final double shares;
   final double costNav;
   final double fee;
-}
-
-class _Metric extends StatelessWidget {
-  const _Metric({required this.label, required this.value, this.valueColor});
-
-  final String label;
-  final String value;
-  final Color? valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(color: secondaryTextColor(context), fontSize: 12),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: valueColor ?? primaryTextColor(context),
-            fontSize: 17,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _InfoChip extends StatelessWidget {
-  const _InfoChip({required this.label, required this.value, this.valueColor});
-
-  final String label;
-  final String value;
-  final Color? valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: softCardColor(context),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: borderColor(context)),
-      ),
-      child: Text(
-        '$label $value',
-        style: TextStyle(
-          color: valueColor ?? primaryTextColor(context),
-          fontSize: 12,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-}
-
-class _TinyBadge extends StatelessWidget {
-  const _TinyBadge({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: appAccentColor(context).withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: appAccentColor(context),
-          fontSize: 12,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
 }
 
 String _money(double value) {
@@ -959,27 +1093,8 @@ String _percent(double value) {
   return '$sign${value.abs().toStringAsFixed(2)}%';
 }
 
-String _valuationLabel(FundPositionSummary summary) {
-  return summary.isEstimated ? '盘中估算' : '正式净值';
-}
-
-String _shortDate(DateTime value) {
-  final month = value.month.toString().padLeft(2, '0');
-  final day = value.day.toString().padLeft(2, '0');
-  return '$month-$day';
-}
-
-String _dateTimeLabel(DateTime value) {
-  final local = value.toLocal();
-  final month = local.month.toString().padLeft(2, '0');
-  final day = local.day.toString().padLeft(2, '0');
-  final hour = local.hour.toString().padLeft(2, '0');
-  final minute = local.minute.toString().padLeft(2, '0');
-  return '$month-$day $hour:$minute';
-}
-
 Color _profitColor(double value) {
-  if (value > 0) return const Color(0xFF20C997);
-  if (value < 0) return const Color(0xFFFF4D67);
+  if (value > 0) return const Color(0xFFFF4D67);
+  if (value < 0) return const Color(0xFF20C997);
   return const Color(0xFF94A3B8);
 }

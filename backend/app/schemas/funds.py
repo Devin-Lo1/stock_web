@@ -49,6 +49,10 @@ class FundPositionCreate(BaseModel):
     shares: float = Field(ge=0)
     cost_nav: float = Field(ge=0)
     fee: float = Field(default=0, ge=0)
+    alert_enabled: bool = True
+    alert_threshold_percent: float = Field(default=5, gt=0)
+    alert_buy_amount: float = Field(default=5000, ge=0)
+    alert_sell_ratio: float = Field(default=0.25, gt=0, le=1)
     trade_date: date | None = None
     note: str = Field(default="", max_length=500)
 
@@ -56,6 +60,10 @@ class FundPositionCreate(BaseModel):
 class FundPositionUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1)
     fund_type: str | None = None
+    alert_enabled: bool | None = None
+    alert_threshold_percent: float | None = Field(default=None, gt=0)
+    alert_buy_amount: float | None = Field(default=None, ge=0)
+    alert_sell_ratio: float | None = Field(default=None, gt=0, le=1)
 
 
 class FundPosition(BaseModel):
@@ -68,6 +76,10 @@ class FundPosition(BaseModel):
     invested_amount: float
     realized_profit: float
     currency: str = "CNY"
+    alert_enabled: bool = True
+    alert_threshold_percent: float = 5
+    alert_buy_amount: float = 5000
+    alert_sell_ratio: float = 0.25
     created_at: datetime
     updated_at: datetime
 

@@ -14,6 +14,14 @@ class FundRepository {
     return _apiService.fetchPositionSummaries(refresh: refresh);
   }
 
+  Future<List<FundNavPoint>> loadNavs(
+    String fundCode, {
+    int limit = 180,
+    bool refresh = false,
+  }) {
+    return _apiService.fetchNavs(fundCode, limit: limit, refresh: refresh);
+  }
+
   Future<FundPosition> createPosition({
     required FundSearchResult fund,
     required double shares,
@@ -30,6 +38,13 @@ class FundRepository {
 
   Future<void> deletePosition(String positionId) {
     return _apiService.deletePosition(positionId);
+  }
+
+  Future<FundPosition> updateAlertSettings(
+    String positionId,
+    FundAlertSettingsDraft draft,
+  ) {
+    return _apiService.updateAlertSettings(positionId, draft);
   }
 
   Future<void> createTrade(String positionId, FundTradeDraft draft) {

@@ -10,6 +10,7 @@ from ..repositories.funds import (
     list_fund_navs,
     list_fund_positions,
     list_fund_trades,
+    update_fund_position,
     upsert_fund_navs,
 )
 from ..schemas import (
@@ -17,6 +18,7 @@ from ..schemas import (
     FundPosition,
     FundPositionCreate,
     FundPositionSummary,
+    FundPositionUpdate,
     FundQuote,
     FundSearchResult,
     FundTrade,
@@ -93,6 +95,17 @@ def api_list_fund_position_summaries(
 )
 def api_create_fund_position(payload: FundPositionCreate) -> FundPosition:
     return create_fund_position(payload)
+
+
+@router.put("/positions/{position_id}", response_model=FundPosition)
+def api_update_fund_position(
+    position_id: str,
+    payload: FundPositionUpdate,
+) -> FundPosition:
+    position = get_fund_position(position_id)
+    if position is None:
+        raise not_found_error("基金持仓不存在", position_id=position_id)
+    return update_fund_position(position, payload)
 
 
 @router.delete("/positions/{position_id}", status_code=status.HTTP_204_NO_CONTENT)

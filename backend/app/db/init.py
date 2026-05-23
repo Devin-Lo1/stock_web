@@ -136,10 +136,33 @@ def init_database(*, seed_defaults: bool = True) -> None:
                 invested_amount REAL NOT NULL,
                 realized_profit REAL NOT NULL,
                 currency TEXT NOT NULL,
+                alert_enabled INTEGER NOT NULL DEFAULT 1,
+                alert_threshold_percent REAL NOT NULL DEFAULT 5,
+                alert_buy_amount REAL NOT NULL DEFAULT 5000,
+                alert_sell_ratio REAL NOT NULL DEFAULT 0.25,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )
             """,
+        )
+        _ensure_column(connection, "fund_positions", "alert_enabled", "INTEGER NOT NULL DEFAULT 1")
+        _ensure_column(
+            connection,
+            "fund_positions",
+            "alert_threshold_percent",
+            "REAL NOT NULL DEFAULT 5",
+        )
+        _ensure_column(
+            connection,
+            "fund_positions",
+            "alert_buy_amount",
+            "REAL NOT NULL DEFAULT 5000",
+        )
+        _ensure_column(
+            connection,
+            "fund_positions",
+            "alert_sell_ratio",
+            "REAL NOT NULL DEFAULT 0.25",
         )
         connection.execute(
             """

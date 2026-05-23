@@ -66,6 +66,10 @@ class FundPosition {
     required this.investedAmount,
     required this.realizedProfit,
     required this.currency,
+    required this.alertEnabled,
+    required this.alertThresholdPercent,
+    required this.alertBuyAmount,
+    required this.alertSellRatio,
   });
 
   final String id;
@@ -77,6 +81,10 @@ class FundPosition {
   final double investedAmount;
   final double realizedProfit;
   final String currency;
+  final bool alertEnabled;
+  final double alertThresholdPercent;
+  final double alertBuyAmount;
+  final double alertSellRatio;
 
   factory FundPosition.fromJson(Map<String, dynamic> json) {
     return FundPosition(
@@ -89,7 +97,37 @@ class FundPosition {
       investedAmount: _double(json['invested_amount']),
       realizedProfit: _double(json['realized_profit']),
       currency: json['currency'] as String? ?? 'CNY',
+      alertEnabled: json['alert_enabled'] as bool? ?? true,
+      alertThresholdPercent: _double(
+        json['alert_threshold_percent'],
+        fallback: 5,
+      ),
+      alertBuyAmount: _double(json['alert_buy_amount'], fallback: 5000),
+      alertSellRatio: _double(json['alert_sell_ratio'], fallback: 0.25),
     );
+  }
+}
+
+class FundAlertSettingsDraft {
+  const FundAlertSettingsDraft({
+    required this.alertEnabled,
+    required this.thresholdPercent,
+    required this.buyAmount,
+    required this.sellRatio,
+  });
+
+  final bool alertEnabled;
+  final double thresholdPercent;
+  final double buyAmount;
+  final double sellRatio;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'alert_enabled': alertEnabled,
+      'alert_threshold_percent': thresholdPercent,
+      'alert_buy_amount': buyAmount,
+      'alert_sell_ratio': sellRatio,
+    };
   }
 }
 
@@ -237,8 +275,8 @@ class FundTradeDraft {
   }
 }
 
-double _double(Object? value) {
+double _double(Object? value, {double fallback = 0}) {
   if (value is num) return value.toDouble();
-  if (value is String) return double.tryParse(value) ?? 0;
-  return 0;
+  if (value is String) return double.tryParse(value) ?? fallback;
+  return fallback;
 }

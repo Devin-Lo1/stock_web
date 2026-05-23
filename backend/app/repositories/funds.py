@@ -7,6 +7,7 @@ from ..schemas import (
     FundNavPoint,
     FundPosition,
     FundPositionCreate,
+    FundPositionUpdate,
     FundTrade,
     FundTradeCreate,
 )
@@ -21,7 +22,9 @@ def list_fund_positions() -> list[FundPosition]:
         rows = connection.execute(
             """
             SELECT id, fund_code, name, fund_type, shares, avg_cost_nav,
-                   invested_amount, realized_profit, currency, created_at, updated_at
+                   invested_amount, realized_profit, currency, alert_enabled,
+                   alert_threshold_percent, alert_buy_amount, alert_sell_ratio,
+                   created_at, updated_at
             FROM fund_positions
             ORDER BY created_at ASC
             """,
@@ -34,7 +37,9 @@ def get_fund_position(position_id: str) -> FundPosition | None:
         row = connection.execute(
             """
             SELECT id, fund_code, name, fund_type, shares, avg_cost_nav,
-                   invested_amount, realized_profit, currency, created_at, updated_at
+                   invested_amount, realized_profit, currency, alert_enabled,
+                   alert_threshold_percent, alert_buy_amount, alert_sell_ratio,
+                   created_at, updated_at
             FROM fund_positions
             WHERE id = ?
             """,
@@ -59,6 +64,10 @@ def create_fund_position(payload: FundPositionCreate) -> FundPosition:
         invested_amount=invested_amount,
         realized_profit=0,
         currency="CNY",
+        alert_enabled=payload.alert_enabled,
+        alert_threshold_percent=payload.alert_threshold_percent,
+        alert_buy_amount=payload.alert_buy_amount,
+        alert_sell_ratio=payload.alert_sell_ratio,
         created_at=now,
         updated_at=now,
     )
@@ -89,6 +98,58 @@ def delete_fund_position(position_id: str) -> bool:
             (position_id,),
         )
     return cursor.rowcount > 0
+
+
+def update_fund_position(
+    position: FundPosition,
+    payload: FundPositionUpdate,
+) -> FundPosition:
+    updated = position.model_copy(
+        update={
+            "name": payload.name.strip() if payload.name is not None else position.name,
+            "fund_type": payload.fund_type.strip()
+            if payload.fund_type is not None
+            else position.fund_type,
+            "alert_enabled": payload.alert_enabled
+            if payload.alert_enabled is not None
+            else position.alert_enabled,
+            "alert_threshold_percent": payload.alert_threshold_percent
+            if payload.alert_threshold_percent is not None
+            else position.alert_threshold_percent,
+            "alert_buy_amount": payload.alert_buy_amount
+            if payload.alert_buy_amount is not None
+            else position.alert_buy_amount,
+            "alert_sell_ratio": payload.alert_sell_ratio
+            if payload.alert_sell_ratio is not None
+            else position.alert_sell_ratio,
+            "updated_at": _now(),
+        },
+    )
+    with _connect() as connection:
+        connection.execute(
+            """
+            UPDATE fund_positions
+            SET name = ?,
+                fund_type = ?,
+                alert_enabled = ?,
+                alert_threshold_percent = ?,
+                alert_buy_amount = ?,
+                alert_sell_ratio = ?,
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                updated.name,
+                updated.fund_type,
+                1 if updated.alert_enabled else 0,
+                updated.alert_threshold_percent,
+                updated.alert_buy_amount,
+                updated.alert_sell_ratio,
+                _datetime_to_text(updated.updated_at),
+                updated.id,
+            ),
+        )
+    return updated
 
 
 def create_fund_trade_for_position(
@@ -202,9 +263,11 @@ def _insert_fund_position(connection, position: FundPosition) -> None:
         """
         INSERT INTO fund_positions (
             id, fund_code, name, fund_type, shares, avg_cost_nav,
-            invested_amount, realized_profit, currency, created_at, updated_at
+            invested_amount, realized_profit, currency, alert_enabled,
+            alert_threshold_percent, alert_buy_amount, alert_sell_ratio,
+            created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             position.id,
@@ -216,6 +279,10 @@ def _insert_fund_position(connection, position: FundPosition) -> None:
             position.invested_amount,
             position.realized_profit,
             position.currency,
+            1 if position.alert_enabled else 0,
+            position.alert_threshold_percent,
+            position.alert_buy_amount,
+            position.alert_sell_ratio,
             _datetime_to_text(position.created_at),
             _datetime_to_text(position.updated_at),
         ),
@@ -322,6 +389,10 @@ def _row_to_fund_position(row) -> FundPosition:
         invested_amount=row["invested_amount"],
         realized_profit=row["realized_profit"],
         currency=row["currency"],
+        alert_enabled=bool(row["alert_enabled"]),
+        alert_threshold_percent=row["alert_threshold_percent"],
+        alert_buy_amount=row["alert_buy_amount"],
+        alert_sell_ratio=row["alert_sell_ratio"],
         created_at=_text_to_datetime(row["created_at"]),
         updated_at=_text_to_datetime(row["updated_at"]),
     )

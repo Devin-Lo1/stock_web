@@ -32,6 +32,22 @@ class FundApiService {
         .toList();
   }
 
+  Future<List<FundNavPoint>> fetchNavs(
+    String fundCode, {
+    int limit = 180,
+    bool refresh = false,
+  }) async {
+    final payload = await _client.get(
+      '/api/v1/funds/$fundCode/navs',
+      query: {'limit': '$limit', 'refresh': '$refresh'},
+    );
+    if (payload is! List) return const [];
+    return payload
+        .whereType<Map<String, dynamic>>()
+        .map(FundNavPoint.fromJson)
+        .toList();
+  }
+
   Future<FundPosition> createPosition({
     required FundSearchResult fund,
     required double shares,
@@ -51,6 +67,17 @@ class FundApiService {
 
   Future<void> deletePosition(String positionId) {
     return _client.delete('/api/v1/funds/positions/$positionId');
+  }
+
+  Future<FundPosition> updateAlertSettings(
+    String positionId,
+    FundAlertSettingsDraft draft,
+  ) async {
+    final payload = await _client.put(
+      '/api/v1/funds/positions/$positionId',
+      draft.toJson(),
+    );
+    return FundPosition.fromJson(payload as Map<String, dynamic>);
   }
 
   Future<void> createTrade(String positionId, FundTradeDraft draft) async {

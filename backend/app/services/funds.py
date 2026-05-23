@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime
 
 from ..db.converters import UTC
@@ -17,10 +18,6 @@ from ..schemas import (
 )
 from .fund_provider import EastmoneyFundProvider, FundProviderError
 
-GRID_THRESHOLD_PERCENT = 5.0
-GRID_BUY_AMOUNT = 5000.0
-GRID_SELL_RATIO = 0.25
-
 
 def refresh_fund_navs(fund_code: str, *, limit: int = 90):
     provider = EastmoneyFundProvider()
@@ -33,21 +30,10 @@ def list_fund_position_summaries(*, refresh: bool = True) -> list[FundPositionSu
     positions = list_fund_positions()
     quotes: dict[str, FundQuote] = {}
     if refresh:
-        provider = EastmoneyFundProvider()
-        for position in positions:
-            try:
-                points = provider.nav_history(position.fund_code, limit=3)
-            except (FundProviderError, Exception):
-                continue
+        for fund_code, points, quote in _refresh_positions_concurrently(positions):
             upsert_fund_navs(points)
-            try:
-                latest = points[0] if points else None
-                quotes[position.fund_code] = provider.quote(
-                    position.fund_code,
-                    latest=latest,
-                )
-            except (FundProviderError, Exception):
-                continue
+            if quote is not None:
+                quotes[fund_code] = quote
     summaries: list[FundPositionSummary] = []
     for position in positions:
         latest = get_latest_fund_nav(position.fund_code)
@@ -154,6 +140,8 @@ def _build_grid_recommendation(
     valuation_time: datetime | None,
     last_trade: FundTrade | None,
 ) -> FundGridRecommendation | None:
+    if not position.alert_enabled:
+        return None
     if position.shares <= 0 or current_nav <= 0:
         return None
     baseline_nav = last_trade.nav if last_trade is not None else position.avg_cost_nav
@@ -164,39 +152,81 @@ def _build_grid_recommendation(
         f"较上次操作净值 {baseline_nav:.4f} "
         f"{'上涨' if change_rate >= 0 else '下跌'} {abs(change_rate):.2f}%"
     )
-    if change_rate >= GRID_THRESHOLD_PERCENT:
-        shares = position.shares * GRID_SELL_RATIO
+    threshold = position.alert_threshold_percent
+    if change_rate >= threshold:
+        shares = position.shares * position.alert_sell_ratio
         return FundGridRecommendation(
             position_id=position.id,
             fund_code=position.fund_code,
             name=position.name,
             action="sell",
-            action_label="减仓 1/4",
+            action_label=f"减仓 {_ratio_label(position.alert_sell_ratio)}",
             reason=reason,
             baseline_nav=baseline_nav,
             current_nav=current_nav,
             change_rate=change_rate,
-            threshold_percent=GRID_THRESHOLD_PERCENT,
+            threshold_percent=threshold,
             recommended_amount=shares * current_nav,
             recommended_shares=shares,
             valuation_mode=valuation_mode,
             valuation_time=valuation_time,
         )
-    if change_rate <= -GRID_THRESHOLD_PERCENT:
+    if change_rate <= -threshold:
         return FundGridRecommendation(
             position_id=position.id,
             fund_code=position.fund_code,
             name=position.name,
             action="buy",
-            action_label="加仓 5000",
+            action_label=f"加仓 {position.alert_buy_amount:.0f}",
             reason=reason,
             baseline_nav=baseline_nav,
             current_nav=current_nav,
             change_rate=change_rate,
-            threshold_percent=GRID_THRESHOLD_PERCENT,
-            recommended_amount=GRID_BUY_AMOUNT,
-            recommended_shares=GRID_BUY_AMOUNT / current_nav,
+            threshold_percent=threshold,
+            recommended_amount=position.alert_buy_amount,
+            recommended_shares=position.alert_buy_amount / current_nav,
             valuation_mode=valuation_mode,
             valuation_time=valuation_time,
         )
     return None
+
+
+def _refresh_positions_concurrently(
+    positions: list[FundPosition],
+) -> list[tuple[str, list[FundNavPoint], FundQuote | None]]:
+    if not positions:
+        return []
+    results: list[tuple[str, list[FundNavPoint], FundQuote | None]] = []
+    max_workers = min(6, len(positions))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(_fetch_position_fund_data, position): position.fund_code
+            for position in positions
+        }
+        for future in as_completed(futures):
+            try:
+                results.append(future.result())
+            except Exception:
+                continue
+    return results
+
+
+def _fetch_position_fund_data(
+    position: FundPosition,
+) -> tuple[str, list[FundNavPoint], FundQuote | None]:
+    provider = EastmoneyFundProvider()
+    points = provider.nav_history(position.fund_code, limit=3)
+    latest = points[0] if points else None
+    try:
+        quote = provider.quote(position.fund_code, latest=latest)
+    except (FundProviderError, Exception):
+        quote = None
+    return position.fund_code, points, quote
+
+
+def _ratio_label(value: float) -> str:
+    if abs(value - 0.25) < 0.001:
+        return "1/4"
+    if abs(value - 0.5) < 0.001:
+        return "1/2"
+    return f"{value * 100:.0f}%"
