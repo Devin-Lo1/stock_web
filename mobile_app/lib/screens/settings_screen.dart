@@ -8,6 +8,7 @@ import '../services/notification_service.dart';
 import '../utils/theme_helpers.dart';
 import '../widgets/common/app_tag.dart';
 import '../widgets/common/page_title.dart';
+import 'data_guide_screen.dart';
 import 'display_settings_screen.dart';
 import 'factor_guide_screen.dart';
 import 'notification_settings_screen.dart';
@@ -95,6 +96,17 @@ class SettingsScreen extends StatelessWidget {
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (context) => const FactorGuideScreen(),
+              ),
+            ),
+          ),
+          _SettingTile(
+            icon: Icons.dataset_outlined,
+            title: '数据说明',
+            subtitle: '行情、收益、资金流和推送口径',
+            status: '说明',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (context) => const DataGuideScreen(),
               ),
             ),
           ),
