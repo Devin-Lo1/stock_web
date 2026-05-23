@@ -32,6 +32,30 @@ class FundApiService {
         .toList();
   }
 
+  Future<FundAlertSchedulerStatus> fetchAlertSchedulerStatus() async {
+    final payload = await _client.get('/api/v1/funds/alerts/scheduler/status');
+    return FundAlertSchedulerStatus.fromJson(payload as Map<String, dynamic>);
+  }
+
+  Future<FundAlertSchedulerStatus> updateAlertScheduler(
+    FundAlertSchedulerDraft draft,
+  ) async {
+    final payload = await _client.put(
+      '/api/v1/funds/alerts/scheduler/config',
+      draft.toJson(),
+    );
+    return FundAlertSchedulerStatus.fromJson(payload as Map<String, dynamic>);
+  }
+
+  Future<FundAlertSchedulerStatus> runAlertScan({bool refresh = true}) async {
+    final payload = await _client.post(
+      '/api/v1/funds/alerts/scheduler/run-once',
+      const {},
+      query: {'refresh': '$refresh'},
+    );
+    return FundAlertSchedulerStatus.fromJson(payload as Map<String, dynamic>);
+  }
+
   Future<List<FundNavPoint>> fetchNavs(
     String fundCode, {
     int limit = 180,

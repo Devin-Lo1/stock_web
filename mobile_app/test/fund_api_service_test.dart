@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -94,5 +96,106 @@ void main() {
 
     expect(method, 'POST');
     expect(requestedUri.path, '/api/v1/funds/positions/position-1/trades');
+  });
+
+  test('fetchAlertSchedulerStatus parses multiple reminder times', () async {
+    final service = FundApiService(
+      ApiClient(
+        baseUrl: 'http://test.local',
+        httpClient: MockClient((request) async {
+          return http.Response(
+            '{"enabled":true,"running":true,"scanning":false,'
+            '"poll_interval_seconds":60,'
+            '"reminder_times":["14:20","14:30"],'
+            '"due_window_minutes":10,'
+            '"next_run_at":"2026-05-23T06:30:00Z",'
+            '"last_scan_at":"2026-05-23T06:20:00Z",'
+            '"last_scan_key":"2026-05-23:14:20",'
+            '"last_error":"",'
+            '"last_result":{"scanned_count":3,"created_count":1,'
+            '"skipped_count":2}}',
+            200,
+          );
+        }),
+      ),
+    );
+
+    final status = await service.fetchAlertSchedulerStatus();
+
+    expect(status.enabled, isTrue);
+    expect(status.running, isTrue);
+    expect(status.reminderTimes, ['14:20', '14:30']);
+    expect(status.createdCount, 1);
+    expect(status.lastScanAt, isNotNull);
+  });
+
+  test('updateAlertScheduler posts configured times', () async {
+    late String method;
+    late Uri requestedUri;
+    late Map<String, dynamic> body;
+    final service = FundApiService(
+      ApiClient(
+        baseUrl: 'http://test.local',
+        httpClient: MockClient((request) async {
+          method = request.method;
+          requestedUri = request.url;
+          body = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(
+            '{"enabled":true,"running":true,"scanning":false,'
+            '"poll_interval_seconds":60,'
+            '"reminder_times":["14:20","14:30"],'
+            '"due_window_minutes":15,"next_run_at":null,'
+            '"last_scan_at":null,"last_scan_key":"",'
+            '"last_error":"","last_result":{}}',
+            200,
+          );
+        }),
+      ),
+    );
+
+    await service.updateAlertScheduler(
+      const FundAlertSchedulerDraft(
+        enabled: true,
+        reminderTimes: ['14:20', '14:30'],
+        dueWindowMinutes: 15,
+      ),
+    );
+
+    expect(method, 'PUT');
+    expect(requestedUri.path, '/api/v1/funds/alerts/scheduler/config');
+    expect(body['enabled'], isTrue);
+    expect(body['reminder_times'], ['14:20', '14:30']);
+    expect(body['due_window_minutes'], 15);
+  });
+
+  test('runAlertScan posts manual scheduler scan', () async {
+    late String method;
+    late Uri requestedUri;
+    final service = FundApiService(
+      ApiClient(
+        baseUrl: 'http://test.local',
+        httpClient: MockClient((request) async {
+          method = request.method;
+          requestedUri = request.url;
+          return http.Response(
+            '{"enabled":true,"running":true,"scanning":false,'
+            '"poll_interval_seconds":60,'
+            '"reminder_times":["14:30"],'
+            '"due_window_minutes":10,"next_run_at":null,'
+            '"last_scan_at":"2026-05-23T06:30:00Z",'
+            '"last_scan_key":"manual:test","last_error":"",'
+            '"last_result":{"created_count":2}}',
+            200,
+          );
+        }),
+      ),
+    );
+
+    final status = await service.runAlertScan(refresh: false);
+
+    expect(method, 'POST');
+    expect(requestedUri.path, '/api/v1/funds/alerts/scheduler/run-once');
+    expect(requestedUri.queryParameters['refresh'], 'false');
+    expect(status.createdCount, 2);
   });
 }

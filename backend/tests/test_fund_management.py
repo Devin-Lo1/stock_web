@@ -7,7 +7,18 @@ from app.repositories.funds import (
     list_fund_trades,
     upsert_fund_navs,
 )
-from app.schemas import FundNavPoint, FundPositionCreate, FundQuote, FundTradeCreate
+from app.repositories.fund_alert_scheduler import (
+    get_fund_alert_scheduler_config,
+    update_fund_alert_scheduler_config,
+)
+from app.schemas import (
+    FundAlertSchedulerUpdate,
+    FundNavPoint,
+    FundPositionCreate,
+    FundQuote,
+    FundTradeCreate,
+)
+from app.services.fund_alert_scanner import scan_fund_alerts
 from app.services.funds import _build_fund_summary, list_fund_position_summaries
 from app.db.converters import _now
 
@@ -165,3 +176,65 @@ def test_fund_summary_recommends_grid_action_from_last_trade_nav() -> None:
     assert buy_summary.grid_recommendation is not None
     assert buy_summary.grid_recommendation.action == "buy"
     assert buy_summary.grid_recommendation.recommended_amount == 5000
+
+
+def test_fund_alert_scheduler_config_accepts_multiple_times() -> None:
+    config = update_fund_alert_scheduler_config(
+        FundAlertSchedulerUpdate(
+            enabled=True,
+            reminder_times=["14:30", "14:50", "bad", "9:25"],
+            due_window_minutes=15,
+        ),
+    )
+
+    assert config.enabled is True
+    assert config.reminder_times == ["09:25", "14:30", "14:50"]
+    assert config.due_window_minutes == 15
+
+    stored = get_fund_alert_scheduler_config()
+    assert stored.reminder_times == ["09:25", "14:30", "14:50"]
+
+
+def test_scan_fund_alerts_creates_signal_event_from_grid_recommendation() -> None:
+    create_fund_position(
+        FundPositionCreate(
+            fund_code="000001",
+            name="Huaxia Growth",
+            fund_type="mixed",
+            shares=1000,
+            cost_nav=1.0,
+            alert_enabled=True,
+            alert_threshold_percent=5,
+            alert_sell_ratio=0.25,
+        ),
+    )
+    upsert_fund_navs(
+        [
+            FundNavPoint(
+                fund_code="000001",
+                nav_date=date(2026, 5, 22),
+                unit_nav=1.06,
+                accumulated_nav=2.1,
+                daily_growth_rate=6,
+                updated_at=_now(),
+            ),
+        ],
+    )
+
+    result = scan_fund_alerts(
+        refresh=False,
+        scan_key="2026-05-23:14:30",
+        dispatch_push=False,
+    )
+    duplicate = scan_fund_alerts(
+        refresh=False,
+        scan_key="2026-05-23:14:30",
+        dispatch_push=False,
+    )
+
+    assert result.scanned_count == 1
+    assert result.created_count == 1
+    assert result.events[0].signal_type == "fund_grid_sell"
+    assert result.events[0].payload["source_category"] == "fund"
+    assert result.events[0].payload["strategy_name"] == "基金涨跌提醒"
+    assert duplicate.created_count == 0

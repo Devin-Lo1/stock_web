@@ -1,7 +1,9 @@
 from datetime import date, datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+from .notifications import SignalEvent
 
 FundTradeAction = Literal["buy", "sell"]
 FundValuationMode = Literal["official", "estimated", "none"]
@@ -123,6 +125,38 @@ class FundGridRecommendation(BaseModel):
     recommended_shares: float = 0
     valuation_mode: FundValuationMode = "none"
     valuation_time: datetime | None = None
+
+
+class FundAlertSchedulerUpdate(BaseModel):
+    enabled: bool | None = None
+    reminder_times: list[str] | None = None
+    due_window_minutes: int | None = Field(default=None, ge=1, le=60)
+
+
+class FundAlertSchedulerStatus(BaseModel):
+    enabled: bool = False
+    running: bool = False
+    scanning: bool = False
+    poll_interval_seconds: int = 60
+    reminder_times: list[str] = Field(default_factory=lambda: ["14:30"])
+    due_window_minutes: int = 10
+    next_run_at: datetime | None = None
+    last_started_at: datetime | None = None
+    last_stopped_at: datetime | None = None
+    last_scan_at: datetime | None = None
+    last_scan_key: str = ""
+    last_error: str = ""
+    last_result: dict[str, Any] = Field(default_factory=dict)
+
+
+class FundAlertScanResult(BaseModel):
+    scanned_count: int = 0
+    created_count: int = 0
+    skipped_count: int = 0
+    events: list[SignalEvent] = Field(default_factory=list)
+    errors: list[dict[str, Any]] = Field(default_factory=list)
+    scanned_at: datetime
+    scan_key: str = ""
 
 
 class FundPositionSummary(BaseModel):

@@ -33,6 +33,7 @@ TABLES = (
     "fund_navs",
     "fund_trades",
     "fund_positions",
+    "fund_alert_scheduler",
 )
 
 

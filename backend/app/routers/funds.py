@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Query, status
 
 from ..errors import api_error, not_found_error
@@ -15,6 +17,9 @@ from ..repositories.funds import (
 )
 from ..schemas import (
     FundNavPoint,
+    FundAlertScanResult,
+    FundAlertSchedulerStatus,
+    FundAlertSchedulerUpdate,
     FundPosition,
     FundPositionCreate,
     FundPositionSummary,
@@ -26,8 +31,50 @@ from ..schemas import (
 )
 from ..services.fund_provider import EastmoneyFundProvider, FundProviderError
 from ..services.funds import list_fund_position_summaries, refresh_fund_navs
+from ..services.fund_alert_scheduler import get_fund_alert_scheduler
 
 router = APIRouter(prefix="/api/v1/funds", tags=["funds"])
+
+
+@router.get("/alerts/scheduler/status", response_model=FundAlertSchedulerStatus)
+def api_fund_alert_scheduler_status() -> FundAlertSchedulerStatus:
+    return get_fund_alert_scheduler().status()
+
+
+@router.put("/alerts/scheduler/config", response_model=FundAlertSchedulerStatus)
+def api_update_fund_alert_scheduler(
+    payload: FundAlertSchedulerUpdate,
+) -> FundAlertSchedulerStatus:
+    return get_fund_alert_scheduler().configure(payload)
+
+
+@router.post("/alerts/scheduler/run-once", response_model=FundAlertSchedulerStatus)
+async def api_run_fund_alert_scheduler_once(
+    refresh: bool = Query(default=True),
+) -> FundAlertSchedulerStatus:
+    await get_fund_alert_scheduler().run_once(refresh=refresh)
+    return get_fund_alert_scheduler().status()
+
+
+@router.post("/alerts/scan", response_model=FundAlertScanResult)
+async def api_scan_fund_alerts(
+    refresh: bool = Query(default=True),
+) -> FundAlertScanResult:
+    result = await get_fund_alert_scheduler().run_once(refresh=refresh)
+    if result is None:
+        status = get_fund_alert_scheduler().status()
+        return FundAlertScanResult(
+            scanned_count=0,
+            created_count=0,
+            skipped_count=0,
+            events=[],
+            errors=[{"message": "fund alert scan is already running"}],
+            scanned_at=status.last_scan_at
+            or status.last_started_at
+            or datetime.now(timezone.utc),
+            scan_key=status.last_scan_key,
+        )
+    return result
 
 
 @router.get("/search", response_model=list[FundSearchResult])

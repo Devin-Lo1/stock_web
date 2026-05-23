@@ -19,6 +19,7 @@ class FundsScreen extends StatefulWidget {
 
 class _FundsScreenState extends State<FundsScreen> {
   List<FundPositionSummary> _summaries = const [];
+  FundAlertSchedulerStatus? _schedulerStatus;
   bool _isLoading = true;
   bool _isRefreshing = false;
   Object? _error;
@@ -40,10 +41,14 @@ class _FundsScreenState extends State<FundsScreen> {
       setState(() => _isRefreshing = true);
     }
     try {
-      final summaries = await widget.repository.loadSummaries(refresh: refresh);
+      final summariesFuture = widget.repository.loadSummaries(refresh: refresh);
+      final schedulerFuture = widget.repository.loadAlertSchedulerStatus();
+      final summaries = await summariesFuture;
+      final schedulerStatus = await schedulerFuture;
       if (!mounted) return;
       setState(() {
         _summaries = summaries;
+        _schedulerStatus = schedulerStatus;
         _error = null;
       });
     } catch (error) {
@@ -121,6 +126,44 @@ class _FundsScreenState extends State<FundsScreen> {
       await _load(refresh: false);
     } catch (error) {
       if (mounted) _showSnack('保存提醒失败：$error');
+    }
+  }
+
+  Future<void> _editScheduler() async {
+    final draft = await showModalBottomSheet<FundAlertSchedulerDraft>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: cardColor(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+      ),
+      builder: (context) => _FundSchedulerSettingsSheet(
+        status: _schedulerStatus ?? FundAlertSchedulerStatus.defaults(),
+      ),
+    );
+    if (draft == null) return;
+    try {
+      final status = await widget.repository.updateAlertScheduler(draft);
+      if (!mounted) return;
+      setState(() => _schedulerStatus = status);
+      await _load(refresh: false);
+    } catch (error) {
+      if (mounted) _showSnack('保存扫描时间失败：$error');
+    }
+  }
+
+  Future<void> _runSchedulerScan() async {
+    setState(() => _isRefreshing = true);
+    try {
+      final status = await widget.repository.runAlertScan(refresh: true);
+      if (!mounted) return;
+      setState(() => _schedulerStatus = status);
+      await _load(refresh: false);
+    } catch (error) {
+      if (mounted) _showSnack('基金提醒扫描失败：$error');
+    } finally {
+      if (mounted) setState(() => _isRefreshing = false);
     }
   }
 
@@ -206,6 +249,12 @@ class _FundsScreenState extends State<FundsScreen> {
                 dayProfit: totalDayProfit,
                 totalProfit: totalProfit,
                 label: hasEstimated ? '估算当日收益' : '当日收益',
+              ),
+              const SizedBox(height: 10),
+              _FundSchedulerPanel(
+                status: _schedulerStatus ?? FundAlertSchedulerStatus.defaults(),
+                onEdit: _editScheduler,
+                onRunNow: _runSchedulerScan,
               ),
               const SizedBox(height: 10),
               if (recommendations.isNotEmpty) ...[
@@ -369,6 +418,151 @@ class _FundToolbar extends StatelessWidget {
           label: const Text('添加场外基金'),
         ),
       ],
+    );
+  }
+}
+
+class _FundSchedulerPanel extends StatelessWidget {
+  const _FundSchedulerPanel({
+    required this.status,
+    required this.onEdit,
+    required this.onRunNow,
+  });
+
+  final FundAlertSchedulerStatus status;
+  final VoidCallback onEdit;
+  final VoidCallback onRunNow;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = status.enabled
+        ? appAccentColor(context)
+        : secondaryTextColor(context);
+    final stateText = status.enabled
+        ? status.running
+              ? '已启用'
+              : '已启用 · 待启动'
+        : '未启用';
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cardColor(context),
+        border: Border.all(color: borderColor(context)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.schedule_rounded, color: accent),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '策略提醒',
+                      style: TextStyle(
+                        color: primaryTextColor(context),
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      stateText,
+                      style: TextStyle(
+                        color: secondaryTextColor(context),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: '立即扫描',
+                onPressed: status.scanning ? null : onRunNow,
+                icon: status.scanning
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.play_arrow_rounded),
+              ),
+              IconButton(
+                tooltip: '设置时间',
+                onPressed: onEdit,
+                icon: const Icon(Icons.tune_rounded),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _SchedulerChip(
+                icon: Icons.access_time_rounded,
+                label: status.reminderTimes.join(' / '),
+              ),
+              _SchedulerChip(
+                icon: Icons.fact_check_outlined,
+                label: '上次 ${_dateTimeText(status.lastScanAt)}',
+              ),
+              _SchedulerChip(
+                icon: Icons.notifications_active_outlined,
+                label: '触发 ${status.createdCount}',
+              ),
+              _SchedulerChip(
+                icon: Icons.skip_next_rounded,
+                label: '下次 ${_dateTimeText(status.nextRunAt)}',
+              ),
+              if (status.lastError.isNotEmpty)
+                _SchedulerChip(
+                  icon: Icons.error_outline_rounded,
+                  label: '异常',
+                  color: const Color(0xFFFF4D67),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SchedulerChip extends StatelessWidget {
+  const _SchedulerChip({required this.icon, required this.label, this.color});
+
+  final IconData icon;
+  final String label;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveColor = color ?? secondaryTextColor(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: effectiveColor.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(7),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: effectiveColor),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              color: effectiveColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1041,6 +1235,106 @@ class _FundAlertSettingsSheetState extends State<_FundAlertSettingsSheet> {
   }
 }
 
+class _FundSchedulerSettingsSheet extends StatefulWidget {
+  const _FundSchedulerSettingsSheet({required this.status});
+
+  final FundAlertSchedulerStatus status;
+
+  @override
+  State<_FundSchedulerSettingsSheet> createState() =>
+      _FundSchedulerSettingsSheetState();
+}
+
+class _FundSchedulerSettingsSheetState
+    extends State<_FundSchedulerSettingsSheet> {
+  late bool _enabled;
+  late final TextEditingController _timesController;
+  late final TextEditingController _dueWindowController;
+
+  @override
+  void initState() {
+    super.initState();
+    _enabled = widget.status.enabled;
+    _timesController = TextEditingController(
+      text: widget.status.reminderTimes.join(', '),
+    );
+    _dueWindowController = TextEditingController(
+      text: widget.status.dueWindowMinutes.toString(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _timesController.dispose();
+    _dueWindowController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final times = _timesController.text
+        .split(RegExp(r'[,，\s]+'))
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+    final dueWindow = int.tryParse(_dueWindowController.text.trim());
+    if (times.isEmpty || dueWindow == null || dueWindow < 1 || dueWindow > 60) {
+      return;
+    }
+    Navigator.of(context).pop(
+      FundAlertSchedulerDraft(
+        enabled: _enabled,
+        reminderTimes: times,
+        dueWindowMinutes: dueWindow,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
+      ),
+      child: ListView(
+        shrinkWrap: true,
+        children: [
+          _SheetTitle(title: '扫描时间'),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _enabled,
+            onChanged: (value) => setState(() => _enabled = value),
+            title: const Text('启用自动扫描'),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _timesController,
+            keyboardType: TextInputType.text,
+            decoration: const InputDecoration(
+              labelText: '提醒时间',
+              hintText: '14:20, 14:30, 14:50',
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _dueWindowController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: '有效窗口(分钟)'),
+          ),
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: _submit,
+            icon: const Icon(Icons.check_rounded),
+            label: const Text('保存时间'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SheetTitle extends StatelessWidget {
   const _SheetTitle({required this.title});
 
@@ -1091,6 +1385,16 @@ String _percent(double value) {
       ? '-'
       : '';
   return '$sign${value.abs().toStringAsFixed(2)}%';
+}
+
+String _dateTimeText(DateTime? value) {
+  if (value == null) return '尚未扫描';
+  final local = value.toLocal();
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$month/$day $hour:$minute';
 }
 
 Color _profitColor(double value) {

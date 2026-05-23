@@ -218,6 +218,21 @@ def init_database(*, seed_defaults: bool = True) -> None:
         )
         connection.execute(
             """
+            CREATE TABLE IF NOT EXISTS fund_alert_scheduler (
+                id TEXT PRIMARY KEY,
+                enabled INTEGER NOT NULL,
+                reminder_times TEXT NOT NULL,
+                due_window_minutes INTEGER NOT NULL,
+                last_scan_at TEXT,
+                last_scan_key TEXT NOT NULL,
+                last_error TEXT NOT NULL,
+                last_result TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """,
+        )
+        connection.execute(
+            """
             CREATE TABLE IF NOT EXISTS quote_snapshots (
                 code TEXT PRIMARY KEY,
                 market TEXT NOT NULL,

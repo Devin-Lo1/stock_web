@@ -10,15 +10,21 @@ from .services.strategy_monitor_scheduler import (
     start_strategy_monitor_scheduler_from_env,
     stop_strategy_monitor_scheduler,
 )
+from .services.fund_alert_scheduler import (
+    start_fund_alert_scheduler,
+    stop_fund_alert_scheduler,
+)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_database()
     await start_strategy_monitor_scheduler_from_env()
+    await start_fund_alert_scheduler()
     try:
         yield
     finally:
+        await stop_fund_alert_scheduler()
         await stop_strategy_monitor_scheduler()
 
 

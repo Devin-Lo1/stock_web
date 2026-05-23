@@ -131,6 +131,90 @@ class FundAlertSettingsDraft {
   }
 }
 
+class FundAlertSchedulerStatus {
+  const FundAlertSchedulerStatus({
+    required this.enabled,
+    required this.running,
+    required this.scanning,
+    required this.pollIntervalSeconds,
+    required this.reminderTimes,
+    required this.dueWindowMinutes,
+    required this.nextRunAt,
+    required this.lastScanAt,
+    required this.lastScanKey,
+    required this.lastError,
+    required this.lastResult,
+  });
+
+  final bool enabled;
+  final bool running;
+  final bool scanning;
+  final int pollIntervalSeconds;
+  final List<String> reminderTimes;
+  final int dueWindowMinutes;
+  final DateTime? nextRunAt;
+  final DateTime? lastScanAt;
+  final String lastScanKey;
+  final String lastError;
+  final Map<String, Object?> lastResult;
+
+  factory FundAlertSchedulerStatus.defaults() {
+    return const FundAlertSchedulerStatus(
+      enabled: false,
+      running: false,
+      scanning: false,
+      pollIntervalSeconds: 60,
+      reminderTimes: ['14:30'],
+      dueWindowMinutes: 10,
+      nextRunAt: null,
+      lastScanAt: null,
+      lastScanKey: '',
+      lastError: '',
+      lastResult: {},
+    );
+  }
+
+  factory FundAlertSchedulerStatus.fromJson(Map<String, dynamic> json) {
+    return FundAlertSchedulerStatus(
+      enabled: json['enabled'] as bool? ?? false,
+      running: json['running'] as bool? ?? false,
+      scanning: json['scanning'] as bool? ?? false,
+      pollIntervalSeconds: _int(json['poll_interval_seconds'], fallback: 60),
+      reminderTimes: _stringList(json['reminder_times']),
+      dueWindowMinutes: _int(json['due_window_minutes'], fallback: 10),
+      nextRunAt: DateTime.tryParse(json['next_run_at'] as String? ?? ''),
+      lastScanAt: DateTime.tryParse(json['last_scan_at'] as String? ?? ''),
+      lastScanKey: json['last_scan_key'] as String? ?? '',
+      lastError: json['last_error'] as String? ?? '',
+      lastResult: _map(json['last_result']),
+    );
+  }
+
+  int get createdCount => _int(lastResult['created_count']);
+  int get scannedCount => _int(lastResult['scanned_count']);
+  int get skippedCount => _int(lastResult['skipped_count']);
+}
+
+class FundAlertSchedulerDraft {
+  const FundAlertSchedulerDraft({
+    required this.enabled,
+    required this.reminderTimes,
+    required this.dueWindowMinutes,
+  });
+
+  final bool enabled;
+  final List<String> reminderTimes;
+  final int dueWindowMinutes;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'enabled': enabled,
+      'reminder_times': reminderTimes,
+      'due_window_minutes': dueWindowMinutes,
+    };
+  }
+}
+
 class FundPositionSummary {
   const FundPositionSummary({
     required this.position,
@@ -279,4 +363,26 @@ double _double(Object? value, {double fallback = 0}) {
   if (value is num) return value.toDouble();
   if (value is String) return double.tryParse(value) ?? fallback;
   return fallback;
+}
+
+int _int(Object? value, {int fallback = 0}) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value) ?? fallback;
+  return fallback;
+}
+
+List<String> _stringList(Object? value) {
+  if (value is! List) return const ['14:30'];
+  final times = value
+      .map((item) => item.toString().trim())
+      .where((item) => item.isNotEmpty)
+      .toList();
+  return times.isEmpty ? const ['14:30'] : times;
+}
+
+Map<String, Object?> _map(Object? value) {
+  if (value is Map<String, dynamic>) return value.cast<String, Object?>();
+  if (value is Map<String, Object?>) return value;
+  return const {};
 }

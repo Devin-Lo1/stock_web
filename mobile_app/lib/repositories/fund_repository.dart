@@ -14,6 +14,20 @@ class FundRepository {
     return _apiService.fetchPositionSummaries(refresh: refresh);
   }
 
+  Future<FundAlertSchedulerStatus> loadAlertSchedulerStatus() {
+    return _apiService.fetchAlertSchedulerStatus();
+  }
+
+  Future<FundAlertSchedulerStatus> updateAlertScheduler(
+    FundAlertSchedulerDraft draft,
+  ) {
+    return _apiService.updateAlertScheduler(draft);
+  }
+
+  Future<FundAlertSchedulerStatus> runAlertScan({bool refresh = true}) {
+    return _apiService.runAlertScan(refresh: refresh);
+  }
+
   Future<List<FundNavPoint>> loadNavs(
     String fundCode, {
     int limit = 180,
