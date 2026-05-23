@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/signal_scan_config.dart';
 import '../models/stock_position.dart';
+import '../models/strategy_definition.dart';
 import '../models/trade_signal.dart';
 import '../repositories/backtest_repository.dart';
 import '../repositories/notification_repository.dart';
@@ -676,8 +677,11 @@ List<_FilterOption> _strategyOptions(List<TradeSignal> signals) {
     labels.putIfAbsent(
       signal.strategyCode,
       () => signal.strategyName.isEmpty
-          ? signal.strategyCode
-          : signal.strategyName,
+          ? strategyDisplayNameForCode(signal.strategyCode)
+          : strategyDisplayNameForCode(
+              signal.strategyCode,
+              fallbackName: signal.strategyName,
+            ),
     );
   }
   return _sortedOptions(labels);
@@ -872,7 +876,10 @@ class _SignalConfigTile extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  config.strategyName,
+                  strategyDisplayNameForCode(
+                    config.strategyCode,
+                    fallbackName: config.strategyName,
+                  ),
                   style: TextStyle(
                     color: primaryTextColor(context),
                     fontSize: 15,

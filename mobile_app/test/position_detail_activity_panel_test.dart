@@ -89,7 +89,7 @@ void main() {
 
     expect(find.text('单股监控与信号'), findsOneWidget);
     expect(find.text('策略监控'), findsOneWidget);
-    expect(find.text('Price Break MA'), findsOneWidget);
+    expect(find.text('Price Break MA（价格跌破/站回均线）'), findsOneWidget);
     expect(find.text('历史信号'), findsOneWidget);
     expect(find.text('收盘价跌破 MA5'), findsOneWidget);
     expect(find.text('推送记录'), findsOneWidget);

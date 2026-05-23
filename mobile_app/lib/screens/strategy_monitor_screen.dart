@@ -340,10 +340,13 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
 
   Future<void> _deleteMonitor(StrategyMonitor monitor) async {
     if (_updatingIds.contains(monitor.id)) return;
+    final strategyName = strategyDisplayNameForCode(
+      monitor.strategyCode,
+      fallbackName: monitor.strategyName,
+    );
     final confirmed = await _confirmDelete(
       title: '删除策略监控',
-      content:
-          '删除“${monitor.name} · ${monitor.strategyName}”后，这个监控不会再扫描。确认删除吗？',
+      content: '删除“${monitor.name} · $strategyName”后，这个监控不会再扫描。确认删除吗？',
       actionLabel: '删除',
     );
     if (confirmed != true) return;
@@ -1258,7 +1261,10 @@ class _MonitorCreatePanel extends StatelessWidget {
                 .map(
                   (strategy) => DropdownMenuItem(
                     value: strategy.code,
-                    child: Text(strategy.name, overflow: TextOverflow.ellipsis),
+                    child: Text(
+                      strategy.displayName,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 )
                 .toList(),
@@ -1489,6 +1495,10 @@ class _MonitorTile extends StatelessWidget {
     final statusColor = monitor.enabled
         ? const Color(0xFF20C997)
         : secondaryTextColor(context);
+    final strategyName = strategyDisplayNameForCode(
+      monitor.strategyCode,
+      fallbackName: monitor.strategyName,
+    );
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -1535,7 +1545,7 @@ class _MonitorTile extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '${monitor.code} · ${monitor.strategyName} · ${monitor.parameterLabel}',
+            '${monitor.code} · $strategyName · ${monitor.parameterLabel}',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(color: secondaryTextColor(context), fontSize: 12),

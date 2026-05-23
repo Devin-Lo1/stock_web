@@ -160,7 +160,7 @@ class _HistoryFilters extends StatelessWidget {
                     DropdownMenuItem(
                       value: strategy.code,
                       child: Text(
-                        strategy.name,
+                        strategy.displayName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -369,7 +369,7 @@ String _statusText(String status) {
 
 String _strategyName(List<StrategyDefinition> strategies, String code) {
   for (final strategy in strategies) {
-    if (strategy.code == code) return strategy.name;
+    if (strategy.code == code) return strategy.displayName;
   }
-  return code;
+  return strategyDisplayNameForCode(code);
 }

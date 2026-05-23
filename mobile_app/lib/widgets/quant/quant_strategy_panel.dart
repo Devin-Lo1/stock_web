@@ -56,7 +56,7 @@ class QuantStrategyPanel extends StatelessWidget {
                     (strategy) => DropdownMenuItem(
                       value: strategy,
                       child: Text(
-                        strategy.name,
+                        strategy.displayName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),

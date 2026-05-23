@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/backtest_models.dart';
 import '../../models/candle.dart';
+import '../../models/strategy_definition.dart';
 import '../../utils/formatters.dart';
 import '../../utils/theme_helpers.dart';
 import '../backtest/backtest_equity_chart.dart';
@@ -435,19 +436,7 @@ List<_SnapshotItem> _strategyParameterItems(BacktestRun run) {
 }
 
 String _strategyLabel(String code) {
-  return switch (code) {
-    'ma_cross' => 'MA Cross',
-    'atr_trailing_stop' => 'ATR Trailing Stop',
-    'composite_factor' => 'Composite Factor',
-    'ma_breakdown_stop' => 'MA Breakdown Stop',
-    'macd_trend' => 'MACD Trend',
-    'price_break_ma' => 'Price Break MA',
-    'rsi_oversold_rebound' => 'RSI Oversold Rebound',
-    'rsi_reversal' => 'RSI Reversal',
-    'trend_score' => 'Trend Score',
-    'volume_breakout' => 'Volume Breakout',
-    _ => code,
-  };
+  return strategyDisplayNameForCode(code);
 }
 
 String _directionText(String value) {

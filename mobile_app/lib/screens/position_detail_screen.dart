@@ -5,6 +5,7 @@ import '../models/notification_models.dart';
 import '../models/position_snapshot.dart';
 import '../models/position_trade.dart';
 import '../models/stock_position.dart';
+import '../models/strategy_definition.dart';
 import '../models/strategy_monitor.dart';
 import '../models/trade_signal.dart';
 import '../sheets/position_trade_sheet.dart';
@@ -527,11 +528,15 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
 
   Future<void> _deleteStrategyMonitor(StrategyMonitor monitor) async {
     if (_updatingMonitorIds.contains(monitor.id)) return;
+    final strategyName = strategyDisplayNameForCode(
+      monitor.strategyCode,
+      fallbackName: monitor.strategyName,
+    );
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('删除策略监控'),
-        content: Text('删除“${monitor.strategyName}”后，这只股票将不再按该策略扫描。确认删除吗？'),
+        content: Text('删除“$strategyName”后，这只股票将不再按该策略扫描。确认删除吗？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),

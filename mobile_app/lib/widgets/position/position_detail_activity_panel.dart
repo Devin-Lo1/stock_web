@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/notification_models.dart';
+import '../../models/strategy_definition.dart';
 import '../../models/strategy_monitor.dart';
 import '../../models/trade_signal.dart';
 import '../../utils/theme_helpers.dart';
@@ -227,7 +228,10 @@ class _MonitorRow extends StatelessWidget {
     return _ActivityRow(
       leading: Icons.radar_rounded,
       color: statusColor,
-      title: monitor.strategyName,
+      title: strategyDisplayNameForCode(
+        monitor.strategyCode,
+        fallbackName: monitor.strategyName,
+      ),
       subtitle: '${_periodLabel(monitor.period)} · ${monitor.parameterLabel}',
       meta:
           '扫描 ${_timeLabel(monitor.lastScannedAt)} · 触发 ${_timeLabel(monitor.lastTriggeredAt)}',
