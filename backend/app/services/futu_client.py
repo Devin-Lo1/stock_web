@@ -4,7 +4,13 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .futu_import import get_futu_sdk
-from ..schemas import Candle, QuoteSnapshot
+from ..schemas import (
+    Candle,
+    CapitalFlowBucket,
+    CapitalFlowPoint,
+    CapitalFlowSnapshot,
+    QuoteSnapshot,
+)
 
 
 FUTU_HOST = "127.0.0.1"
@@ -99,6 +105,57 @@ def get_history_kline_quota() -> dict[str, Any]:
         quote_context.close()
 
 
+def get_futu_capital_flow(code: str) -> CapitalFlowSnapshot:
+    sdk = get_futu_sdk()
+    if sdk is None:
+        raise FutuDependencyError("futu-api is not installed")
+
+    normalized_code = code.strip().upper()
+    _ensure_futu_port_available()
+    quote_context = sdk.OpenQuoteContext(host=FUTU_HOST, port=FUTU_PORT)
+    try:
+        ret, distribution = quote_context.get_capital_distribution(normalized_code)
+        if ret != sdk.RET_OK:
+            raise FutuOpenDError(str(distribution))
+        if distribution.empty:
+            raise FutuOpenDError(f"No capital distribution returned for {normalized_code}")
+
+        ret, flow = quote_context.get_capital_flow(
+            normalized_code,
+            period_type=sdk.PeriodType.INTRADAY,
+        )
+        if ret != sdk.RET_OK:
+            raise FutuOpenDError(str(flow))
+
+        row = distribution.iloc[0]
+        buckets = [
+            _capital_bucket(row, "super"),
+            _capital_bucket(row, "big"),
+            _capital_bucket(row, "mid"),
+            _capital_bucket(row, "small"),
+        ]
+        total_inflow = sum(bucket.inflow for bucket in buckets)
+        total_outflow = sum(bucket.outflow for bucket in buckets)
+        points = [
+            _row_to_capital_flow_point(flow_row)
+            for _, flow_row in flow.iterrows()
+        ] if not flow.empty else []
+
+        return CapitalFlowSnapshot(
+            code=normalized_code,
+            market=_market_from_code(normalized_code),
+            currency=_currency_from_code(normalized_code),
+            update_time=_read_datetime_optional(row, "update_time"),
+            total_inflow=total_inflow,
+            total_outflow=total_outflow,
+            net_inflow=total_inflow - total_outflow,
+            buckets=buckets,
+            points=points,
+        )
+    finally:
+        quote_context.close()
+
+
 def request_history_klines(
     code: str,
     period: str,
@@ -151,6 +208,28 @@ def _read_float(row: Any, key: str) -> float:
         return parsed if math.isfinite(parsed) else 0.0
     except (TypeError, ValueError):
         return 0.0
+
+
+def _capital_bucket(row: Any, bucket: str) -> CapitalFlowBucket:
+    inflow = _read_float(row, f"capital_in_{bucket}")
+    outflow = _read_float(row, f"capital_out_{bucket}")
+    return CapitalFlowBucket(
+        bucket=bucket,
+        inflow=inflow,
+        outflow=outflow,
+        net_inflow=inflow - outflow,
+    )
+
+
+def _row_to_capital_flow_point(row: Any) -> CapitalFlowPoint:
+    return CapitalFlowPoint(
+        time=_read_datetime(row, "capital_flow_item_time"),
+        net_inflow=_read_float(row, "in_flow"),
+        super_net_inflow=_read_float(row, "super_in_flow"),
+        big_net_inflow=_read_float(row, "big_in_flow"),
+        mid_net_inflow=_read_float(row, "mid_in_flow"),
+        small_net_inflow=_read_float(row, "sml_in_flow"),
+    )
 
 
 def _market_from_code(code: str) -> str:
@@ -276,6 +355,21 @@ def _read_datetime(row: Any, key: str) -> datetime:
             return parsed.replace(tzinfo=timezone.utc)
         return parsed.astimezone(timezone.utc)
     return datetime.now(timezone.utc)
+
+
+def _read_datetime_optional(row: Any, key: str) -> datetime | None:
+    value = row.get(key, None)
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.astimezone(timezone.utc)
+    if isinstance(value, str) and value:
+        normalized = value.replace(" ", "T")
+        parsed = datetime.fromisoformat(normalized)
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
+    return None
 
 
 def _stringify_data(data: Any) -> Any:

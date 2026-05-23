@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/app_enums.dart';
 import '../models/candle.dart';
+import '../models/capital_flow.dart';
 import '../models/notification_models.dart';
 import '../models/position_snapshot.dart';
 import '../models/position_trade.dart';
@@ -27,6 +28,7 @@ class PositionsScreen extends StatelessWidget {
     required this.onDeletePosition,
     required this.onRefresh,
     required this.onLoadCandles,
+    required this.onLoadCapitalFlow,
     required this.onLoadPositionTrades,
     required this.onLoadPositionSnapshots,
     required this.onCreatePositionTrade,
@@ -49,6 +51,7 @@ class PositionsScreen extends StatelessWidget {
   final Future<List<StockPosition>> Function() onRefresh;
   final Future<List<Candle>> Function(String code, {String period, int limit})
   onLoadCandles;
+  final Future<CapitalFlowSnapshot> Function(String code) onLoadCapitalFlow;
   final Future<List<PositionTrade>> Function(StockPosition position)
   onLoadPositionTrades;
   final Future<List<PositionSnapshot>> Function(StockPosition position)
@@ -166,6 +169,7 @@ class PositionsScreen extends StatelessWidget {
               () => onDeletePosition(position),
               onRefresh,
               onLoadCandles,
+              onLoadCapitalFlow,
               onLoadPositionTrades,
               onLoadPositionSnapshots,
               onCreatePositionTrade,
@@ -193,6 +197,7 @@ void _openPositionDetail(
   Future<List<StockPosition>> Function() onRefresh,
   Future<List<Candle>> Function(String code, {String period, int limit})
   onLoadCandles,
+  Future<CapitalFlowSnapshot> Function(String code) onLoadCapitalFlow,
   Future<List<PositionTrade>> Function(StockPosition position)
   onLoadPositionTrades,
   Future<List<PositionSnapshot>> Function(StockPosition position)
@@ -231,6 +236,7 @@ void _openPositionDetail(
         onDelete: onDelete,
         onRefresh: onRefresh,
         onLoadCandles: onLoadCandles,
+        onLoadCapitalFlow: onLoadCapitalFlow,
         onLoadPositionTrades: onLoadPositionTrades,
         onLoadPositionSnapshots: onLoadPositionSnapshots,
         onCreatePositionTrade: onCreatePositionTrade,

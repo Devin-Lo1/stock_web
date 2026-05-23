@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/candle.dart';
+import '../models/capital_flow.dart';
 import '../models/notification_models.dart';
 import '../models/position_snapshot.dart';
 import '../models/position_trade.dart';
@@ -13,6 +14,7 @@ import '../widgets/chart/fullscreen_kline_screen.dart';
 import '../widgets/chart/position_kline_chart.dart';
 import '../widgets/common/app_tag.dart';
 import '../widgets/chart/kline_chart_period.dart';
+import '../widgets/position/capital_flow_panel.dart';
 import '../widgets/position/position_detail_activity_panel.dart';
 import '../widgets/position/position_profit_curve.dart';
 import '../widgets/position/position_detail_metric.dart';
@@ -27,6 +29,7 @@ class PositionDetailScreen extends StatefulWidget {
     required this.onDelete,
     required this.onRefresh,
     required this.onLoadCandles,
+    required this.onLoadCapitalFlow,
     required this.onLoadPositionTrades,
     required this.onLoadPositionSnapshots,
     required this.onCreatePositionTrade,
@@ -46,6 +49,7 @@ class PositionDetailScreen extends StatefulWidget {
   final Future<List<StockPosition>> Function() onRefresh;
   final Future<List<Candle>> Function(String code, {String period, int limit})
   onLoadCandles;
+  final Future<CapitalFlowSnapshot> Function(String code) onLoadCapitalFlow;
   final Future<List<PositionTrade>> Function(StockPosition position)
   onLoadPositionTrades;
   final Future<List<PositionSnapshot>> Function(StockPosition position)
@@ -85,7 +89,9 @@ class PositionDetailScreen extends StatefulWidget {
 
 class _PositionDetailScreenState extends State<PositionDetailScreen> {
   late StockPosition _position = widget.position;
+  final PageController _chartPageController = PageController();
   List<Candle> _candles = const [];
+  CapitalFlowSnapshot? _capitalFlow;
   List<PositionTrade> _trades = const [];
   List<PositionSnapshot> _snapshots = const [];
   List<StrategyMonitor> _strategyMonitors = const [];
@@ -93,19 +99,29 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
   List<PushRecord> _pushRecords = const [];
   final Set<String> _updatingMonitorIds = <String>{};
   bool _isLoadingCandles = true;
+  bool _isLoadingCapitalFlow = true;
   bool _isLoadingDetail = true;
   bool _isLoadingActivity = true;
   Object? _candleError;
+  Object? _capitalFlowError;
   Object? _detailError;
   Object? _activityError;
   KLineChartPeriod _selectedPeriod = KLineChartPeriod.day;
+  int _selectedChartIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _loadCandles();
+    _loadCapitalFlow();
     _loadDetailData();
     _loadActivityData();
+  }
+
+  @override
+  void dispose() {
+    _chartPageController.dispose();
+    super.dispose();
   }
 
   Future<void> _editPosition() async {
@@ -114,6 +130,7 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
       setState(() => _position = updated);
       await Future.wait([
         _loadCandles(silent: true),
+        _loadCapitalFlow(silent: true),
         _loadDetailData(silent: true),
         _loadActivityData(silent: true),
       ]);
@@ -140,10 +157,16 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
   Future<void> _refreshPosition() async {
     final positionsFuture = widget.onRefresh();
     final candlesFuture = _loadCandles(silent: true);
+    final capitalFlowFuture = _loadCapitalFlow(silent: true);
     final detailFuture = _loadDetailData(silent: true);
     final activityFuture = _loadActivityData(silent: true);
     final positions = await positionsFuture;
-    await Future.wait([candlesFuture, detailFuture, activityFuture]);
+    await Future.wait([
+      candlesFuture,
+      capitalFlowFuture,
+      detailFuture,
+      activityFuture,
+    ]);
     if (!mounted) return;
     final latest = _findLatestPosition(positions, _position);
     if (latest != null) {
@@ -242,6 +265,30 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
         });
       }
       return const [];
+    }
+  }
+
+  Future<void> _loadCapitalFlow({bool silent = false}) async {
+    if (!silent && mounted) {
+      setState(() {
+        _isLoadingCapitalFlow = true;
+        _capitalFlowError = null;
+      });
+    }
+    try {
+      final snapshot = await widget.onLoadCapitalFlow(_position.code);
+      if (!mounted) return;
+      setState(() {
+        _capitalFlow = snapshot;
+        _isLoadingCapitalFlow = false;
+        _capitalFlowError = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingCapitalFlow = false;
+        _capitalFlowError = error;
+      });
     }
   }
 
@@ -501,21 +548,6 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
             const SizedBox(height: 18),
             QuoteOverviewGrid(position: _position),
             const SizedBox(height: 14),
-            KLineChartTabs(
-              selectedPeriod: _selectedPeriod,
-              onPeriodChanged: _changeChartPeriod,
-            ),
-            const SizedBox(height: 8),
-            PositionKLineChart(
-              position: _position,
-              candles: _candles,
-              period: _selectedPeriod,
-              isLoading: _isLoadingCandles,
-              hasError: _candleError != null,
-              onRetry: _loadCandles,
-              onOpenFullScreen: _openFullScreenChart,
-            ),
-            const SizedBox(height: 16),
             if (!hasBackendMetrics || _detailError != null) ...[
               _DetailSyncNotice(
                 message: _detailError == null
@@ -646,6 +678,62 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
               ],
             ),
             const SizedBox(height: 16),
+            _ChartSwitcherTabs(
+              selectedIndex: _selectedChartIndex,
+              onChanged: (index) {
+                setState(() => _selectedChartIndex = index);
+                _chartPageController.animateToPage(
+                  index,
+                  duration: const Duration(milliseconds: 240),
+                  curve: Curves.easeOutCubic,
+                );
+              },
+            ),
+            const SizedBox(height: 10),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              height: _selectedChartIndex == 0 ? 418 : 214,
+              child: PageView(
+                controller: _chartPageController,
+                onPageChanged: (index) =>
+                    setState(() => _selectedChartIndex = index),
+                children: [
+                  Column(
+                    children: [
+                      KLineChartTabs(
+                        selectedPeriod: _selectedPeriod,
+                        onPeriodChanged: _changeChartPeriod,
+                      ),
+                      const SizedBox(height: 8),
+                      PositionKLineChart(
+                        position: _position,
+                        candles: _candles,
+                        period: _selectedPeriod,
+                        isLoading: _isLoadingCandles,
+                        hasError: _candleError != null,
+                        onRetry: _loadCandles,
+                        onOpenFullScreen: _openFullScreenChart,
+                      ),
+                    ],
+                  ),
+                  _ProfitCurvePage(
+                    isLoading: _isLoadingDetail,
+                    error: _detailError,
+                    snapshots: _snapshots,
+                    onRetry: () => _loadDetailData(),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            CapitalFlowPanel(
+              snapshot: _capitalFlow,
+              isLoading: _isLoadingCapitalFlow,
+              error: _capitalFlowError,
+              onRetry: _loadCapitalFlow,
+            ),
+            const SizedBox(height: 12),
             if (_isLoadingDetail)
               const Center(
                 child: Padding(
@@ -654,8 +742,6 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
                 ),
               )
             else ...[
-              PositionProfitCurve(snapshots: _snapshots),
-              const SizedBox(height: 12),
               PositionTradeHistory(
                 trades: _trades,
                 onDeleteTrade: _deleteTrade,
@@ -682,6 +768,145 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
         ),
       ),
     );
+  }
+}
+
+class _ChartSwitcherTabs extends StatelessWidget {
+  const _ChartSwitcherTabs({
+    required this.selectedIndex,
+    required this.onChanged,
+  });
+
+  final int selectedIndex;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: softCardColor(context),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          _ChartSwitcherTab(
+            label: 'K线',
+            icon: Icons.candlestick_chart_rounded,
+            selected: selectedIndex == 0,
+            onTap: () => onChanged(0),
+          ),
+          _ChartSwitcherTab(
+            label: '收益',
+            icon: Icons.show_chart_rounded,
+            selected: selectedIndex == 1,
+            onTap: () => onChanged(1),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChartSwitcherTab extends StatelessWidget {
+  const _ChartSwitcherTab({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          decoration: BoxDecoration(
+            color: selected ? cardColor(context) : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+            border: selected ? Border.all(color: borderColor(context)) : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: selected
+                    ? appAccentColor(context)
+                    : secondaryTextColor(context),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected
+                      ? primaryTextColor(context)
+                      : secondaryTextColor(context),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfitCurvePage extends StatelessWidget {
+  const _ProfitCurvePage({
+    required this.isLoading,
+    required this.error,
+    required this.snapshots,
+    required this.onRetry,
+  });
+
+  final bool isLoading;
+  final Object? error;
+  final List<PositionSnapshot> snapshots;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return Container(
+        decoration: BoxDecoration(
+          color: cardColor(context),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: borderColor(context)),
+        ),
+        child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+    if (error != null) {
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cardColor(context),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: borderColor(context)),
+        ),
+        child: Center(
+          child: FilledButton.tonalIcon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('重试收益曲线'),
+          ),
+        ),
+      );
+    }
+    return PositionProfitCurve(snapshots: snapshots);
   }
 }
 

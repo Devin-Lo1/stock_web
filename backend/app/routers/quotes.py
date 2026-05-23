@@ -4,8 +4,13 @@ from ..errors import futu_dependency_error, futu_unavailable_error
 from ..mock_store import get_quotes
 from ..repositories.market_data import upsert_quote
 from ..repositories.positions import list_positions
-from ..schemas import QuoteSnapshot
-from ..services.futu_client import FutuDependencyError, FutuOpenDError, get_futu_quote
+from ..schemas import CapitalFlowSnapshot, QuoteSnapshot
+from ..services.futu_client import (
+    FutuDependencyError,
+    FutuOpenDError,
+    get_futu_capital_flow,
+    get_futu_quote,
+)
 
 router = APIRouter(prefix="/api/v1/quotes", tags=["quotes"])
 
@@ -17,7 +22,11 @@ def api_get_quotes(codes: str = Query(default="")) -> list[QuoteSnapshot]:
 
 @router.post("/refresh", response_model=list[QuoteSnapshot])
 def api_refresh_quotes(codes: str = Query(default="")) -> list[QuoteSnapshot]:
-    requested_codes = [code.strip().upper() for code in codes.split(",") if code.strip()]
+    requested_codes = [
+        code.strip().upper()
+        for code in codes.split(",")
+        if code.strip()
+    ]
     if not requested_codes:
         requested_codes = [position.code for position in list_positions()]
 
@@ -35,3 +44,13 @@ def api_refresh_quotes(codes: str = Query(default="")) -> list[QuoteSnapshot]:
     if not refreshed_quotes and failed_codes:
         raise futu_unavailable_error(str(failed_codes))
     return refreshed_quotes
+
+
+@router.get("/{code}/capital-flow", response_model=CapitalFlowSnapshot)
+def api_get_capital_flow(code: str) -> CapitalFlowSnapshot:
+    try:
+        return get_futu_capital_flow(code)
+    except FutuDependencyError as error:
+        raise futu_dependency_error(str(error)) from error
+    except FutuOpenDError as error:
+        raise futu_unavailable_error(str(error)) from error

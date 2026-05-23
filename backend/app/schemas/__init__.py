@@ -16,7 +16,12 @@ from .positions import (
     PositionTradeCreate,
     PositionUpdate,
 )
-from .quotes import QuoteSnapshot
+from .quotes import (
+    CapitalFlowBucket,
+    CapitalFlowPoint,
+    CapitalFlowSnapshot,
+    QuoteSnapshot,
+)
 from .signals import Signal, SignalScanResult
 from .notifications import (
     NotificationDevice,
@@ -64,6 +69,9 @@ __all__ = [
     "PositionTradeAction",
     "PositionTradeCreate",
     "PositionUpdate",
+    "CapitalFlowBucket",
+    "CapitalFlowPoint",
+    "CapitalFlowSnapshot",
     "QuoteSnapshot",
     "Signal",
     "SignalScanResult",

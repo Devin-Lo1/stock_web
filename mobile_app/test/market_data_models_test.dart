@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stock_mobile/models/candle.dart';
+import 'package:stock_mobile/models/capital_flow.dart';
 import 'package:stock_mobile/models/quote_snapshot.dart';
 import 'package:stock_mobile/widgets/chart/kline_chart_values.dart';
 
@@ -45,6 +46,41 @@ void main() {
     expect(candle.period, 'day');
     expect(candle.open, 180.1);
     expect(candle.toJson()['close'], 183.2);
+  });
+
+  test('CapitalFlowSnapshot parses fund flow values', () {
+    final snapshot = CapitalFlowSnapshot.fromJson({
+      'code': 'US.MU',
+      'market': 'US',
+      'currency': 'USD',
+      'update_time': '2026-05-22T19:59:56',
+      'total_inflow': 1000,
+      'total_outflow': 800,
+      'net_inflow': 200,
+      'buckets': [
+        {
+          'bucket': 'big',
+          'inflow': '300.5',
+          'outflow': 100,
+          'net_inflow': 200.5,
+        },
+      ],
+      'points': [
+        {
+          'time': '2026-05-22T16:00:00',
+          'net_inflow': 200,
+          'super_net_inflow': 70,
+          'big_net_inflow': 60,
+          'mid_net_inflow': 50,
+          'small_net_inflow': 20,
+        },
+      ],
+    });
+
+    expect(snapshot.code, 'US.MU');
+    expect(snapshot.currency, 'USD');
+    expect(snapshot.buckets.single.netInflow, 200.5);
+    expect(snapshot.points.single.superNetInflow, 70);
   });
 
   test('volume moving average uses candle volume values', () {

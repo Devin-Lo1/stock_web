@@ -1,4 +1,5 @@
 import '../models/candle.dart';
+import '../models/capital_flow.dart';
 import '../models/quote_snapshot.dart';
 import 'api_client.dart';
 
@@ -100,6 +101,14 @@ class QuoteApiService {
     }
 
     return fetchCandles(code, period: period, limit: limit);
+  }
+
+  Future<CapitalFlowSnapshot> fetchCapitalFlow(String code) async {
+    final decoded = await _apiClient.get('/api/v1/quotes/$code/capital-flow');
+    if (decoded is! Map<String, dynamic>) {
+      throw StateError('Invalid capital flow response');
+    }
+    return CapitalFlowSnapshot.fromJson(decoded);
   }
 }
 

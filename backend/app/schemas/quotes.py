@@ -22,3 +22,31 @@ class QuoteSnapshot(BaseModel):
     change: float
     change_rate: float
     quote_time: datetime
+
+
+class CapitalFlowBucket(BaseModel):
+    bucket: str
+    inflow: float
+    outflow: float
+    net_inflow: float
+
+
+class CapitalFlowPoint(BaseModel):
+    time: datetime
+    net_inflow: float
+    super_net_inflow: float
+    big_net_inflow: float
+    mid_net_inflow: float
+    small_net_inflow: float
+
+
+class CapitalFlowSnapshot(BaseModel):
+    code: str
+    market: Market
+    currency: str
+    update_time: datetime | None = None
+    total_inflow: float
+    total_outflow: float
+    net_inflow: float
+    buckets: list[CapitalFlowBucket]
+    points: list[CapitalFlowPoint]

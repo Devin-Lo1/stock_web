@@ -6,6 +6,7 @@ import '../data/sample_positions.dart';
 import '../models/app_enums.dart';
 import '../models/backend_connection_state.dart';
 import '../models/candle.dart';
+import '../models/capital_flow.dart';
 import '../models/notification_models.dart';
 import '../models/position_snapshot.dart';
 import '../models/position_trade.dart';
@@ -122,6 +123,7 @@ class _AppShellState extends State<AppShell> {
         onDeletePosition: _deletePosition,
         onRefresh: _refreshPositions,
         onLoadCandles: _loadCandles,
+        onLoadCapitalFlow: _loadCapitalFlow,
         onLoadPositionTrades: _loadPositionTrades,
         onLoadPositionSnapshots: _loadPositionSnapshots,
         onCreatePositionTrade: _createPositionTrade,
@@ -146,6 +148,7 @@ class _AppShellState extends State<AppShell> {
         onDeletePosition: _deletePosition,
         onRefresh: _refreshPositions,
         onLoadCandles: _loadCandles,
+        onLoadCapitalFlow: _loadCapitalFlow,
         onLoadPositionTrades: _loadPositionTrades,
         onLoadPositionSnapshots: _loadPositionSnapshots,
         onCreatePositionTrade: _createPositionTrade,
@@ -556,6 +559,10 @@ class _AppShellState extends State<AppShell> {
     int limit = 240,
   }) {
     return _quoteApiService.refreshCandles(code, period: period, limit: limit);
+  }
+
+  Future<CapitalFlowSnapshot> _loadCapitalFlow(String code) {
+    return _quoteApiService.fetchCapitalFlow(code);
   }
 
   Future<List<Candle>> _loadBacktestCandles(
