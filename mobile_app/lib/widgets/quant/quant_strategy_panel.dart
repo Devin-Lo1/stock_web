@@ -4,6 +4,8 @@ import '../../models/strategy_definition.dart';
 import '../common/empty_state.dart';
 import 'quant_common_widgets.dart';
 
+const _dropdownMenuMaxHeight = 160.0;
+
 class QuantStrategyPanel extends StatelessWidget {
   const QuantStrategyPanel({
     super.key,
@@ -47,11 +49,17 @@ class QuantStrategyPanel extends StatelessWidget {
           else
             DropdownButtonFormField<StrategyDefinition>(
               initialValue: selectedStrategy,
+              isExpanded: true,
+              menuMaxHeight: _dropdownMenuMaxHeight,
               items: strategies
                   .map(
                     (strategy) => DropdownMenuItem(
                       value: strategy,
-                      child: Text(strategy.name),
+                      child: Text(
+                        strategy.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   )
                   .toList(),

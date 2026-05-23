@@ -180,33 +180,41 @@ class _StrategyParameterField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (spec.valueType == StrategyParameterValueType.multiOption) {
-      final selected = controller.text
-          .split(',')
-          .map((item) => item.trim())
-          .where((item) => item.isNotEmpty)
-          .toSet();
-      return InputDecorator(
-        decoration: InputDecoration(labelText: spec.label),
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final option in spec.options)
-              FilterChip(
-                label: Text(option.label),
-                selected: selected.contains(option.value),
-                onSelected: (checked) {
-                  final next = {...selected};
-                  if (checked) {
-                    next.add(option.value);
-                  } else {
-                    next.remove(option.value);
-                  }
-                  controller.text = next.join(',');
-                },
-              ),
-          ],
-        ),
+      return ValueListenableBuilder<TextEditingValue>(
+        valueListenable: controller,
+        builder: (context, value, _) {
+          final selected = value.text
+              .split(',')
+              .map((item) => item.trim())
+              .where((item) => item.isNotEmpty)
+              .toSet();
+          return InputDecorator(
+            decoration: InputDecoration(labelText: spec.label),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final option in spec.options)
+                  FilterChip(
+                    label: Text(option.label),
+                    selected: selected.contains(option.value),
+                    onSelected: (checked) {
+                      final next = {...selected};
+                      if (checked) {
+                        next.add(option.value);
+                      } else {
+                        next.remove(option.value);
+                      }
+                      controller.text = spec.options
+                          .where((option) => next.contains(option.value))
+                          .map((option) => option.value)
+                          .join(',');
+                    },
+                  ),
+              ],
+            ),
+          );
+        },
       );
     }
     if (spec.valueType != StrategyParameterValueType.option) {

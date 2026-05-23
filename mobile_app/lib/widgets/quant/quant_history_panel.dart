@@ -6,6 +6,8 @@ import '../../utils/formatters.dart';
 import '../../utils/theme_helpers.dart';
 import 'quant_common_widgets.dart';
 
+const _dropdownMenuMaxHeight = 160.0;
+
 class QuantHistoryPanel extends StatelessWidget {
   const QuantHistoryPanel({
     super.key,
@@ -149,13 +151,19 @@ class _HistoryFilters extends StatelessWidget {
             Expanded(
               child: DropdownButtonFormField<String>(
                 initialValue: strategyFilter,
+                isExpanded: true,
+                menuMaxHeight: _dropdownMenuMaxHeight,
                 decoration: const InputDecoration(labelText: '策略'),
                 items: [
                   const DropdownMenuItem(value: null, child: Text('全部策略')),
                   for (final strategy in strategies)
                     DropdownMenuItem(
                       value: strategy.code,
-                      child: Text(strategy.name),
+                      child: Text(
+                        strategy.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                 ],
                 onChanged: isLoading ? null : onStrategyFilterChanged,
@@ -165,6 +173,8 @@ class _HistoryFilters extends StatelessWidget {
             Expanded(
               child: DropdownButtonFormField<String>(
                 initialValue: statusFilter,
+                isExpanded: true,
+                menuMaxHeight: _dropdownMenuMaxHeight,
                 decoration: const InputDecoration(labelText: '状态'),
                 items: const [
                   DropdownMenuItem(value: null, child: Text('全部状态')),

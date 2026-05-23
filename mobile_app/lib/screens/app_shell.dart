@@ -168,7 +168,7 @@ class _AppShellState extends State<AppShell> {
         isLoading: _isLoadingSignals,
         isScanning: _isScanningSignals,
         usingBackendSignals: _backendSignals.isNotEmpty,
-        positions: visible,
+        positions: _positions,
         onRefresh: _refreshSignalsPage,
         onScan: _scanSignals,
         backtestRepository: _backtestRepository,

@@ -13,6 +13,7 @@ import '../widgets/common/empty_state.dart';
 import '../widgets/common/page_title.dart';
 
 const _scanLogLimit = 10;
+const _dropdownMenuMaxHeight = 160.0;
 
 class StrategyMonitorScreen extends StatefulWidget {
   const StrategyMonitorScreen({
@@ -1150,6 +1151,7 @@ class _MonitorCreatePanel extends StatelessWidget {
           DropdownButtonFormField<String>(
             initialValue: selectedPosition?.code,
             isExpanded: true,
+            menuMaxHeight: _dropdownMenuMaxHeight,
             decoration: const InputDecoration(
               labelText: '股票',
               isDense: true,
@@ -1176,6 +1178,7 @@ class _MonitorCreatePanel extends StatelessWidget {
           DropdownButtonFormField<String>(
             initialValue: selectedStrategy?.code,
             isExpanded: true,
+            menuMaxHeight: _dropdownMenuMaxHeight,
             decoration: const InputDecoration(
               labelText: '策略',
               isDense: true,
@@ -1201,6 +1204,8 @@ class _MonitorCreatePanel extends StatelessWidget {
               Expanded(
                 child: DropdownButtonFormField<String>(
                   initialValue: period,
+                  isExpanded: true,
+                  menuMaxHeight: _dropdownMenuMaxHeight,
                   decoration: const InputDecoration(
                     labelText: '周期',
                     isDense: true,
@@ -1342,7 +1347,12 @@ class _ParameterField extends StatelessWidget {
                   } else {
                     next.remove(option.value);
                   }
-                  onChanged(next.join(','));
+                  onChanged(
+                    spec.options
+                        .where((option) => next.contains(option.value))
+                        .map((option) => option.value)
+                        .join(','),
+                  );
                 },
               ),
           ],
@@ -1355,6 +1365,7 @@ class _ParameterField extends StatelessWidget {
             ? value
             : spec.fallback,
         isExpanded: true,
+        menuMaxHeight: _dropdownMenuMaxHeight,
         decoration: InputDecoration(
           labelText: spec.label,
           isDense: true,
