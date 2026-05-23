@@ -31,6 +31,7 @@ class FundDetailScreen extends StatefulWidget {
 
 class _FundDetailScreenState extends State<FundDetailScreen> {
   List<FundNavPoint> _navs = const [];
+  List<FundTrade> _trades = const [];
   bool _isLoadingNavs = true;
 
   @override
@@ -42,11 +43,23 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
   Future<void> _loadNavs({bool refresh = false}) async {
     setState(() => _isLoadingNavs = true);
     try {
-      final navs = await widget.repository.loadNavs(
+      final navsFuture = widget.repository.loadNavs(
         widget.summary.position.fundCode,
+        limit: 50,
         refresh: refresh,
       );
-      if (mounted) setState(() => _navs = navs);
+      final tradesFuture = widget.repository.loadTrades(
+        widget.summary.position.id,
+        limit: 200,
+      );
+      final navs = await navsFuture;
+      final trades = await tradesFuture;
+      if (mounted) {
+        setState(() {
+          _navs = navs;
+          _trades = trades;
+        });
+      }
     } finally {
       if (mounted) setState(() => _isLoadingNavs = false);
     }
@@ -66,7 +79,12 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
             children: [
               Container(
                 width: double.infinity,
-                color: const Color(0xFF3F63F1),
+                decoration: BoxDecoration(
+                  color: pageBackgroundColor(context),
+                  border: Border(
+                    bottom: BorderSide(color: borderColor(context)),
+                  ),
+                ),
                 padding: const EdgeInsets.fromLTRB(8, 8, 8, 16),
                 child: Column(
                   children: [
@@ -75,10 +93,7 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                         IconButton(
                           tooltip: '返回',
                           onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(
-                            Icons.arrow_back_rounded,
-                            color: Colors.white,
-                          ),
+                          icon: const Icon(Icons.arrow_back_rounded),
                         ),
                         Expanded(
                           child: Column(
@@ -87,8 +102,8 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                                 position.name,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                style: TextStyle(
+                                  color: primaryTextColor(context),
                                   fontSize: 20,
                                   fontWeight: FontWeight.w900,
                                 ),
@@ -96,8 +111,8 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                               const SizedBox(height: 2),
                               Text(
                                 position.fundCode,
-                                style: const TextStyle(
-                                  color: Color(0xFFE0E7FF),
+                                style: TextStyle(
+                                  color: secondaryTextColor(context),
                                   fontSize: 14,
                                   fontWeight: FontWeight.w800,
                                 ),
@@ -110,10 +125,7 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                           onPressed: _isLoadingNavs
                               ? null
                               : () => _loadNavs(refresh: true),
-                          icon: const Icon(
-                            Icons.refresh_rounded,
-                            color: Colors.white,
-                          ),
+                          icon: const Icon(Icons.refresh_rounded),
                         ),
                       ],
                     ),
@@ -137,8 +149,8 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                         Expanded(
                           child: _HeaderMetric(
                             label: '基金市值',
-                            value: _money(summary.marketValue),
-                            valueColor: Colors.white,
+                            value: _money(summary.marketValue, signed: false),
+                            valueColor: primaryTextColor(context),
                           ),
                         ),
                       ],
@@ -162,7 +174,11 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
               Expanded(
                 child: TabBarView(
                   children: [
-                    _TrendTab(isLoading: _isLoadingNavs, navs: _navs),
+                    _TrendTab(
+                      isLoading: _isLoadingNavs,
+                      navs: _navs,
+                      trades: _trades,
+                    ),
                     _ProfitTab(summary: summary),
                     _AlertTab(
                       summary: summary,
@@ -183,10 +199,15 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
 }
 
 class _TrendTab extends StatelessWidget {
-  const _TrendTab({required this.isLoading, required this.navs});
+  const _TrendTab({
+    required this.isLoading,
+    required this.navs,
+    required this.trades,
+  });
 
   final bool isLoading;
   final List<FundNavPoint> navs;
+  final List<FundTrade> trades;
 
   @override
   Widget build(BuildContext context) {
@@ -215,10 +236,10 @@ class _TrendTab extends StatelessWidget {
                     ),
                   ),
                 )
-              : _FundNavCurve(points: sorted),
+              : _FundNavCurve(points: sorted, trades: trades),
         ),
         const SizedBox(height: 12),
-        ...sorted.reversed.take(8).map((point) => _NavRow(point: point)),
+        ...sorted.reversed.map((point) => _NavRow(point: point)),
       ],
     );
   }
@@ -340,9 +361,10 @@ class _AlertTab extends StatelessWidget {
 }
 
 class _FundNavCurve extends StatefulWidget {
-  const _FundNavCurve({required this.points});
+  const _FundNavCurve({required this.points, required this.trades});
 
   final List<FundNavPoint> points;
+  final List<FundTrade> trades;
 
   @override
   State<_FundNavCurve> createState() => _FundNavCurveState();
@@ -365,6 +387,7 @@ class _FundNavCurveState extends State<_FundNavCurve> {
           CustomPaint(
             painter: _FundNavCurvePainter(
               points: widget.points,
+              trades: widget.trades,
               selectedIndex: _selectedIndex,
               lineColor: const Color(0xFFFF4D67),
               gridColor: borderColor(context),
@@ -415,6 +438,7 @@ class _FundNavCurveState extends State<_FundNavCurve> {
 class _FundNavCurvePainter extends CustomPainter {
   const _FundNavCurvePainter({
     required this.points,
+    required this.trades,
     required this.selectedIndex,
     required this.lineColor,
     required this.gridColor,
@@ -422,6 +446,7 @@ class _FundNavCurvePainter extends CustomPainter {
   });
 
   final List<FundNavPoint> points;
+  final List<FundTrade> trades;
   final int? selectedIndex;
   final Color lineColor;
   final Color gridColor;
@@ -468,6 +493,7 @@ class _FundNavCurvePainter extends CustomPainter {
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round,
     );
+    _drawTradeMarkers(canvas, chart, values, minValue, range);
     final selected = selectedIndex;
     if (selected != null && selected >= 0 && selected < points.length) {
       final x = chart.left + chart.width * selected / (points.length - 1);
@@ -496,12 +522,12 @@ class _FundNavCurvePainter extends CustomPainter {
     );
   }
 
-  void _drawText(Canvas canvas, String text, Offset offset) {
+  void _drawText(Canvas canvas, String text, Offset offset, {Color? color}) {
     final painter = TextPainter(
       text: TextSpan(
         text: text,
         style: TextStyle(
-          color: labelColor,
+          color: color ?? labelColor,
           fontSize: 10,
           fontWeight: FontWeight.w800,
         ),
@@ -511,9 +537,61 @@ class _FundNavCurvePainter extends CustomPainter {
     painter.paint(canvas, offset);
   }
 
+  void _drawTradeMarkers(
+    Canvas canvas,
+    Rect chart,
+    List<double> values,
+    double minValue,
+    double range,
+  ) {
+    if (trades.isEmpty || points.length < 2) return;
+    final markerPaint = Paint()..style = PaintingStyle.fill;
+    final borderPaint = Paint()
+      ..color = const Color(0xFFFFFFFF)
+      ..strokeWidth = 1.6
+      ..style = PaintingStyle.stroke;
+    for (final trade in trades) {
+      final index = _nearestPointIndex(trade.tradeDate);
+      if (index == null) continue;
+      final x = chart.left + chart.width * index / (points.length - 1);
+      final y =
+          chart.bottom - (values[index] - minValue) / range * chart.height;
+      final color = trade.isBuy
+          ? const Color(0xFFFF4D67)
+          : const Color(0xFF20C997);
+      markerPaint.color = color;
+      canvas.drawCircle(Offset(x, y), 5.5, markerPaint);
+      canvas.drawCircle(Offset(x, y), 5.5, borderPaint);
+      _drawText(
+        canvas,
+        trade.isBuy ? '买' : '卖',
+        Offset(x - 5, y - 22),
+        color: color,
+      );
+    }
+  }
+
+  int? _nearestPointIndex(DateTime tradeDate) {
+    if (points.isEmpty) return null;
+    var bestIndex = 0;
+    var bestDistance = 1 << 30;
+    for (var i = 0; i < points.length; i++) {
+      final distance = points[i].navDate
+          .difference(DateTime(tradeDate.year, tradeDate.month, tradeDate.day))
+          .inDays
+          .abs();
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = i;
+      }
+    }
+    return bestDistance <= 7 ? bestIndex : null;
+  }
+
   @override
   bool shouldRepaint(covariant _FundNavCurvePainter oldDelegate) {
     return oldDelegate.points != points ||
+        oldDelegate.trades != trades ||
         oldDelegate.selectedIndex != selectedIndex;
   }
 }
@@ -535,8 +613,8 @@ class _HeaderMetric extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            color: Color(0xFFE0E7FF),
+          style: TextStyle(
+            color: secondaryTextColor(context),
             fontSize: 12,
             fontWeight: FontWeight.w800,
           ),
@@ -749,11 +827,13 @@ class _NavRow extends StatelessWidget {
   }
 }
 
-String _money(double value) {
-  final sign = value > 0
-      ? '+'
-      : value < 0
-      ? '-'
+String _money(double value, {bool signed = true}) {
+  final sign = signed
+      ? value > 0
+            ? '+'
+            : value < 0
+            ? '-'
+            : ''
       : '';
   return '$sign¥${value.abs().toStringAsFixed(2)}';
 }

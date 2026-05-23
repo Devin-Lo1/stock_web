@@ -236,33 +236,33 @@ class _FundsScreenState extends State<FundsScreen> {
         child: RefreshIndicator(
           onRefresh: () => _load(refresh: true),
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 28),
             children: [
               _FundHeader(
                 isRefreshing: _isRefreshing,
                 onBack: () => Navigator.of(context).pop(),
                 onRefresh: () => _load(refresh: true),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               _FundAccountOverview(
                 marketValue: totalMarketValue,
                 dayProfit: totalDayProfit,
                 totalProfit: totalProfit,
                 label: hasEstimated ? '估算当日收益' : '当日收益',
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               _FundSchedulerPanel(
                 status: _schedulerStatus ?? FundAlertSchedulerStatus.defaults(),
                 onEdit: _editScheduler,
                 onRunNow: _runSchedulerScan,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               if (recommendations.isNotEmpty) ...[
                 _FundAlertStrip(recommendations: recommendations),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
               ],
               _FundToolbar(onAddFund: _addFund),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               if (_isLoading)
                 const Padding(
                   padding: EdgeInsets.only(top: 80),
@@ -366,21 +366,24 @@ class _FundAccountOverview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 18),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: borderColor(context))),
       ),
       child: Row(
         children: [
           Expanded(
-            child: _OverviewMetric(label: '账户资产', value: _money(marketValue)),
+            child: _OverviewMetric(
+              label: '账户资产',
+              value: _money(marketValue, signed: false),
+            ),
           ),
           Expanded(
             child: _OverviewMetric(
               label: label,
               value: _money(dayProfit),
               valueColor: _profitColor(dayProfit),
-              alignEnd: true,
+              alignCenter: true,
             ),
           ),
           Expanded(
@@ -407,15 +410,15 @@ class _FundToolbar extends StatelessWidget {
     return Row(
       children: [
         Icon(Icons.tune_rounded, color: mutedIconColor(context)),
-        const SizedBox(width: 14),
+        const SizedBox(width: 12),
         Icon(Icons.grid_view_rounded, color: mutedIconColor(context)),
-        const SizedBox(width: 14),
+        const SizedBox(width: 12),
         Icon(Icons.flag_outlined, color: mutedIconColor(context)),
         const Spacer(),
         TextButton.icon(
           onPressed: onAddFund,
           icon: const Icon(Icons.add_rounded),
-          label: const Text('添加场外基金'),
+          label: const Text('添加基金'),
         ),
       ],
     );
@@ -444,7 +447,7 @@ class _FundSchedulerPanel extends StatelessWidget {
               : '已启用 · 待启动'
         : '未启用';
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: cardColor(context),
         border: Border.all(color: borderColor(context)),
@@ -497,7 +500,7 @@ class _FundSchedulerPanel extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -543,7 +546,7 @@ class _SchedulerChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectiveColor = color ?? secondaryTextColor(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         color: effectiveColor.withValues(alpha: 0.09),
         borderRadius: BorderRadius.circular(7),
@@ -557,7 +560,7 @@ class _SchedulerChip extends StatelessWidget {
             label,
             style: TextStyle(
               color: effectiveColor,
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -695,7 +698,7 @@ class _FundTableRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 14, 10, 14),
+        padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: borderColor(context))),
         ),
@@ -713,21 +716,21 @@ class _FundTableRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: primaryTextColor(context),
-                      fontSize: 15,
+                      fontSize: 14,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 4),
                   Text(
                     '¥${summary.marketValue.toStringAsFixed(2)}',
                     style: TextStyle(
                       color: secondaryTextColor(context),
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   if (recommendation != null) ...[
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 5),
                     GestureDetector(
                       onTap: onEditAlert,
                       child: _SmallSignalBadge(
@@ -767,34 +770,51 @@ class _OverviewMetric extends StatelessWidget {
     required this.value,
     this.valueColor,
     this.alignEnd = false,
+    this.alignCenter = false,
   });
 
   final String label;
   final String value;
   final Color? valueColor;
   final bool alignEnd;
+  final bool alignCenter;
 
   @override
   Widget build(BuildContext context) {
+    final crossAxisAlignment = alignEnd
+        ? CrossAxisAlignment.end
+        : alignCenter
+        ? CrossAxisAlignment.center
+        : CrossAxisAlignment.start;
+    final alignment = alignEnd
+        ? Alignment.centerRight
+        : alignCenter
+        ? Alignment.center
+        : Alignment.centerLeft;
+    final textAlign = alignEnd
+        ? TextAlign.right
+        : alignCenter
+        ? TextAlign.center
+        : TextAlign.left;
     return Column(
-      crossAxisAlignment: alignEnd
-          ? CrossAxisAlignment.end
-          : CrossAxisAlignment.start,
+      crossAxisAlignment: crossAxisAlignment,
       children: [
         Text(
           label,
+          maxLines: 1,
+          textAlign: textAlign,
           style: TextStyle(color: secondaryTextColor(context), fontSize: 12),
         ),
         const SizedBox(height: 8),
         FittedBox(
           fit: BoxFit.scaleDown,
-          alignment: alignEnd ? Alignment.centerRight : Alignment.centerLeft,
+          alignment: alignment,
           child: Text(
             value,
             maxLines: 1,
             style: TextStyle(
               color: valueColor ?? primaryTextColor(context),
-              fontSize: 21,
+              fontSize: 19,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -828,17 +848,17 @@ class _ValueColumn extends StatelessWidget {
           textAlign: TextAlign.right,
           style: TextStyle(
             color: color,
-            fontSize: 15,
+            fontSize: 14,
             fontWeight: FontWeight.w900,
           ),
         ),
-        const SizedBox(height: 5),
+        const SizedBox(height: 4),
         Text(
           secondary,
           textAlign: TextAlign.right,
           style: TextStyle(
             color: color.withValues(alpha: 0.82),
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -1369,11 +1389,13 @@ class _FundCreateDraft {
   final double fee;
 }
 
-String _money(double value) {
-  final sign = value > 0
-      ? '+'
-      : value < 0
-      ? '-'
+String _money(double value, {bool signed = true}) {
+  final sign = signed
+      ? value > 0
+            ? '+'
+            : value < 0
+            ? '-'
+            : ''
       : '';
   return '$sign¥${value.abs().toStringAsFixed(2)}';
 }

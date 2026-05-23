@@ -72,6 +72,21 @@ class FundApiService {
         .toList();
   }
 
+  Future<List<FundTrade>> fetchTrades(
+    String positionId, {
+    int limit = 100,
+  }) async {
+    final payload = await _client.get(
+      '/api/v1/funds/positions/$positionId/trades',
+      query: {'limit': '$limit'},
+    );
+    if (payload is! List) return const [];
+    return payload
+        .whereType<Map<String, dynamic>>()
+        .map(FundTrade.fromJson)
+        .toList();
+  }
+
   Future<FundPosition> createPosition({
     required FundSearchResult fund,
     required double shares,

@@ -36,6 +36,10 @@ class FundRepository {
     return _apiService.fetchNavs(fundCode, limit: limit, refresh: refresh);
   }
 
+  Future<List<FundTrade>> loadTrades(String positionId, {int limit = 100}) {
+    return _apiService.fetchTrades(positionId, limit: limit);
+  }
+
   Future<FundPosition> createPosition({
     required FundSearchResult fund,
     required double shares,

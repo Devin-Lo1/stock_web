@@ -359,6 +359,51 @@ class FundTradeDraft {
   }
 }
 
+class FundTrade {
+  const FundTrade({
+    required this.id,
+    required this.positionId,
+    required this.fundCode,
+    required this.name,
+    required this.action,
+    required this.shares,
+    required this.nav,
+    required this.fee,
+    required this.tradeDate,
+    required this.note,
+  });
+
+  final String id;
+  final String positionId;
+  final String fundCode;
+  final String name;
+  final String action;
+  final double shares;
+  final double nav;
+  final double fee;
+  final DateTime tradeDate;
+  final String note;
+
+  bool get isBuy => action == 'buy';
+
+  factory FundTrade.fromJson(Map<String, dynamic> json) {
+    return FundTrade(
+      id: json['id'] as String? ?? '',
+      positionId: json['fund_position_id'] as String? ?? '',
+      fundCode: json['fund_code'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      action: json['action'] as String? ?? '',
+      shares: _double(json['shares']),
+      nav: _double(json['nav']),
+      fee: _double(json['fee']),
+      tradeDate:
+          DateTime.tryParse(json['trade_date'] as String? ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      note: json['note'] as String? ?? '',
+    );
+  }
+}
+
 double _double(Object? value, {double fallback = 0}) {
   if (value is num) return value.toDouble();
   if (value is String) return double.tryParse(value) ?? fallback;

@@ -98,6 +98,32 @@ void main() {
     expect(requestedUri.path, '/api/v1/funds/positions/position-1/trades');
   });
 
+  test('fetchTrades reads fund trade markers', () async {
+    late Uri requestedUri;
+    final service = FundApiService(
+      ApiClient(
+        baseUrl: 'http://test.local',
+        httpClient: MockClient((request) async {
+          requestedUri = request.url;
+          return http.Response(
+            '[{"id":"trade-1","fund_position_id":"position-1",'
+            '"fund_code":"000001","name":"Fund A","action":"buy",'
+            '"shares":100,"nav":1.2,"fee":0,'
+            '"trade_date":"2026-05-22","note":"first"}]',
+            200,
+          );
+        }),
+      ),
+    );
+
+    final trades = await service.fetchTrades('position-1', limit: 50);
+
+    expect(requestedUri.path, '/api/v1/funds/positions/position-1/trades');
+    expect(requestedUri.queryParameters['limit'], '50');
+    expect(trades.single.isBuy, isTrue);
+    expect(trades.single.nav, 1.2);
+  });
+
   test('fetchAlertSchedulerStatus parses multiple reminder times', () async {
     final service = FundApiService(
       ApiClient(
