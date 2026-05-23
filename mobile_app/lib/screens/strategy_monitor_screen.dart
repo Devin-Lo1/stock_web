@@ -142,6 +142,14 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
     for (final spec in strategyParameterSpecsFor(strategy.code)) {
       _parameterValues[spec.key] = strategyParameterDefaultText(strategy, spec);
     }
+    if (strategy.code == 'composite_factor') {
+      for (final factorCode in compositeFactorCodes) {
+        for (final spec in strategyParameterSpecsFor(factorCode)) {
+          _parameterValues[compositeFactorParameterKey(factorCode, spec.key)] =
+              compositeFactorParameterDefaultText(strategy, factorCode, spec);
+        }
+      }
+    }
   }
 
   void _selectStrategy(String code) {
@@ -495,26 +503,49 @@ class _StrategyMonitorScreenState extends State<StrategyMonitorScreen> {
   Map<String, Object?>? _readParameters(StrategyDefinition strategy) {
     final parameters = <String, Object?>{};
     for (final spec in strategyParameterSpecsFor(strategy.code)) {
-      final raw = (_parameterValues[spec.key] ?? spec.fallback).trim();
-      switch (spec.valueType) {
-        case StrategyParameterValueType.positiveInt:
-          final value = _positiveInt(raw);
+      final value = _readParameterValue(spec, spec.key);
+      if (value == null) return null;
+      parameters[spec.key] = value;
+    }
+
+    if (strategy.code == 'composite_factor') {
+      final factorCodes = parameters['factor_codes'];
+      if (factorCodes is! List<String>) return null;
+      final factorParameters = <String, Map<String, Object?>>{};
+      for (final factorCode in factorCodes) {
+        final values = <String, Object?>{};
+        for (final spec in strategyParameterSpecsFor(factorCode)) {
+          final value = _readParameterValue(
+            spec,
+            compositeFactorParameterKey(factorCode, spec.key),
+          );
           if (value == null) return null;
-          parameters[spec.key] = value;
-        case StrategyParameterValueType.boundedDouble:
-          final value = double.tryParse(raw);
-          if (value == null || !value.isFinite) return null;
-          parameters[spec.key] = value;
-        case StrategyParameterValueType.option:
-          if (raw.isEmpty) return null;
-          parameters[spec.key] = raw;
-        case StrategyParameterValueType.multiOption:
-          final values = _readMultiOption(raw, spec);
-          if (values == null || values.length < 2) return null;
-          parameters[spec.key] = values;
+          values[spec.key] = value;
+        }
+        factorParameters[factorCode] = values;
       }
+      parameters['factor_parameters'] = factorParameters;
     }
     return parameters;
+  }
+
+  Object? _readParameterValue(StrategyParameterSpec spec, String key) {
+    final raw = (_parameterValues[key] ?? spec.fallback).trim();
+    switch (spec.valueType) {
+      case StrategyParameterValueType.positiveInt:
+        return _positiveInt(raw);
+      case StrategyParameterValueType.boundedDouble:
+        final value = double.tryParse(raw);
+        if (value == null || !value.isFinite) return null;
+        return value;
+      case StrategyParameterValueType.option:
+        if (raw.isEmpty) return null;
+        return raw;
+      case StrategyParameterValueType.multiOption:
+        final values = _readMultiOption(raw, spec);
+        if (values == null || values.length < 2) return null;
+        return values;
+    }
   }
 
   List<String>? _readMultiOption(String raw, StrategyParameterSpec spec) {
@@ -1335,6 +1366,11 @@ class _MonitorCreatePanel extends StatelessWidget {
               ),
             ),
           ],
+          if (strategy?.code == 'composite_factor')
+            _CompositeMonitorFactorFields(
+              parameterValues: parameterValues,
+              onParameterChanged: onParameterChanged,
+            ),
           Row(
             children: [
               Expanded(
@@ -1378,6 +1414,59 @@ class _MonitorCreatePanel extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _CompositeMonitorFactorFields extends StatelessWidget {
+  const _CompositeMonitorFactorFields({
+    required this.parameterValues,
+    required this.onParameterChanged,
+  });
+
+  final Map<String, String> parameterValues;
+  final void Function(String key, String value) onParameterChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final factorCodes = compositeFactorCodesFromText(
+      parameterValues['factor_codes'] ?? '',
+    );
+    if (factorCodes.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 2),
+        for (final factorCode in factorCodes) ...[
+          Text(
+            '${strategyDisplayNameForCode(factorCode)} 参数',
+            style: TextStyle(
+              color: primaryTextColor(context),
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          for (final spec in strategyParameterSpecsFor(factorCode))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _ParameterField(
+                key: ValueKey('composite:$factorCode:${spec.key}'),
+                spec: spec,
+                value:
+                    parameterValues[compositeFactorParameterKey(
+                      factorCode,
+                      spec.key,
+                    )] ??
+                    spec.fallback,
+                onChanged: (value) => onParameterChanged(
+                  compositeFactorParameterKey(factorCode, spec.key),
+                  value,
+                ),
+              ),
+            ),
+        ],
+      ],
     );
   }
 }
@@ -1672,12 +1761,47 @@ Map<String, String> _parameterTextValues(StrategyMonitor monitor) {
   final values = <String, String>{};
   for (final entry in monitor.parameters.entries) {
     final value = entry.value;
-    if (value != null) values[entry.key] = '$value';
+    if (entry.key == 'factor_parameters') continue;
+    final text = _parameterValueText(value);
+    if (text != null) values[entry.key] = text;
+  }
+  final factorParameters = monitor.parameters['factor_parameters'];
+  if (factorParameters is Map) {
+    for (final factorEntry in factorParameters.entries) {
+      final factorCode = '${factorEntry.key}';
+      final rawParameters = factorEntry.value;
+      if (rawParameters is! Map) continue;
+      for (final parameterEntry in rawParameters.entries) {
+        final text = _parameterValueText(parameterEntry.value);
+        if (text == null) continue;
+        values[compositeFactorParameterKey(
+              factorCode,
+              '${parameterEntry.key}',
+            )] =
+            text;
+      }
+    }
   }
   for (final spec in strategyParameterSpecsFor(monitor.strategyCode)) {
     values.putIfAbsent(spec.key, () => spec.fallback);
   }
+  if (monitor.strategyCode == 'composite_factor') {
+    for (final factorCode in compositeFactorCodes) {
+      for (final spec in strategyParameterSpecsFor(factorCode)) {
+        values.putIfAbsent(
+          compositeFactorParameterKey(factorCode, spec.key),
+          () => spec.fallback,
+        );
+      }
+    }
+  }
   return values;
+}
+
+String? _parameterValueText(Object? value) {
+  if (value == null) return null;
+  if (value is List) return value.map((item) => '$item').join(',');
+  return '$value';
 }
 
 String _periodLabel(String period) {

@@ -78,7 +78,34 @@ void main() {
     expect(specs[0].valueType, StrategyParameterValueType.multiOption);
     expect(
       specs[0].options.map((option) => option.value),
+      contains('ma_cross'),
+    );
+    expect(
+      specs[0].options.map((option) => option.value),
+      contains('macd_trend'),
+    );
+    expect(
+      specs[0].options.map((option) => option.value),
+      contains('price_break_ma'),
+    );
+    expect(
+      specs[0].options.map((option) => option.value),
       contains('trend_score'),
+    );
+  });
+
+  test('composite factor helpers expose nested parameter keys', () {
+    expect(compositeFactorCodesFromText('trend_score,ma_cross,bad,ma_cross'), [
+      'ma_cross',
+      'trend_score',
+    ]);
+    expect(
+      compositeFactorParameterKey('ma_cross', 'short_window'),
+      'factor_parameters.ma_cross.short_window',
+    );
+    expect(
+      allStrategyParameterKeys(),
+      contains('factor_parameters.price_break_ma.ma_window'),
     );
   });
 
@@ -140,6 +167,9 @@ void main() {
         'factor_codes': ['volume_breakout', 'trend_score'],
         'mode': 'all',
         'confirm_window': 3,
+        'factor_parameters': {
+          'ma_cross': {'short_window': 8},
+        },
       },
     );
     final specs = strategyParameterSpecsFor(strategy.code);
@@ -147,6 +177,14 @@ void main() {
     expect(
       strategyParameterDefaultText(strategy, specs[0]),
       'volume_breakout,trend_score',
+    );
+    expect(
+      compositeFactorParameterDefaultText(
+        strategy,
+        'ma_cross',
+        strategyParameterSpecsFor('ma_cross').first,
+      ),
+      '8',
     );
   });
 }

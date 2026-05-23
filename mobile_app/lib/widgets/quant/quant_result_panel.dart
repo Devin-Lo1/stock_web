@@ -429,6 +429,49 @@ List<_SnapshotItem> _strategyParameterItems(BacktestRun run) {
       _SnapshotItem('触发方向', _directionText(_parameterText(run, 'direction'))),
     ];
   }
+  if (run.strategyCode == 'volume_breakout') {
+    return [
+      _SnapshotItem('突破窗口', _parameterText(run, 'lookback_window')),
+      _SnapshotItem('均量窗口', _parameterText(run, 'volume_window')),
+      _SnapshotItem('放量倍数', _parameterText(run, 'volume_multiplier')),
+    ];
+  }
+  if (run.strategyCode == 'ma_breakdown_stop') {
+    return [
+      _SnapshotItem('止损均线', _parameterText(run, 'ma_window')),
+      _SnapshotItem('缓冲%', _parameterText(run, 'stop_buffer_pct')),
+      _SnapshotItem('触发方向', _directionText(_parameterText(run, 'direction'))),
+    ];
+  }
+  if (run.strategyCode == 'atr_trailing_stop') {
+    return [
+      _SnapshotItem('ATR周期', _parameterText(run, 'atr_window')),
+      _SnapshotItem('ATR倍数', _parameterText(run, 'atr_multiplier')),
+      _SnapshotItem('入场均线', _parameterText(run, 'entry_ma_window')),
+    ];
+  }
+  if (run.strategyCode == 'rsi_oversold_rebound') {
+    return [
+      _SnapshotItem('RSI 周期', _parameterText(run, 'rsi_window')),
+      _SnapshotItem('超卖线', _parameterText(run, 'oversold')),
+      _SnapshotItem('止盈线', _parameterText(run, 'overbought')),
+    ];
+  }
+  if (run.strategyCode == 'trend_score') {
+    return [
+      _SnapshotItem('均线窗口', _parameterText(run, 'ma_window')),
+      _SnapshotItem('动量窗口', _parameterText(run, 'momentum_window')),
+      _SnapshotItem('转强分', _parameterText(run, 'buy_score')),
+      _SnapshotItem('转弱分', _parameterText(run, 'sell_score')),
+    ];
+  }
+  if (run.strategyCode == 'composite_factor') {
+    return [
+      _SnapshotItem('组合因子', _factorCodesText(run), span: 3),
+      _SnapshotItem('确认模式', _compositeModeText(_parameterText(run, 'mode'))),
+      _SnapshotItem('确认窗口', _parameterText(run, 'confirm_window')),
+    ];
+  }
   return [
     _SnapshotItem('短均线', _parameterText(run, 'short_window')),
     _SnapshotItem('长均线', _parameterText(run, 'long_window')),
@@ -437,6 +480,20 @@ List<_SnapshotItem> _strategyParameterItems(BacktestRun run) {
 
 String _strategyLabel(String code) {
   return strategyDisplayNameForCode(code);
+}
+
+String _factorCodesText(BacktestRun run) {
+  final value = run.parameters['factor_codes'];
+  if (value is! List) return '--';
+  return value.map((item) => strategyDisplayNameForCode('$item')).join(' / ');
+}
+
+String _compositeModeText(String value) {
+  return switch (value) {
+    'all' => '全部确认',
+    'any' => '任一触发',
+    _ => value,
+  };
 }
 
 String _directionText(String value) {

@@ -124,6 +124,7 @@ class QuantConfigPanel extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _StrategyParameterFields(
+            strategyCode: selectedStrategy?.code ?? '',
             specs: strategyParameterSpecsFor(selectedStrategy?.code ?? ''),
             controllers: strategyParameterControllers,
           ),
@@ -135,12 +136,61 @@ class QuantConfigPanel extends StatelessWidget {
 
 class _StrategyParameterFields extends StatelessWidget {
   const _StrategyParameterFields({
+    required this.strategyCode,
     required this.specs,
     required this.controllers,
   });
 
+  final String strategyCode;
   final List<StrategyParameterSpec> specs;
   final Map<String, TextEditingController> controllers;
+
+  @override
+  Widget build(BuildContext context) {
+    if (strategyCode == 'composite_factor') {
+      final factorController = controllers['factor_codes'];
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _StrategyParameterWrap(specs: specs, controllers: controllers),
+          if (factorController != null)
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: factorController,
+              builder: (context, value, _) {
+                final factorCodes = compositeFactorCodesFromText(value.text);
+                if (factorCodes.isEmpty) return const SizedBox.shrink();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 12),
+                    for (final factorCode in factorCodes) ...[
+                      _CompositeFactorParameterGroup(
+                        factorCode: factorCode,
+                        controllers: controllers,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  ],
+                );
+              },
+            ),
+        ],
+      );
+    }
+    return _StrategyParameterWrap(specs: specs, controllers: controllers);
+  }
+}
+
+class _StrategyParameterWrap extends StatelessWidget {
+  const _StrategyParameterWrap({
+    required this.specs,
+    required this.controllers,
+    this.keyPrefix,
+  });
+
+  final List<StrategyParameterSpec> specs;
+  final Map<String, TextEditingController> controllers;
+  final String? keyPrefix;
 
   @override
   Widget build(BuildContext context) {
@@ -161,12 +211,52 @@ class _StrategyParameterFields extends StatelessWidget {
                     : itemWidth,
                 child: _StrategyParameterField(
                   spec: spec,
-                  controller: controllers[spec.key]!,
+                  controller: controllers[_controllerKey(spec.key)]!,
                 ),
               ),
           ],
         );
       },
+    );
+  }
+
+  String _controllerKey(String parameterKey) {
+    final prefix = keyPrefix;
+    if (prefix == null) return parameterKey;
+    return compositeFactorParameterKey(prefix, parameterKey);
+  }
+}
+
+class _CompositeFactorParameterGroup extends StatelessWidget {
+  const _CompositeFactorParameterGroup({
+    required this.factorCode,
+    required this.controllers,
+  });
+
+  final String factorCode;
+  final Map<String, TextEditingController> controllers;
+
+  @override
+  Widget build(BuildContext context) {
+    final specs = strategyParameterSpecsFor(factorCode);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${strategyDisplayNameForCode(factorCode)} 参数',
+          style: TextStyle(
+            color: primaryTextColor(context),
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 8),
+        _StrategyParameterWrap(
+          specs: specs,
+          controllers: controllers,
+          keyPrefix: factorCode,
+        ),
+      ],
     );
   }
 }

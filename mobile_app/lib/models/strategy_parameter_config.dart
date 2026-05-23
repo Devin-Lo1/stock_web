@@ -269,6 +269,10 @@ const _compositeFactorSpecs = [
     fallback: 'volume_breakout,trend_score',
     valueType: StrategyParameterValueType.multiOption,
     options: [
+      StrategyParameterOption(value: 'ma_cross', label: '均线交叉'),
+      StrategyParameterOption(value: 'rsi_reversal', label: 'RSI反转'),
+      StrategyParameterOption(value: 'macd_trend', label: 'MACD趋势'),
+      StrategyParameterOption(value: 'price_break_ma', label: '突破均线'),
       StrategyParameterOption(value: 'volume_breakout', label: '放量突破'),
       StrategyParameterOption(value: 'ma_breakdown_stop', label: '均线止损'),
       StrategyParameterOption(value: 'atr_trailing_stop', label: 'ATR止损'),
@@ -292,6 +296,18 @@ const _compositeFactorSpecs = [
     fallback: '3',
     valueType: StrategyParameterValueType.positiveInt,
   ),
+];
+
+const compositeFactorCodes = [
+  'ma_cross',
+  'rsi_reversal',
+  'macd_trend',
+  'price_break_ma',
+  'volume_breakout',
+  'ma_breakdown_stop',
+  'atr_trailing_stop',
+  'rsi_oversold_rebound',
+  'trend_score',
 ];
 
 List<StrategyParameterSpec> strategyParameterSpecsFor(String strategyCode) {
@@ -321,6 +337,9 @@ Set<String> allStrategyParameterKeys() {
     for (final spec in _rsiOversoldReboundSpecs) spec.key,
     for (final spec in _trendScoreSpecs) spec.key,
     for (final spec in _compositeFactorSpecs) spec.key,
+    for (final factorCode in compositeFactorCodes)
+      for (final spec in strategyParameterSpecsFor(factorCode))
+        compositeFactorParameterKey(factorCode, spec.key),
   };
 }
 
@@ -332,5 +351,40 @@ String strategyParameterDefaultText(
   if (value is num) return formatNumberInput(value.toDouble());
   if (value is String && value.isNotEmpty) return value;
   if (value is List) return value.map((item) => '$item').join(',');
+  return spec.fallback;
+}
+
+String compositeFactorParameterKey(String factorCode, String parameterKey) {
+  return 'factor_parameters.$factorCode.$parameterKey';
+}
+
+List<String> compositeFactorCodesFromText(String text) {
+  final allowed = compositeFactorCodes.toSet();
+  final selected = text
+      .split(',')
+      .map((item) => item.trim())
+      .where((item) => item.isNotEmpty && allowed.contains(item))
+      .toList();
+  return [
+    for (final code in compositeFactorCodes)
+      if (selected.contains(code)) code,
+  ];
+}
+
+String compositeFactorParameterDefaultText(
+  StrategyDefinition strategy,
+  String factorCode,
+  StrategyParameterSpec spec,
+) {
+  final factorParameters = strategy.defaultParameters['factor_parameters'];
+  if (factorParameters is Map) {
+    final rawParameters = factorParameters[factorCode];
+    if (rawParameters is Map) {
+      final value = rawParameters[spec.key];
+      if (value is num) return formatNumberInput(value.toDouble());
+      if (value is String && value.isNotEmpty) return value;
+      if (value is List) return value.map((item) => '$item').join(',');
+    }
+  }
   return spec.fallback;
 }

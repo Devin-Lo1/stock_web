@@ -1341,6 +1341,54 @@ def test_composite_factor_backtest_generates_result() -> None:
     assert result.trades[0].side == "buy"
 
 
+def test_composite_factor_accepts_all_strategy_factor_types() -> None:
+    start = datetime(2026, 12, 1, tzinfo=timezone.utc)
+    closes = [10, 9, 8, 9, 10, 11, 12, 11, 10, 9, 8, 9, 10]
+    candles = [
+        Candle(
+            code="HK.01811",
+            market="HK",
+            period="day",
+            time=start + timedelta(days=index),
+            open=close,
+            high=close + 0.2,
+            low=close - 0.2,
+            close=close,
+            volume=1000 + index * 100,
+            turnover=close * (1000 + index * 100),
+        )
+        for index, close in enumerate(closes)
+    ]
+    database.upsert_candles(candles)
+    run = database.create_backtest_run(
+        BacktestCreate(
+            strategy_code="composite_factor",
+            stock_code="HK.01811",
+            period="day",
+            start_date=date(2026, 12, 1),
+            end_date=date(2026, 12, 13),
+            initial_cash=100000,
+            fee_rate=0.001,
+            slippage_rate=0.001,
+            parameters={
+                "factor_codes": ["ma_cross", "price_break_ma"],
+                "mode": "any",
+                "confirm_window": 1,
+                "factor_parameters": {
+                    "ma_cross": {"short_window": 2, "long_window": 3},
+                    "price_break_ma": {"ma_window": 3, "direction": "both"},
+                },
+            },
+        ),
+    )
+
+    result = run_backtest(run)
+
+    assert result.run.status == "completed"
+    assert result.run.summary["strategy_code"] == "composite_factor"
+    assert len(result.trades) >= 1
+
+
 def test_composite_factor_invalid_parameters_have_readable_message() -> None:
     run = database.create_backtest_run(
         BacktestCreate(

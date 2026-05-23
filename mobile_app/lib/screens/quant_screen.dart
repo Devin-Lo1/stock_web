@@ -210,6 +210,21 @@ class _QuantScreenState extends State<QuantScreen> {
       _strategyParameterControllers[spec.key]?.text =
           strategyParameterDefaultText(strategy, spec);
     }
+    if (strategy.code == 'composite_factor') {
+      for (final factorCode in compositeFactorCodes) {
+        for (final spec in strategyParameterSpecsFor(factorCode)) {
+          _strategyParameterControllers[compositeFactorParameterKey(
+                factorCode,
+                spec.key,
+              )]
+              ?.text = compositeFactorParameterDefaultText(
+            strategy,
+            factorCode,
+            spec,
+          );
+        }
+      }
+    }
   }
 
   Future<void> _loadHistory({bool showError = true}) async {
@@ -584,6 +599,12 @@ class _QuantScreenState extends State<QuantScreen> {
       parameters[spec.key] = value;
     }
 
+    if (strategy.code == 'composite_factor') {
+      final nestedOrError = _buildCompositeFactorParameters(parameters);
+      if (nestedOrError is _QuantValidationError) return nestedOrError;
+      parameters['factor_parameters'] = nestedOrError;
+    }
+
     final relationError = _validateStrategyParameterRelations(
       strategy.code,
       parameters,
@@ -593,8 +614,47 @@ class _QuantScreenState extends State<QuantScreen> {
     return parameters;
   }
 
-  Object _parseStrategyParameter(StrategyParameterSpec spec) {
-    final text = _strategyParameterControllers[spec.key]?.text ?? '';
+  Object _buildCompositeFactorParameters(Map<String, Object?> parameters) {
+    final rawFactorCodes = parameters['factor_codes'];
+    if (rawFactorCodes is! List) {
+      return const _QuantValidationError('组合因子至少选择两个');
+    }
+    final factorCodes = rawFactorCodes.cast<String>();
+    final factorParameters = <String, Map<String, Object?>>{};
+    for (final factorCode in factorCodes) {
+      final values = <String, Object?>{};
+      for (final spec in strategyParameterSpecsFor(factorCode)) {
+        final value = _parseStrategyParameter(
+          spec,
+          controllerKey: compositeFactorParameterKey(factorCode, spec.key),
+        );
+        if (value is _QuantValidationError) {
+          return _QuantValidationError(
+            '${strategyDisplayNameForCode(factorCode)}：${value.message}',
+          );
+        }
+        values[spec.key] = value;
+      }
+      final relationError = _validateStrategyParameterRelations(
+        factorCode,
+        values,
+      );
+      if (relationError != null) {
+        return _QuantValidationError(
+          '${strategyDisplayNameForCode(factorCode)}：${relationError.message}',
+        );
+      }
+      factorParameters[factorCode] = values;
+    }
+    return factorParameters;
+  }
+
+  Object _parseStrategyParameter(
+    StrategyParameterSpec spec, {
+    String? controllerKey,
+  }) {
+    final text =
+        _strategyParameterControllers[controllerKey ?? spec.key]?.text ?? '';
     return switch (spec.valueType) {
       StrategyParameterValueType.positiveInt => _parsePositiveInt(
         text,

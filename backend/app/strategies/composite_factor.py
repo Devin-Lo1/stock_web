@@ -1,13 +1,35 @@
 from ..schemas import Candle
 from .atr_trailing_stop import AtrTrailingStopStrategy
 from .base import BacktestStrategy, StrategyConfigurationError, StrategyEvaluation, StrategySignal
+from .macd_trend import MacdTrendStrategy
 from .ma_breakdown_stop import MaBreakdownStopStrategy
+from .ma_cross import MaCrossStrategy
+from .price_break_ma import PriceBreakMaStrategy
 from .rsi_oversold_rebound import RsiOversoldReboundStrategy
+from .rsi_reversal import RsiReversalStrategy
 from .trend_score import TrendScoreStrategy
 from .volume_breakout import VolumeBreakoutStrategy
 
 
 DEFAULT_FACTOR_PARAMETERS: dict[str, dict[str, object]] = {
+    "ma_cross": {
+        "short_window": 5,
+        "long_window": 20,
+    },
+    "rsi_reversal": {
+        "rsi_window": 14,
+        "oversold": 30,
+        "overbought": 70,
+    },
+    "macd_trend": {
+        "fast_window": 12,
+        "slow_window": 26,
+        "signal_window": 9,
+    },
+    "price_break_ma": {
+        "ma_window": 10,
+        "direction": "both",
+    },
     "volume_breakout": {
         "lookback_window": 20,
         "volume_window": 20,
@@ -46,6 +68,10 @@ class CompositeFactorStrategy:
 
     def __init__(self) -> None:
         self._strategies: dict[str, BacktestStrategy] = {
+            "ma_cross": MaCrossStrategy(),
+            "rsi_reversal": RsiReversalStrategy(),
+            "macd_trend": MacdTrendStrategy(),
+            "price_break_ma": PriceBreakMaStrategy(),
             "volume_breakout": VolumeBreakoutStrategy(),
             "ma_breakdown_stop": MaBreakdownStopStrategy(),
             "atr_trailing_stop": AtrTrailingStopStrategy(),
