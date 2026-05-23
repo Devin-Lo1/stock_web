@@ -1,13 +1,13 @@
 # App 马上解决任务顺序
 
-最后更新：2026-05-22
+最后更新：2026-05-23
 
 本文档用于交接“下一位开发者马上应该做什么”。它不是长期规划文档，而是当前版本之后最优先的执行清单。
 
-当前 Git 基线：
+当前功能基线：
 
 ```text
-4d17b72 feat: close push record workflow
+813bd3d feat: improve monitor scheduler diagnostics
 ```
 
 当前工作区要求：
@@ -19,45 +19,47 @@
 - 涉及真机体验必须重新构建并安装 APK。
 - 当前真机调试采用局域网后端地址。重新打 debug APK 时禁止裸跑 `flutter build apk --debug`，必须直接运行 `.\scripts\build_mobile_lan_debug.ps1` 自动探测当前电脑局域网 IP，或手动传 `--dart-define=API_BASE_URL=http://电脑当前局域网IP:8000`。
 
-## 0. 2026-05-22 当前马上任务（最新）
+## 0. 2026-05-23 当前马上任务（最新）
 
 当前刚完成：
 
 ```text
-日间纯白主题与边框增强
-交易历史删除与历史信号忽略
-持仓详情页单股策略监控、历史信号、推送记录整合
-持仓详情页策略监控启停、推送开关、删除
-推送记录按股票代码/状态筛选、删除、重试
+设置页新增“数据说明”，解释行情、持仓收益、资金流、回测、策略监控和推送口径
+后端新增真实推送通道状态接口：GET /api/v1/notifications/providers/status
+消息提醒页新增 Huawei Push Kit / FCM 生产配置状态、校验模式和缺失环境变量展示
+策略监控调度器状态新增启用监控数、待扫描数和下次扫描时间
+策略监控页在调度器停止但存在启用监控时显示明确提醒
 ```
 
 已验证：
 
 ```text
-Backend pytest: 63 passed
+Backend compileall: Success
+Backend pytest: 81 passed
 Flutter analyze: No issues found
-Flutter test: 37 passed
+Flutter test: 46 passed
 LAN debug APK build: Success
-debug APK install: 等待手机重新连接后安装
+debug APK install: Success，设备包更新时间 2026-05-23 15:25:26
 ```
 
 下一位开发者马上做：
 
-1. 重新连接手机，安装最新 `mobile_app/build/app/outputs/flutter-apk/app-debug.apk`。
-2. 启动或配置策略监控 scheduler：
+1. 真机检查三个新入口：
+   - 设置 -> 数据说明。
+   - 设置 -> 手机推送 -> 真实推送通道。
+   - 量化 -> 策略监控 -> 调度器状态。
+2. 若要进入真实推送联调，先在后端环境变量配置 Huawei Push Kit：
+   - `HUAWEI_PUSH_APP_ID`
+   - `HUAWEI_PUSH_CLIENT_ID`
+   - `HUAWEI_PUSH_CLIENT_SECRET`
+   - 可选：`HUAWEI_PUSH_VALIDATE_ONLY=true` 先走校验模式。
+3. 启动或配置策略监控 scheduler：
    - 临时接口：`POST /api/v1/strategies/monitors/scheduler/start`。
    - 自动启动：配置 `STRATEGY_MONITOR_SCHEDULER_ENABLED=true`。
-3. 验证现有定时扫描闭环：
-   - 策略监控已启用。
-   - `last_scanned_at` 会随调度器更新。
-   - 触发时写入 `signal_events`。
-   - 推送尝试写入 `push_records`。
-   - 单股详情页能按股票代码看到推送记录。
-4. 验证通过后，按下面顺序继续完善：
+4. 后续按下面顺序继续完善：
 
 ```text
-扫描日志与原因说明
--> 真实推送通道接入
+真实推送通道联调
 -> 策略监控总览
 -> 信号处置流
 -> 交易记录增强
