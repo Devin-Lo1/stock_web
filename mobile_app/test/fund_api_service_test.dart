@@ -46,6 +46,13 @@ void main() {
             '"valuation_mode":"estimated","display_nav":1.32,'
             '"display_change_rate":2.1,"display_time":"2026-05-22T15:00:00Z",'
             '"day_profit":20,"day_profit_rate":2.1,'
+            '"grid_recommendation":{"position_id":"fund-position-1",'
+            '"fund_code":"000001","name":"Fund A","action":"sell",'
+            '"action_label":"Sell 1/4","reason":"up 5.00%",'
+            '"baseline_nav":1.2,"current_nav":1.32,"change_rate":10,'
+            '"threshold_percent":5,"recommended_amount":330,'
+            '"recommended_shares":250,"valuation_mode":"estimated",'
+            '"valuation_time":"2026-05-22T15:00:00Z"},'
             '"market_value":1320,"holding_profit":120,'
             '"holding_profit_rate":8.33,"total_profit":100,'
             '"total_profit_rate":8.33}]',
@@ -62,6 +69,7 @@ void main() {
     expect(summaries.single.isEstimated, isTrue);
     expect(summaries.single.displayNav, 1.32);
     expect(summaries.single.dayProfit, 20);
+    expect(summaries.single.gridRecommendation?.actionLabel, 'Sell 1/4');
     expect(summaries.single.marketValue, 1320);
   });
 

@@ -18,6 +18,8 @@ from .positions import (
 )
 from .funds import (
     FundNavPoint,
+    FundGridAction,
+    FundGridRecommendation,
     FundPosition,
     FundPositionCreate,
     FundPositionSummary,
@@ -84,6 +86,8 @@ __all__ = [
     "PositionTradeCreate",
     "PositionUpdate",
     "FundNavPoint",
+    "FundGridAction",
+    "FundGridRecommendation",
     "FundPosition",
     "FundPositionCreate",
     "FundPositionSummary",

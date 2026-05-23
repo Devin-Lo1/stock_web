@@ -124,3 +124,44 @@ def test_fund_summary_uses_estimate_until_official_nav_updates() -> None:
 
     assert final_summary.valuation_mode == "official"
     assert final_summary.display_nav == 1.25
+
+
+def test_fund_summary_recommends_grid_action_from_last_trade_nav() -> None:
+    position = create_fund_position(
+        FundPositionCreate(
+            fund_code="000001",
+            name="Huaxia Growth",
+            fund_type="mixed",
+            shares=1000,
+            cost_nav=1.0,
+        ),
+    )
+    latest = FundNavPoint(
+        fund_code="000001",
+        nav_date=date(2026, 5, 22),
+        unit_nav=1.06,
+        accumulated_nav=2.1,
+        daily_growth_rate=1,
+        updated_at=_now(),
+    )
+
+    summary = _build_fund_summary(
+        position,
+        latest,
+        last_trade=list_fund_trades(position_id=position.id, limit=1)[0],
+    )
+
+    assert summary.grid_recommendation is not None
+    assert summary.grid_recommendation.action == "sell"
+    assert summary.grid_recommendation.action_label == "减仓 1/4"
+    assert summary.grid_recommendation.recommended_shares == 250
+
+    buy_summary = _build_fund_summary(
+        position,
+        latest.model_copy(update={"unit_nav": 0.94}),
+        last_trade=list_fund_trades(position_id=position.id, limit=1)[0],
+    )
+
+    assert buy_summary.grid_recommendation is not None
+    assert buy_summary.grid_recommendation.action == "buy"
+    assert buy_summary.grid_recommendation.recommended_amount == 5000

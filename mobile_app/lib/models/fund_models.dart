@@ -97,6 +97,7 @@ class FundPositionSummary {
   const FundPositionSummary({
     required this.position,
     required this.latestNav,
+    required this.gridRecommendation,
     required this.valuationMode,
     required this.displayNav,
     required this.displayChangeRate,
@@ -112,6 +113,7 @@ class FundPositionSummary {
 
   final FundPosition position;
   final FundNavPoint? latestNav;
+  final FundGridRecommendation? gridRecommendation;
   final String valuationMode;
   final double displayNav;
   final double displayChangeRate;
@@ -128,12 +130,16 @@ class FundPositionSummary {
 
   factory FundPositionSummary.fromJson(Map<String, dynamic> json) {
     final latest = json['latest_nav'];
+    final recommendation = json['grid_recommendation'];
     return FundPositionSummary(
       position: FundPosition.fromJson(
         (json['position'] as Map<String, dynamic>?) ?? const {},
       ),
       latestNav: latest is Map<String, dynamic>
           ? FundNavPoint.fromJson(latest)
+          : null,
+      gridRecommendation: recommendation is Map<String, dynamic>
+          ? FundGridRecommendation.fromJson(recommendation)
           : null,
       valuationMode: json['valuation_mode'] as String? ?? 'none',
       displayNav: _double(json['display_nav']),
@@ -146,6 +152,61 @@ class FundPositionSummary {
       holdingProfitRate: _double(json['holding_profit_rate']),
       totalProfit: _double(json['total_profit']),
       totalProfitRate: _double(json['total_profit_rate']),
+    );
+  }
+}
+
+class FundGridRecommendation {
+  const FundGridRecommendation({
+    required this.positionId,
+    required this.fundCode,
+    required this.name,
+    required this.action,
+    required this.actionLabel,
+    required this.reason,
+    required this.baselineNav,
+    required this.currentNav,
+    required this.changeRate,
+    required this.thresholdPercent,
+    required this.recommendedAmount,
+    required this.recommendedShares,
+    required this.valuationMode,
+    required this.valuationTime,
+  });
+
+  final String positionId;
+  final String fundCode;
+  final String name;
+  final String action;
+  final String actionLabel;
+  final String reason;
+  final double baselineNav;
+  final double currentNav;
+  final double changeRate;
+  final double thresholdPercent;
+  final double recommendedAmount;
+  final double recommendedShares;
+  final String valuationMode;
+  final DateTime? valuationTime;
+
+  bool get isBuy => action == 'buy';
+
+  factory FundGridRecommendation.fromJson(Map<String, dynamic> json) {
+    return FundGridRecommendation(
+      positionId: json['position_id'] as String? ?? '',
+      fundCode: json['fund_code'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      action: json['action'] as String? ?? '',
+      actionLabel: json['action_label'] as String? ?? '',
+      reason: json['reason'] as String? ?? '',
+      baselineNav: _double(json['baseline_nav']),
+      currentNav: _double(json['current_nav']),
+      changeRate: _double(json['change_rate']),
+      thresholdPercent: _double(json['threshold_percent']),
+      recommendedAmount: _double(json['recommended_amount']),
+      recommendedShares: _double(json['recommended_shares']),
+      valuationMode: json['valuation_mode'] as String? ?? 'none',
+      valuationTime: DateTime.tryParse(json['valuation_time'] as String? ?? ''),
     );
   }
 }

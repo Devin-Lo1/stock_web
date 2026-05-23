@@ -141,6 +141,10 @@ class _FundsScreenState extends State<FundsScreen> {
       (sum, item) => sum + item.dayProfit,
     );
     final hasEstimated = _summaries.any((item) => item.isEstimated);
+    final recommendations = _summaries
+        .map((item) => item.gridRecommendation)
+        .whereType<FundGridRecommendation>()
+        .toList();
     return Scaffold(
       backgroundColor: pageBackgroundColor(context),
       body: SafeArea(
@@ -179,6 +183,10 @@ class _FundsScreenState extends State<FundsScreen> {
                 valuationLabel: hasEstimated ? '盘中估算' : '正式净值',
               ),
               const SizedBox(height: 12),
+              if (recommendations.isNotEmpty) ...[
+                _FundGridAlerts(recommendations: recommendations),
+                const SizedBox(height: 12),
+              ],
               FilledButton.icon(
                 onPressed: _addFund,
                 icon: const Icon(Icons.add_rounded),
@@ -352,6 +360,10 @@ class _FundCard extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
             ),
+          ],
+          if (summary.gridRecommendation != null) ...[
+            const SizedBox(height: 12),
+            _FundGridAlertTile(recommendation: summary.gridRecommendation!),
           ],
           const SizedBox(height: 12),
           Wrap(
@@ -594,6 +606,134 @@ class _FundAddSheetState extends State<_FundAddSheet> {
   }
 }
 
+class _FundGridAlerts extends StatelessWidget {
+  const _FundGridAlerts({required this.recommendations});
+
+  final List<FundGridRecommendation> recommendations;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: softCardColor(context),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.rule_rounded, color: appAccentColor(context)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '收盘前操作提醒',
+                  style: TextStyle(
+                    color: primaryTextColor(context),
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              _TinyBadge(text: '${recommendations.length} 个'),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...recommendations.map(
+            (recommendation) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _FundGridAlertTile(recommendation: recommendation),
+            ),
+          ),
+          Text(
+            '执行后记录买入/卖出，下一次会按新操作净值重新计算。',
+            style: TextStyle(
+              color: secondaryTextColor(context),
+              fontSize: 12,
+              height: 1.25,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FundGridAlertTile extends StatelessWidget {
+  const _FundGridAlertTile({required this.recommendation});
+
+  final FundGridRecommendation recommendation;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = recommendation.isBuy
+        ? const Color(0xFFFF4D67)
+        : const Color(0xFF20C997);
+    final detail = recommendation.isBuy
+        ? '${_money(recommendation.recommendedAmount)} · 约 ${recommendation.recommendedShares.toStringAsFixed(2)} 份'
+        : '约 ${recommendation.recommendedShares.toStringAsFixed(2)} 份 · ${_money(recommendation.recommendedAmount)}';
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: cardColor(context),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            recommendation.isBuy
+                ? Icons.add_chart_rounded
+                : Icons.trending_up_rounded,
+            color: color,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${recommendation.name} · ${recommendation.actionLabel}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: primaryTextColor(context),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${recommendation.reason} · 当前 ${recommendation.currentNav.toStringAsFixed(4)}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: secondaryTextColor(context),
+                    fontSize: 12,
+                    height: 1.25,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  detail,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _FundTradeSheet extends StatefulWidget {
   const _FundTradeSheet({required this.summary, required this.action});
 
@@ -770,6 +910,31 @@ class _InfoChip extends StatelessWidget {
           color: valueColor ?? primaryTextColor(context),
           fontSize: 12,
           fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _TinyBadge extends StatelessWidget {
+  const _TinyBadge({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: appAccentColor(context).withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: appAccentColor(context),
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
         ),
       ),
     );

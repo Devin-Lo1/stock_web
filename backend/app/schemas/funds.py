@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 FundTradeAction = Literal["buy", "sell"]
 FundValuationMode = Literal["official", "estimated", "none"]
+FundGridAction = Literal["buy", "sell"]
 
 
 class FundSearchResult(BaseModel):
@@ -95,10 +96,28 @@ class FundTrade(BaseModel):
     updated_at: datetime
 
 
+class FundGridRecommendation(BaseModel):
+    position_id: str
+    fund_code: str
+    name: str
+    action: FundGridAction
+    action_label: str
+    reason: str
+    baseline_nav: float
+    current_nav: float
+    change_rate: float
+    threshold_percent: float = 5
+    recommended_amount: float = 0
+    recommended_shares: float = 0
+    valuation_mode: FundValuationMode = "none"
+    valuation_time: datetime | None = None
+
+
 class FundPositionSummary(BaseModel):
     position: FundPosition
     latest_nav: FundNavPoint | None = None
     quote: FundQuote | None = None
+    grid_recommendation: FundGridRecommendation | None = None
     valuation_mode: FundValuationMode = "none"
     display_nav: float = 0
     display_change_rate: float = 0
