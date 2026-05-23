@@ -97,6 +97,34 @@ class PushRecord {
   }
 }
 
+class PushProviderStatus {
+  const PushProviderStatus({
+    required this.provider,
+    required this.configured,
+    required this.validateOnly,
+    required this.missingEnv,
+    required this.message,
+  });
+
+  final String provider;
+  final bool configured;
+  final bool validateOnly;
+  final List<String> missingEnv;
+  final String message;
+
+  factory PushProviderStatus.fromJson(Map<String, dynamic> json) {
+    return PushProviderStatus(
+      provider: json['provider'] as String? ?? 'unknown',
+      configured: json['configured'] as bool? ?? false,
+      validateOnly: json['validate_only'] as bool? ?? false,
+      missingEnv: (json['missing_env'] as List? ?? const [])
+          .whereType<String>()
+          .toList(),
+      message: json['message'] as String? ?? '',
+    );
+  }
+}
+
 DateTime? _readDateTime(Object? value) {
   if (value is String && value.isNotEmpty) return DateTime.tryParse(value);
   return null;

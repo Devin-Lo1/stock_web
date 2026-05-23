@@ -28,6 +28,10 @@ class NotificationRepository {
     );
   }
 
+  Future<List<PushProviderStatus>> loadPushProviderStatuses() {
+    return _apiService.fetchPushProviderStatuses();
+  }
+
   Future<PushRecord> sendTestNotification(String deviceId) {
     return _apiService.sendTestNotification(
       deviceId: deviceId,

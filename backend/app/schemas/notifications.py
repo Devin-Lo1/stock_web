@@ -87,6 +87,14 @@ class PushDispatchResult(BaseModel):
     records: list[PushRecord] = Field(default_factory=list)
 
 
+class PushProviderStatus(BaseModel):
+    provider: PushProvider
+    configured: bool
+    validate_only: bool = False
+    missing_env: list[str] = Field(default_factory=list)
+    message: str = ""
+
+
 class NotificationTestRequest(BaseModel):
     device_id: str = Field(min_length=1)
     title: str = Field(default="测试提醒", min_length=1, max_length=120)

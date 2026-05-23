@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import os
 from typing import Any
 
 from ..repositories.notifications import (
@@ -12,6 +13,7 @@ from ..repositories.notifications import (
 from ..schemas import (
     NotificationDevice,
     PushDispatchResult,
+    PushProviderStatus,
     PushRecord,
     PushRecordCreate,
     SignalEvent,
@@ -24,6 +26,44 @@ from .push_providers.huawei import send_huawei_message
 UNCONFIGURED_PROVIDER_MESSAGE = "真实推送通道尚未配置"
 LOCAL_ONLY_PROVIDERS = {"local", "unknown"}
 IMPORTANT_PUSH_LEVELS = {"important", "warning"}
+HUAWEI_REQUIRED_ENV = [
+    "HUAWEI_PUSH_APP_ID",
+    "HUAWEI_PUSH_CLIENT_ID",
+    "HUAWEI_PUSH_CLIENT_SECRET",
+]
+FCM_ALTERNATIVE_ENV = [
+    "FCM_SERVICE_ACCOUNT_JSON",
+    "FCM_SERVICE_ACCOUNT_PATH",
+    "GOOGLE_APPLICATION_CREDENTIALS",
+]
+
+
+def list_push_provider_statuses() -> list[PushProviderStatus]:
+    huawei_missing = _missing_env(HUAWEI_REQUIRED_ENV)
+    fcm_configured = any(_env_present(name) for name in FCM_ALTERNATIVE_ENV)
+    return [
+        PushProviderStatus(
+            provider="huawei",
+            configured=not huawei_missing,
+            validate_only=_env_bool("HUAWEI_PUSH_VALIDATE_ONLY"),
+            missing_env=huawei_missing,
+            message=(
+                "Huawei Push Kit 已具备服务端发送配置。"
+                if not huawei_missing
+                else "Huawei Push Kit 尚缺少服务端环境变量。"
+            ),
+        ),
+        PushProviderStatus(
+            provider="fcm",
+            configured=fcm_configured,
+            missing_env=[] if fcm_configured else [" / ".join(FCM_ALTERNATIVE_ENV)],
+            message=(
+                "FCM 已具备服务端发送配置。"
+                if fcm_configured
+                else "FCM 尚未配置服务账号或 Google 默认凭据。"
+            ),
+        ),
+    ]
 
 
 def dispatch_signal_event_to_devices(event: SignalEvent) -> PushDispatchResult:
@@ -271,3 +311,15 @@ def _send_with_provider(
     if provider == "huawei":
         return send_huawei_message(token=token, title=title, body=message, data=data)
     raise PushProviderConfigurationError(f"{UNCONFIGURED_PROVIDER_MESSAGE}: {provider}")
+
+
+def _missing_env(names: list[str]) -> list[str]:
+    return [name for name in names if not _env_present(name)]
+
+
+def _env_present(name: str) -> bool:
+    return bool(os.getenv(name, "").strip())
+
+
+def _env_bool(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}

@@ -30,14 +30,18 @@ class _NotificationSettingsScreenState
   bool _importantEnabled = true;
   bool _isRegistering = false;
   bool _isTesting = false;
+  bool _isLoadingProviders = false;
   String? _errorMessage;
+  String? _providerStatusError;
   NotificationRegistrationResult? _registration;
   PushRecord? _lastTestRecord;
+  List<PushProviderStatus> _providerStatuses = const [];
 
   @override
   void initState() {
     super.initState();
     _registerDevice();
+    _loadProviderStatuses();
   }
 
   @override
@@ -52,7 +56,7 @@ class _NotificationSettingsScreenState
       body: RefreshIndicator(
         onRefresh: () async {
           await widget.onRefresh();
-          await _registerDevice();
+          await Future.wait([_registerDevice(), _loadProviderStatuses()]);
         },
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -85,6 +89,13 @@ class _NotificationSettingsScreenState
               latestSignalCount: _registration?.latestSignalCount,
               errorMessage: _errorMessage,
               onRegister: _registerDevice,
+            ),
+            const SizedBox(height: 12),
+            _ProviderStatusCard(
+              statuses: _providerStatuses,
+              isLoading: _isLoadingProviders,
+              errorMessage: _providerStatusError,
+              onRefresh: _loadProviderStatuses,
             ),
             const SizedBox(height: 12),
             _SettingsCard(
@@ -160,6 +171,23 @@ class _NotificationSettingsScreenState
     }
   }
 
+  Future<void> _loadProviderStatuses() async {
+    setState(() {
+      _isLoadingProviders = true;
+      _providerStatusError = null;
+    });
+    try {
+      final statuses = await widget.repository.loadPushProviderStatuses();
+      if (!mounted) return;
+      setState(() => _providerStatuses = statuses);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _providerStatusError = error.toString());
+    } finally {
+      if (mounted) setState(() => _isLoadingProviders = false);
+    }
+  }
+
   Future<void> _sendTestNotification() async {
     final device = _registration?.device;
     if (device == null) return;
@@ -175,6 +203,164 @@ class _NotificationSettingsScreenState
     } finally {
       if (mounted) setState(() => _isTesting = false);
     }
+  }
+}
+
+class _ProviderStatusCard extends StatelessWidget {
+  const _ProviderStatusCard({
+    required this.statuses,
+    required this.isLoading,
+    required this.errorMessage,
+    required this.onRefresh,
+  });
+
+  final List<PushProviderStatus> statuses;
+  final bool isLoading;
+  final String? errorMessage;
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SettingsCard(
+      children: [
+        Row(
+          children: [
+            Icon(Icons.cloud_sync_outlined, color: appAccentColor(context)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '真实推送通道',
+                style: TextStyle(
+                  color: primaryTextColor(context),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            IconButton.outlined(
+              tooltip: '刷新通道状态',
+              visualDensity: VisualDensity.compact,
+              onPressed: isLoading ? null : onRefresh,
+              icon: isLoading
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh_rounded, size: 18),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (isLoading && statuses.isEmpty)
+          const LinearProgressIndicator(minHeight: 2)
+        else if (errorMessage != null)
+          Text(errorMessage!, style: const TextStyle(color: Color(0xFFEF4444)))
+        else if (statuses.isEmpty)
+          Text(
+            '后端暂未返回推送通道状态。',
+            style: TextStyle(color: secondaryTextColor(context)),
+          )
+        else
+          Column(
+            children: [
+              for (final status in statuses)
+                _ProviderStatusTile(status: status),
+            ],
+          ),
+      ],
+    );
+  }
+}
+
+class _ProviderStatusTile extends StatelessWidget {
+  const _ProviderStatusTile({required this.status});
+
+  final PushProviderStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final configured = status.configured;
+    final color = configured
+        ? const Color(0xFF20C997)
+        : const Color(0xFFE6A93A);
+    final missing = status.missingEnv.join(', ');
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withValues(alpha: 0.22)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Icon(
+                configured
+                    ? Icons.check_circle_outline_rounded
+                    : Icons.info_outline_rounded,
+                color: color,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _providerName(status.provider),
+                          style: TextStyle(
+                            color: primaryTextColor(context),
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      AppTag(
+                        text: configured
+                            ? status.validateOnly
+                                  ? '校验模式'
+                                  : '可发送'
+                            : '待配置',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    status.message.isEmpty
+                        ? (configured ? '服务端配置已就绪。' : '服务端配置未完成。')
+                        : status.message,
+                    style: TextStyle(
+                      color: secondaryTextColor(context),
+                      fontSize: 12,
+                    ),
+                  ),
+                  if (!configured && missing.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '缺少：$missing',
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: secondaryTextColor(context),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -314,4 +500,12 @@ String _dateTimeText(DateTime value) {
   String two(int number) => number.toString().padLeft(2, '0');
   return '${value.year}/${two(value.month)}/${two(value.day)} '
       '${two(value.hour)}:${two(value.minute)}';
+}
+
+String _providerName(String provider) {
+  return switch (provider) {
+    'huawei' => 'Huawei Push Kit',
+    'fcm' => 'Firebase Cloud Messaging',
+    _ => provider.toUpperCase(),
+  };
 }

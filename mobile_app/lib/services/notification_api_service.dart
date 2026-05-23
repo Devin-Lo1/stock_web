@@ -29,6 +29,17 @@ class NotificationApiService {
     );
   }
 
+  Future<List<PushProviderStatus>> fetchPushProviderStatuses() async {
+    final decoded = await _apiClient.get(
+      '/api/v1/notifications/providers/status',
+    );
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(PushProviderStatus.fromJson)
+        .toList();
+  }
+
   Future<PushRecord> sendTestNotification({
     required String deviceId,
     required String title,

@@ -257,6 +257,42 @@ def test_notification_device_and_test_endpoints() -> None:
     assert record["error_message"] == "真实推送通道尚未配置"
 
 
+def test_push_provider_status_endpoint_reports_missing_and_ready_env(monkeypatch) -> None:
+    client = TestClient(app)
+    for name in (
+        "HUAWEI_PUSH_APP_ID",
+        "HUAWEI_PUSH_CLIENT_ID",
+        "HUAWEI_PUSH_CLIENT_SECRET",
+        "HUAWEI_PUSH_VALIDATE_ONLY",
+        "FCM_SERVICE_ACCOUNT_JSON",
+        "FCM_SERVICE_ACCOUNT_PATH",
+        "GOOGLE_APPLICATION_CREDENTIALS",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    missing_response = client.get("/api/v1/notifications/providers/status")
+
+    assert missing_response.status_code == 200
+    missing = {item["provider"]: item for item in missing_response.json()}
+    assert missing["huawei"]["configured"] is False
+    assert "HUAWEI_PUSH_APP_ID" in missing["huawei"]["missing_env"]
+    assert missing["fcm"]["configured"] is False
+
+    monkeypatch.setenv("HUAWEI_PUSH_APP_ID", "app-id")
+    monkeypatch.setenv("HUAWEI_PUSH_CLIENT_ID", "client-id")
+    monkeypatch.setenv("HUAWEI_PUSH_CLIENT_SECRET", "client-secret")
+    monkeypatch.setenv("HUAWEI_PUSH_VALIDATE_ONLY", "true")
+    monkeypatch.setenv("FCM_SERVICE_ACCOUNT_PATH", "service-account.json")
+
+    ready_response = client.get("/api/v1/notifications/providers/status")
+
+    ready = {item["provider"]: item for item in ready_response.json()}
+    assert ready["huawei"]["configured"] is True
+    assert ready["huawei"]["validate_only"] is True
+    assert ready["huawei"]["missing_env"] == []
+    assert ready["fcm"]["configured"] is True
+
+
 def test_notification_test_endpoint_sends_fcm_when_provider_is_configured(
     monkeypatch,
 ) -> None:

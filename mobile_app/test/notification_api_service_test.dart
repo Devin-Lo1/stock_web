@@ -80,6 +80,41 @@ void main() {
     expect(record.status, 'sent');
   });
 
+  test(
+    'fetchPushProviderStatuses parses backend provider diagnostics',
+    () async {
+      late Uri requestedUri;
+      final service = NotificationApiService(
+        ApiClient(
+          baseUrl: 'http://test.local',
+          httpClient: MockClient((request) async {
+            requestedUri = request.url;
+            return http.Response(
+              '[{"provider":"huawei","configured":false,'
+              '"validate_only":false,'
+              '"missing_env":["HUAWEI_PUSH_APP_ID"],'
+              '"message":"Huawei Push Kit is missing env."},'
+              '{"provider":"fcm","configured":true,'
+              '"validate_only":false,"missing_env":[],'
+              '"message":"FCM is configured."}]',
+              200,
+            );
+          }),
+        ),
+      );
+
+      final statuses = await service.fetchPushProviderStatuses();
+
+      expect(requestedUri.path, '/api/v1/notifications/providers/status');
+      expect(statuses, hasLength(2));
+      expect(statuses.first.provider, 'huawei');
+      expect(statuses.first.configured, isFalse);
+      expect(statuses.first.missingEnv, ['HUAWEI_PUSH_APP_ID']);
+      expect(statuses.last.provider, 'fcm');
+      expect(statuses.last.configured, isTrue);
+    },
+  );
+
   test('deletePushRecord calls delete endpoint', () async {
     late http.Request requestedRequest;
     final service = NotificationApiService(

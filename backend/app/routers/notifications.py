@@ -18,6 +18,7 @@ from ..schemas import (
     NotificationRegistrationResult,
     NotificationTestRequest,
     PushDispatchResult,
+    PushProviderStatus,
     PushRecord,
     SignalEvent,
     SignalEventCreate,
@@ -25,6 +26,7 @@ from ..schemas import (
 from ..services.push_service import (
     dispatch_notification_to_device,
     dispatch_signal_event_to_devices,
+    list_push_provider_statuses,
     retry_push_record,
 )
 
@@ -54,6 +56,11 @@ def api_list_notification_devices(
     enabled_only: bool = Query(default=False),
 ) -> list[NotificationDevice]:
     return list_notification_devices(enabled_only=enabled_only)
+
+
+@router.get("/providers/status", response_model=list[PushProviderStatus])
+def api_list_push_provider_statuses() -> list[PushProviderStatus]:
+    return list_push_provider_statuses()
 
 
 @router.get("/signals", response_model=list[SignalEvent])
