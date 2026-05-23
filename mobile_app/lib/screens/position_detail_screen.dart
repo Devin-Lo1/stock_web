@@ -21,6 +21,8 @@ import '../widgets/position/position_detail_metric.dart';
 import '../widgets/position/position_trade_history.dart';
 import '../widgets/quote/quote_overview_grid.dart';
 
+const _chartSwitcherHeight = 418.0;
+
 class PositionDetailScreen extends StatefulWidget {
   const PositionDetailScreen({
     super.key,
@@ -524,12 +526,11 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
         },
       ),
       const SizedBox(height: 10),
-      AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        height: _selectedChartIndex == 0 ? 418 : 214,
+      SizedBox(
+        height: _chartSwitcherHeight,
         child: PageView(
           controller: _chartPageController,
+          clipBehavior: Clip.hardEdge,
           onPageChanged: (index) => setState(() => _selectedChartIndex = index),
           children: [
             Column(
