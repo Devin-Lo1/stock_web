@@ -789,6 +789,14 @@ class _SchedulerStatusPanel extends StatelessWidget {
                 icon: Icons.settings_power_rounded,
               ),
               _InfoChip(
+                label: '监控 ${current?.enabledMonitorCount ?? 0}',
+                icon: Icons.rule_rounded,
+              ),
+              _InfoChip(
+                label: '待扫 ${current?.dueMonitorCount ?? 0}',
+                icon: Icons.pending_actions_rounded,
+              ),
+              _InfoChip(
                 label: refresh ? '刷新行情' : '使用缓存',
                 icon: Icons.sync_rounded,
               ),
@@ -822,11 +830,33 @@ class _SchedulerStatusPanel extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            '上次运行：${_timeLabel(current?.lastRunAt)} · ${_schedulerResultLabel(current)}',
+            '上次运行：${_timeLabel(current?.lastRunAt)} · 下次：${_nextRunLabel(current)} · ${_schedulerResultLabel(current)}',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(color: secondaryTextColor(context), fontSize: 12),
           ),
+          if (!running && (current?.enabledMonitorCount ?? 0) > 0) ...[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE6A93A).withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: const Color(0xFFE6A93A).withValues(alpha: 0.28),
+                ),
+              ),
+              child: Text(
+                '已有启用监控，但调度器未运行；可点击“启动”开启定时扫描。',
+                style: TextStyle(
+                  color: primaryTextColor(context),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
           if (current?.lastError != null) ...[
             const SizedBox(height: 6),
             Text(
@@ -1756,4 +1786,10 @@ String _schedulerResultLabel(StrategyMonitorSchedulerStatus? status) {
   final skipped = result['skipped_count'] ?? 0;
   final errors = result['error_count'] ?? 0;
   return '扫描 $scanned · 新增 $created · 跳过 $skipped · 错误 $errors';
+}
+
+String _nextRunLabel(StrategyMonitorSchedulerStatus? status) {
+  if (status == null || status.enabledMonitorCount == 0) return '无计划';
+  if (status.dueMonitorCount > 0) return '立即可扫';
+  return _timeLabel(status.nextRunAt);
 }

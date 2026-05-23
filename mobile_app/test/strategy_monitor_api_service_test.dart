@@ -151,6 +151,8 @@ void main() {
           return http.Response(
             '{"enabled_by_env":false,"running":true,"scanning":false,'
             '"poll_interval_seconds":60,"refresh":true,'
+            '"enabled_monitor_count":4,"due_monitor_count":2,'
+            '"next_run_at":"2026-05-21T01:10:00Z",'
             '"last_started_at":"2026-05-21T01:00:00Z",'
             '"last_stopped_at":null,"last_run_at":"2026-05-21T01:05:00Z",'
             '"last_error":null,"last_result":{"scanned_count":3,'
@@ -166,6 +168,9 @@ void main() {
     expect(status.running, isTrue);
     expect(status.refresh, isTrue);
     expect(status.pollIntervalSeconds, 60);
+    expect(status.enabledMonitorCount, 4);
+    expect(status.dueMonitorCount, 2);
+    expect(status.nextRunAt, isNotNull);
     expect(status.lastResult['created_count'], 1);
   });
 

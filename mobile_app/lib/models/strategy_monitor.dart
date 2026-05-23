@@ -127,6 +127,9 @@ class StrategyMonitorSchedulerStatus {
     required this.scanning,
     required this.pollIntervalSeconds,
     required this.refresh,
+    required this.enabledMonitorCount,
+    required this.dueMonitorCount,
+    required this.nextRunAt,
     required this.lastStartedAt,
     required this.lastStoppedAt,
     required this.lastRunAt,
@@ -139,6 +142,9 @@ class StrategyMonitorSchedulerStatus {
   final bool scanning;
   final int pollIntervalSeconds;
   final bool refresh;
+  final int enabledMonitorCount;
+  final int dueMonitorCount;
+  final DateTime? nextRunAt;
   final DateTime? lastStartedAt;
   final DateTime? lastStoppedAt;
   final DateTime? lastRunAt;
@@ -153,6 +159,10 @@ class StrategyMonitorSchedulerStatus {
       pollIntervalSeconds:
           (json['poll_interval_seconds'] as num?)?.toInt() ?? 60,
       refresh: json['refresh'] as bool? ?? false,
+      enabledMonitorCount:
+          (json['enabled_monitor_count'] as num?)?.toInt() ?? 0,
+      dueMonitorCount: (json['due_monitor_count'] as num?)?.toInt() ?? 0,
+      nextRunAt: _readDateTime(json['next_run_at']),
       lastStartedAt: _readDateTime(json['last_started_at']),
       lastStoppedAt: _readDateTime(json['last_stopped_at']),
       lastRunAt: _readDateTime(json['last_run_at']),

@@ -115,6 +115,9 @@ class StrategyMonitorSchedulerStatus(BaseModel):
     scanning: bool
     poll_interval_seconds: int
     refresh: bool
+    enabled_monitor_count: int = 0
+    due_monitor_count: int = 0
+    next_run_at: datetime | None = None
     last_started_at: datetime | None = None
     last_stopped_at: datetime | None = None
     last_run_at: datetime | None = None

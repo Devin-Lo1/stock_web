@@ -1,10 +1,12 @@
 import asyncio
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from ..repositories.strategy_monitors import list_strategy_monitors
 from ..schemas import (
     SignalScanResult,
+    StrategyMonitor,
     StrategyMonitorSchedulerStatus,
     StrategyMonitorSchedulerUpdate,
 )
@@ -76,12 +78,16 @@ class StrategyMonitorScheduler:
             self.refresh = payload.refresh
 
     def status(self) -> StrategyMonitorSchedulerStatus:
+        monitor_state = _monitor_schedule_state(_now())
         return StrategyMonitorSchedulerStatus(
             enabled_by_env=self.enabled_by_env,
             running=self.running,
             scanning=self.scanning,
             poll_interval_seconds=self.poll_interval_seconds,
             refresh=self.refresh,
+            enabled_monitor_count=monitor_state["enabled_monitor_count"],
+            due_monitor_count=monitor_state["due_monitor_count"],
+            next_run_at=monitor_state["next_run_at"],
             last_started_at=self.last_started_at,
             last_stopped_at=self.last_stopped_at,
             last_run_at=self.last_run_at,
@@ -175,6 +181,42 @@ def _env_int(name: str, *, default: int, minimum: int, maximum: int) -> int:
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _monitor_schedule_state(now: datetime) -> dict[str, Any]:
+    monitors = list_strategy_monitors(enabled_only=True, limit=500)
+    due_count = 0
+    next_run_at: datetime | None = None
+    for monitor in monitors:
+        if _monitor_is_due(monitor, now):
+            due_count += 1
+            next_run_at = now if next_run_at is None else min(next_run_at, now)
+            continue
+        monitor_next_run_at = _monitor_next_run_at(monitor)
+        if monitor_next_run_at is not None:
+            next_run_at = (
+                monitor_next_run_at
+                if next_run_at is None
+                else min(next_run_at, monitor_next_run_at)
+            )
+    return {
+        "enabled_monitor_count": len(monitors),
+        "due_monitor_count": due_count,
+        "next_run_at": next_run_at,
+    }
+
+
+def _monitor_is_due(monitor: StrategyMonitor, now: datetime) -> bool:
+    next_run_at = _monitor_next_run_at(monitor)
+    return next_run_at is None or now >= next_run_at
+
+
+def _monitor_next_run_at(monitor: StrategyMonitor) -> datetime | None:
+    if monitor.last_scanned_at is None:
+        return None
+    return monitor.last_scanned_at + timedelta(
+        minutes=monitor.scan_interval_minutes,
+    )
 
 
 _SCHEDULER = StrategyMonitorScheduler(

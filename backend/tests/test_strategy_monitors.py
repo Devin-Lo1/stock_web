@@ -335,6 +335,30 @@ def test_strategy_monitor_scheduler_endpoints_start_stop() -> None:
     assert stop_response.json()["running"] is False
 
 
+def test_strategy_monitor_scheduler_status_reports_monitor_health() -> None:
+    client = TestClient(app)
+    database.create_strategy_monitor(
+        StrategyMonitorCreate(
+            market="HK",
+            code="HK.09988",
+            name="Alibaba",
+            strategy_code="ma_cross",
+            strategy_name="MA Cross",
+            parameters={"short_window": 3, "long_window": 7},
+            enabled=True,
+            scan_interval_minutes=15,
+        ),
+    )
+
+    response = client.get("/api/v1/strategies/monitors/scheduler/status")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["enabled_monitor_count"] == 1
+    assert body["due_monitor_count"] == 1
+    assert body["next_run_at"] is not None
+
+
 def test_strategy_monitor_scheduler_run_once_endpoint_updates_status() -> None:
     client = TestClient(app)
 
