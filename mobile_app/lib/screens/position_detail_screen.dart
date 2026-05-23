@@ -139,6 +139,77 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
     }
   }
 
+  Future<void> _showPositionActions() async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      useSafeArea: true,
+      builder: (context) {
+        final canReduce = _position.quantity > 0;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+                  child: Text(
+                    '修改持仓',
+                    style: TextStyle(
+                      color: primaryTextColor(context),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.edit_outlined),
+                  title: const Text('修改基础信息'),
+                  subtitle: const Text('名称、代码、成本、数量等'),
+                  onTap: () => Navigator.of(context).pop('edit'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.add_rounded),
+                  title: const Text('加仓'),
+                  subtitle: const Text('新增一笔买入记录'),
+                  onTap: () => Navigator.of(context).pop('add'),
+                ),
+                ListTile(
+                  enabled: canReduce,
+                  leading: const Icon(Icons.remove_rounded),
+                  title: const Text('减仓'),
+                  subtitle: Text(canReduce ? '新增一笔卖出记录' : '当前没有可减持数量'),
+                  onTap: canReduce
+                      ? () => Navigator.of(context).pop('reduce')
+                      : null,
+                ),
+                ListTile(
+                  enabled: canReduce,
+                  leading: const Icon(Icons.clear_rounded),
+                  title: const Text('清仓'),
+                  subtitle: Text(canReduce ? '按当前持仓数量生成卖出记录' : '当前没有可清仓数量'),
+                  onTap: canReduce
+                      ? () => Navigator.of(context).pop('close')
+                      : null,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (!mounted || action == null) return;
+    switch (action) {
+      case 'edit':
+        await _editPosition();
+      case 'add':
+      case 'reduce':
+      case 'close':
+        await _recordTrade(action);
+    }
+  }
+
   Future<void> _confirmDeletePosition() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -600,7 +671,7 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
           ),
           IconButton(
             tooltip: '编辑持仓',
-            onPressed: _editPosition,
+            onPressed: _showPositionActions,
             icon: const Icon(Icons.edit_outlined),
           ),
         ],
@@ -649,38 +720,6 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.tonalIcon(
-                    onPressed: () => _recordTrade('add'),
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('加仓'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: FilledButton.tonalIcon(
-                    onPressed: _position.quantity <= 0
-                        ? null
-                        : () => _recordTrade('reduce'),
-                    icon: const Icon(Icons.remove_rounded),
-                    label: const Text('减仓'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: FilledButton.tonalIcon(
-                    onPressed: _position.quantity <= 0
-                        ? null
-                        : () => _recordTrade('close'),
-                    icon: const Icon(Icons.clear_rounded),
-                    label: const Text('清仓'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
@@ -745,7 +784,7 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
               children: [
                 Expanded(
                   child: FilledButton.tonalIcon(
-                    onPressed: _editPosition,
+                    onPressed: _showPositionActions,
                     icon: const Icon(Icons.edit_outlined),
                     label: const Text('修改持仓'),
                   ),
