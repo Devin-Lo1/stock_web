@@ -43,7 +43,10 @@ void main() {
             '"latest_nav":{"fund_code":"000001","nav_date":"2026-05-22",'
             '"unit_nav":1.3,"accumulated_nav":2.0,'
             '"daily_growth_rate":1.1},'
-            '"market_value":1300,"holding_profit":100,'
+            '"valuation_mode":"estimated","display_nav":1.32,'
+            '"display_change_rate":2.1,"display_time":"2026-05-22T15:00:00Z",'
+            '"day_profit":20,"day_profit_rate":2.1,'
+            '"market_value":1320,"holding_profit":120,'
             '"holding_profit_rate":8.33,"total_profit":100,'
             '"total_profit_rate":8.33}]',
             200,
@@ -56,7 +59,10 @@ void main() {
 
     expect(summaries.single.position.fundCode, '000001');
     expect(summaries.single.latestNav?.unitNav, 1.3);
-    expect(summaries.single.marketValue, 1300);
+    expect(summaries.single.isEstimated, isTrue);
+    expect(summaries.single.displayNav, 1.32);
+    expect(summaries.single.dayProfit, 20);
+    expect(summaries.single.marketValue, 1320);
   });
 
   test('createTrade posts action payload', () async {

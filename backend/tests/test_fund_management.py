@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timezone
 
 from app.repositories.funds import (
     create_fund_position,
@@ -7,8 +7,8 @@ from app.repositories.funds import (
     list_fund_trades,
     upsert_fund_navs,
 )
-from app.schemas import FundNavPoint, FundPositionCreate, FundTradeCreate
-from app.services.funds import list_fund_position_summaries
+from app.schemas import FundNavPoint, FundPositionCreate, FundQuote, FundTradeCreate
+from app.services.funds import _build_fund_summary, list_fund_position_summaries
 from app.db.converters import _now
 
 
@@ -83,3 +83,44 @@ def test_fund_trades_can_be_listed_by_position() -> None:
     assert len(trades) == 1
     assert trades[0].action == "buy"
     assert trades[0].fund_code == "012414"
+
+
+def test_fund_summary_uses_estimate_until_official_nav_updates() -> None:
+    position = create_fund_position(
+        FundPositionCreate(
+            fund_code="000001",
+            name="Huaxia Growth",
+            fund_type="mixed",
+            shares=1000,
+            cost_nav=1.2,
+        ),
+    )
+    latest = FundNavPoint(
+        fund_code="000001",
+        nav_date=date(2026, 5, 21),
+        unit_nav=1.2,
+        accumulated_nav=2.1,
+        daily_growth_rate=0.5,
+        updated_at=_now(),
+    )
+    quote = FundQuote(
+        fund_code="000001",
+        name="Huaxia Growth",
+        nav_date=date(2026, 5, 21),
+        unit_nav=1.2,
+        estimated_nav=1.26,
+        estimated_change_rate=5,
+        estimate_time=datetime(2026, 5, 22, 15, 0, tzinfo=timezone.utc),
+    )
+
+    summary = _build_fund_summary(position, latest, quote)
+
+    assert summary.valuation_mode == "estimated"
+    assert summary.display_nav == 1.26
+    assert round(summary.day_profit, 2) == 60
+
+    official = latest.model_copy(update={"nav_date": date(2026, 5, 22), "unit_nav": 1.25})
+    final_summary = _build_fund_summary(position, official, quote)
+
+    assert final_summary.valuation_mode == "official"
+    assert final_summary.display_nav == 1.25

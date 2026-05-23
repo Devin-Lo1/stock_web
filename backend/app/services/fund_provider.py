@@ -1,12 +1,14 @@
 import json
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 import httpx
 
 from ..db.converters import UTC, _now
 from ..schemas import FundNavPoint, FundQuote, FundSearchResult
+
+CN_TZ = timezone(timedelta(hours=8))
 
 
 class FundProviderError(RuntimeError):
@@ -56,10 +58,16 @@ class EastmoneyFundProvider:
             )
         return results
 
-    def quote(self, fund_code: str) -> FundQuote:
+    def quote(
+        self,
+        fund_code: str,
+        *,
+        latest: FundNavPoint | None = None,
+    ) -> FundQuote:
         code = fund_code.strip()
-        navs = self.nav_history(code, limit=1)
-        latest = navs[0] if navs else None
+        if latest is None:
+            navs = self.nav_history(code, limit=1)
+            latest = navs[0] if navs else None
         estimated_nav = 0.0
         estimated_change_rate = 0.0
         estimate_time: datetime | None = None
@@ -175,7 +183,9 @@ def _parse_datetime(value: object) -> datetime | None:
         parsed = datetime.fromisoformat(value.replace(" ", "T"))
     except ValueError:
         return None
-    return parsed.replace(tzinfo=UTC) if parsed.tzinfo is None else parsed.astimezone(UTC)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=CN_TZ).astimezone(UTC)
+    return parsed.astimezone(UTC)
 
 
 def _float(value: object) -> float:

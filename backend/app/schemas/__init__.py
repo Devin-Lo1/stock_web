@@ -27,6 +27,7 @@ from .funds import (
     FundTrade,
     FundTradeAction,
     FundTradeCreate,
+    FundValuationMode,
 )
 from .quotes import (
     CapitalFlowBucket,
@@ -92,6 +93,7 @@ __all__ = [
     "FundTrade",
     "FundTradeAction",
     "FundTradeCreate",
+    "FundValuationMode",
     "CapitalFlowBucket",
     "CapitalFlowPoint",
     "CapitalFlowSnapshot",

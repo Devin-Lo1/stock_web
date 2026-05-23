@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 FundTradeAction = Literal["buy", "sell"]
+FundValuationMode = Literal["official", "estimated", "none"]
 
 
 class FundSearchResult(BaseModel):
@@ -97,6 +98,13 @@ class FundTrade(BaseModel):
 class FundPositionSummary(BaseModel):
     position: FundPosition
     latest_nav: FundNavPoint | None = None
+    quote: FundQuote | None = None
+    valuation_mode: FundValuationMode = "none"
+    display_nav: float = 0
+    display_change_rate: float = 0
+    display_time: datetime | None = None
+    day_profit: float = 0
+    day_profit_rate: float = 0
     market_value: float = 0
     holding_profit: float = 0
     holding_profit_rate: float = 0

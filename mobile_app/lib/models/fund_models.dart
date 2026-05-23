@@ -97,6 +97,12 @@ class FundPositionSummary {
   const FundPositionSummary({
     required this.position,
     required this.latestNav,
+    required this.valuationMode,
+    required this.displayNav,
+    required this.displayChangeRate,
+    required this.displayTime,
+    required this.dayProfit,
+    required this.dayProfitRate,
     required this.marketValue,
     required this.holdingProfit,
     required this.holdingProfitRate,
@@ -106,11 +112,19 @@ class FundPositionSummary {
 
   final FundPosition position;
   final FundNavPoint? latestNav;
+  final String valuationMode;
+  final double displayNav;
+  final double displayChangeRate;
+  final DateTime? displayTime;
+  final double dayProfit;
+  final double dayProfitRate;
   final double marketValue;
   final double holdingProfit;
   final double holdingProfitRate;
   final double totalProfit;
   final double totalProfitRate;
+
+  bool get isEstimated => valuationMode == 'estimated';
 
   factory FundPositionSummary.fromJson(Map<String, dynamic> json) {
     final latest = json['latest_nav'];
@@ -121,6 +135,12 @@ class FundPositionSummary {
       latestNav: latest is Map<String, dynamic>
           ? FundNavPoint.fromJson(latest)
           : null,
+      valuationMode: json['valuation_mode'] as String? ?? 'none',
+      displayNav: _double(json['display_nav']),
+      displayChangeRate: _double(json['display_change_rate']),
+      displayTime: DateTime.tryParse(json['display_time'] as String? ?? ''),
+      dayProfit: _double(json['day_profit']),
+      dayProfitRate: _double(json['day_profit_rate']),
       marketValue: _double(json['market_value']),
       holdingProfit: _double(json['holding_profit']),
       holdingProfitRate: _double(json['holding_profit_rate']),

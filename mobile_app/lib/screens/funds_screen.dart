@@ -136,6 +136,11 @@ class _FundsScreenState extends State<FundsScreen> {
       0,
       (sum, item) => sum + item.totalProfit,
     );
+    final totalDayProfit = _summaries.fold<double>(
+      0,
+      (sum, item) => sum + item.dayProfit,
+    );
+    final hasEstimated = _summaries.any((item) => item.isEstimated);
     return Scaffold(
       backgroundColor: pageBackgroundColor(context),
       body: SafeArea(
@@ -169,7 +174,9 @@ class _FundsScreenState extends State<FundsScreen> {
               const SizedBox(height: 12),
               _FundSummaryBand(
                 marketValue: totalMarketValue,
+                dayProfit: totalDayProfit,
                 totalProfit: totalProfit,
+                valuationLabel: hasEstimated ? '盘中估算' : '正式净值',
               ),
               const SizedBox(height: 12),
               FilledButton.icon(
@@ -219,11 +226,15 @@ class _FundsScreenState extends State<FundsScreen> {
 class _FundSummaryBand extends StatelessWidget {
   const _FundSummaryBand({
     required this.marketValue,
+    required this.dayProfit,
     required this.totalProfit,
+    required this.valuationLabel,
   });
 
   final double marketValue;
+  final double dayProfit;
   final double totalProfit;
+  final String valuationLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -234,17 +245,39 @@ class _FundSummaryBand extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: borderColor(context)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: _Metric(label: '基金市值', value: _money(marketValue)),
+          Row(
+            children: [
+              Expanded(
+                child: _Metric(label: '基金市值', value: _money(marketValue)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _Metric(
+                  label: '$valuationLabel当日收益',
+                  value: _money(dayProfit),
+                  valueColor: _profitColor(dayProfit),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: _Metric(
-              label: '累计盈亏',
-              value: _money(totalProfit),
-              valueColor: _profitColor(totalProfit),
+          const SizedBox(height: 12),
+          _Metric(
+            label: '持有总盈亏',
+            value: _money(totalProfit),
+            valueColor: _profitColor(totalProfit),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            valuationLabel == '盘中估算'
+                ? '盘中按估算净值计算，正式净值更新后自动切换。'
+                : '已按最新正式净值计算。盘中无新估算时保持正式净值口径。',
+            style: TextStyle(
+              color: secondaryTextColor(context),
+              fontSize: 12,
+              height: 1.25,
             ),
           ),
         ],
@@ -270,6 +303,7 @@ class _FundCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final position = summary.position;
     final latest = summary.latestNav;
+    final modeLabel = _valuationLabel(summary);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -306,6 +340,19 @@ class _FundCard extends StatelessWidget {
             '${position.fundCode} · ${position.fundType.isEmpty ? '场外基金' : position.fundType}',
             style: TextStyle(color: secondaryTextColor(context), fontSize: 12),
           ),
+          if (summary.displayTime != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              '$modeLabel · ${_dateTimeLabel(summary.displayTime!)}',
+              style: TextStyle(
+                color: summary.isEstimated
+                    ? const Color(0xFFE6B450)
+                    : secondaryTextColor(context),
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           Wrap(
             spacing: 10,
@@ -317,26 +364,44 @@ class _FundCard extends StatelessWidget {
                 value: position.avgCostNav.toStringAsFixed(4),
               ),
               _InfoChip(
-                label: '最新净值',
-                value: latest == null
+                label: summary.isEstimated ? '估算净值' : '正式净值',
+                value: summary.displayNav <= 0
                     ? '--'
-                    : latest.unitNav.toStringAsFixed(4),
+                    : summary.displayNav.toStringAsFixed(4),
               ),
               _InfoChip(
-                label: '日涨跌',
-                value: latest == null ? '--' : _percent(latest.dailyGrowthRate),
-                valueColor: latest == null
+                label: summary.isEstimated ? '估算涨跌' : '日涨跌',
+                value: summary.displayNav <= 0
+                    ? '--'
+                    : _percent(summary.displayChangeRate),
+                valueColor: summary.displayNav <= 0
                     ? secondaryTextColor(context)
-                    : _profitColor(latest.dailyGrowthRate),
+                    : _profitColor(summary.displayChangeRate),
               ),
+              if (latest != null)
+                _InfoChip(label: '净值日', value: _shortDate(latest.navDate)),
             ],
           ),
           const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
+                child: _Metric(
+                  label: summary.isEstimated ? '预估当日收益' : '当日收益',
+                  value:
+                      '${_money(summary.dayProfit)} / ${_percent(summary.dayProfitRate)}',
+                  valueColor: _profitColor(summary.dayProfit),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
                 child: _Metric(label: '市值', value: _money(summary.marketValue)),
               ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
               Expanded(
                 child: _Metric(
                   label: '持有盈亏',
@@ -549,7 +614,9 @@ class _FundTradeSheetState extends State<_FundTradeSheet> {
     super.initState();
     _sharesController = TextEditingController();
     _navController = TextEditingController(
-      text: widget.summary.latestNav?.unitNav.toStringAsFixed(4) ?? '',
+      text: widget.summary.displayNav > 0
+          ? widget.summary.displayNav.toStringAsFixed(4)
+          : '',
     );
   }
 
@@ -725,6 +792,25 @@ String _percent(double value) {
       ? '-'
       : '';
   return '$sign${value.abs().toStringAsFixed(2)}%';
+}
+
+String _valuationLabel(FundPositionSummary summary) {
+  return summary.isEstimated ? '盘中估算' : '正式净值';
+}
+
+String _shortDate(DateTime value) {
+  final month = value.month.toString().padLeft(2, '0');
+  final day = value.day.toString().padLeft(2, '0');
+  return '$month-$day';
+}
+
+String _dateTimeLabel(DateTime value) {
+  final local = value.toLocal();
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$month-$day $hour:$minute';
 }
 
 Color _profitColor(double value) {
