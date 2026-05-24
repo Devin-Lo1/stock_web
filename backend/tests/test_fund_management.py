@@ -166,8 +166,8 @@ def test_fund_summary_recommends_grid_action_from_last_trade_nav() -> None:
 
     assert summary.grid_recommendation is not None
     assert summary.grid_recommendation.action == "sell"
-    assert summary.grid_recommendation.action_label == "减仓 1/4"
-    assert summary.grid_recommendation.recommended_shares == 250
+    assert summary.grid_recommendation.action_label == "上涨提醒"
+    assert summary.grid_recommendation.recommended_shares == 0
 
     buy_summary = _build_fund_summary(
         position,
@@ -177,7 +177,8 @@ def test_fund_summary_recommends_grid_action_from_last_trade_nav() -> None:
 
     assert buy_summary.grid_recommendation is not None
     assert buy_summary.grid_recommendation.action == "buy"
-    assert buy_summary.grid_recommendation.recommended_amount == 5000
+    assert buy_summary.grid_recommendation.action_label == "下跌提醒"
+    assert buy_summary.grid_recommendation.recommended_amount == 0
 
 
 def test_fund_alert_scheduler_config_accepts_multiple_times() -> None:

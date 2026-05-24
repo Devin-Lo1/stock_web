@@ -321,8 +321,8 @@ class _AlertTab extends StatelessWidget {
               '触发阈值',
               '${position.alertThresholdPercent.toStringAsFixed(1)}%',
             ),
-            _MetricItem('下跌加仓', _money(position.alertBuyAmount)),
-            _MetricItem('上涨减仓', _ratioLabel(position.alertSellRatio)),
+            const _MetricItem('提醒口径', '较上次操作'),
+            const _MetricItem('操作数量', '自行决定'),
           ],
         ),
         const SizedBox(height: 12),
@@ -748,7 +748,7 @@ class _RecommendationPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            recommendation.actionLabel,
+            _recommendationLabel(recommendation),
             style: TextStyle(
               color: color,
               fontSize: 20,
@@ -762,9 +762,7 @@ class _RecommendationPanel extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            recommendation.isBuy
-                ? '${_money(recommendation.recommendedAmount)} · 约 ${recommendation.recommendedShares.toStringAsFixed(2)} 份'
-                : '约 ${recommendation.recommendedShares.toStringAsFixed(2)} 份 · ${_money(recommendation.recommendedAmount)}',
+            '触发阈值 ${recommendation.thresholdPercent.toStringAsFixed(2)}%',
             style: TextStyle(
               color: color,
               fontSize: 16,
@@ -835,10 +833,8 @@ String _percent(double value) {
   return '$sign${value.abs().toStringAsFixed(2)}%';
 }
 
-String _ratioLabel(double value) {
-  if ((value - 0.25).abs() < 0.001) return '1/4';
-  if ((value - 0.5).abs() < 0.001) return '1/2';
-  return '${(value * 100).toStringAsFixed(0)}%';
+String _recommendationLabel(FundGridRecommendation recommendation) {
+  return recommendation.isBuy ? '下跌提醒' : '上涨提醒';
 }
 
 String _shortDate(DateTime value) {

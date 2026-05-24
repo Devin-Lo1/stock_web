@@ -633,7 +633,7 @@ class _FundAlertStrip extends StatelessWidget {
           Expanded(
             child: Text(
               recommendations.length == 1
-                  ? '${first.name} · ${first.actionLabel}'
+                  ? '${first.name} · ${_fundRecommendationLabel(first)}'
                   : '${recommendations.length} 只基金触发提醒',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -772,7 +772,7 @@ class _FundTableRow extends StatelessWidget {
                     GestureDetector(
                       onTap: onEditAlert,
                       child: _SmallSignalBadge(
-                        text: recommendation.actionLabel,
+                        text: _fundRecommendationLabel(recommendation),
                       ),
                     ),
                   ],
@@ -1912,8 +1912,6 @@ class _FundAlertSettingsSheet extends StatefulWidget {
 class _FundAlertSettingsSheetState extends State<_FundAlertSettingsSheet> {
   late bool _enabled;
   late final TextEditingController _thresholdController;
-  late final TextEditingController _buyAmountController;
-  late final TextEditingController _sellRatioController;
 
   @override
   void initState() {
@@ -1923,41 +1921,23 @@ class _FundAlertSettingsSheetState extends State<_FundAlertSettingsSheet> {
     _thresholdController = TextEditingController(
       text: position.alertThresholdPercent.toStringAsFixed(1),
     );
-    _buyAmountController = TextEditingController(
-      text: position.alertBuyAmount.toStringAsFixed(0),
-    );
-    _sellRatioController = TextEditingController(
-      text: (position.alertSellRatio * 100).toStringAsFixed(0),
-    );
   }
 
   @override
   void dispose() {
     _thresholdController.dispose();
-    _buyAmountController.dispose();
-    _sellRatioController.dispose();
     super.dispose();
   }
 
   void _submit() {
     final threshold = double.tryParse(_thresholdController.text.trim());
-    final buyAmount = double.tryParse(_buyAmountController.text.trim());
-    final sellPercent = double.tryParse(_sellRatioController.text.trim());
-    if (threshold == null ||
-        threshold <= 0 ||
-        buyAmount == null ||
-        buyAmount < 0 ||
-        sellPercent == null ||
-        sellPercent <= 0 ||
-        sellPercent > 100) {
+    if (threshold == null || threshold <= 0) {
       return;
     }
     Navigator.of(context).pop(
       FundAlertSettingsDraft(
         alertEnabled: _enabled,
         thresholdPercent: threshold,
-        buyAmount: buyAmount,
-        sellRatio: sellPercent / 100,
       ),
     );
   }
@@ -1987,17 +1967,15 @@ class _FundAlertSettingsSheetState extends State<_FundAlertSettingsSheet> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: const InputDecoration(labelText: '涨跌阈值 %'),
           ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _buyAmountController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: '下跌触发加仓金额'),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _sellRatioController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: '上涨触发减仓比例 %'),
+          const SizedBox(height: 10),
+          Text(
+            '提醒只判断较上次操作净值的涨跌幅是否触线，实际买入或卖出数量由你自己决定。',
+            style: TextStyle(
+              color: secondaryTextColor(context),
+              fontSize: 12,
+              height: 1.35,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 14),
           FilledButton.icon(
@@ -2341,6 +2319,10 @@ String _percent(double value) {
       ? '-'
       : '';
   return '$sign${value.abs().toStringAsFixed(2)}%';
+}
+
+String _fundRecommendationLabel(FundGridRecommendation recommendation) {
+  return recommendation.isBuy ? '下跌提醒' : '上涨提醒';
 }
 
 String _dateLabel(DateTime value) {

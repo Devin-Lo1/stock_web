@@ -65,7 +65,7 @@ def _event_payload(
     scan_key: str,
     now: datetime,
 ) -> SignalEventCreate:
-    side_label = "加仓" if recommendation.action == "buy" else "减仓"
+    side_label = "下跌" if recommendation.action == "buy" else "上涨"
     level = "important"
     dedupe_key = (
         f"fund_alert:{scan_key or now.isoformat()}:"
@@ -76,11 +76,10 @@ def _event_payload(
         code=recommendation.fund_code,
         signal_type=f"fund_grid_{recommendation.action}",
         level=level,
-        title=f"{recommendation.name} {side_label}提醒",
+        title=f"{recommendation.name} {side_label}触线提醒",
         message=(
             f"{recommendation.reason}，触发阈值 "
-            f"{recommendation.threshold_percent:.2f}%；建议"
-            f"{recommendation.action_label}。"
+            f"{recommendation.threshold_percent:.2f}%。"
         ),
         trigger_value=recommendation.change_rate,
         threshold_value=recommendation.threshold_percent,

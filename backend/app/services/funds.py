@@ -154,20 +154,17 @@ def _build_grid_recommendation(
     )
     threshold = position.alert_threshold_percent
     if change_rate >= threshold:
-        shares = position.shares * position.alert_sell_ratio
         return FundGridRecommendation(
             position_id=position.id,
             fund_code=position.fund_code,
             name=position.name,
             action="sell",
-            action_label=f"减仓 {_ratio_label(position.alert_sell_ratio)}",
+            action_label="上涨提醒",
             reason=reason,
             baseline_nav=baseline_nav,
             current_nav=current_nav,
             change_rate=change_rate,
             threshold_percent=threshold,
-            recommended_amount=shares * current_nav,
-            recommended_shares=shares,
             valuation_mode=valuation_mode,
             valuation_time=valuation_time,
         )
@@ -177,14 +174,12 @@ def _build_grid_recommendation(
             fund_code=position.fund_code,
             name=position.name,
             action="buy",
-            action_label=f"加仓 {position.alert_buy_amount:.0f}",
+            action_label="下跌提醒",
             reason=reason,
             baseline_nav=baseline_nav,
             current_nav=current_nav,
             change_rate=change_rate,
             threshold_percent=threshold,
-            recommended_amount=position.alert_buy_amount,
-            recommended_shares=position.alert_buy_amount / current_nav,
             valuation_mode=valuation_mode,
             valuation_time=valuation_time,
         )
@@ -222,11 +217,3 @@ def _fetch_position_fund_data(
     except (FundProviderError, Exception):
         quote = None
     return position.fund_code, points, quote
-
-
-def _ratio_label(value: float) -> str:
-    if abs(value - 0.25) < 0.001:
-        return "1/4"
-    if abs(value - 0.5) < 0.001:
-        return "1/2"
-    return f"{value * 100:.0f}%"

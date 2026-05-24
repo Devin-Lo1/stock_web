@@ -112,21 +112,15 @@ class FundAlertSettingsDraft {
   const FundAlertSettingsDraft({
     required this.alertEnabled,
     required this.thresholdPercent,
-    required this.buyAmount,
-    required this.sellRatio,
   });
 
   final bool alertEnabled;
   final double thresholdPercent;
-  final double buyAmount;
-  final double sellRatio;
 
   Map<String, dynamic> toJson() {
     return {
       'alert_enabled': alertEnabled,
       'alert_threshold_percent': thresholdPercent,
-      'alert_buy_amount': buyAmount,
-      'alert_sell_ratio': sellRatio,
     };
   }
 }
