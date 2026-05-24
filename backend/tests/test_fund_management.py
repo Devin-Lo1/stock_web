@@ -19,6 +19,8 @@ from app.schemas import (
     FundTradeCreate,
 )
 from app.services.fund_alert_scanner import scan_fund_alerts
+from app.services import fund_provider
+from app.services.fund_provider import EastmoneyFundProvider
 from app.services.funds import _build_fund_summary, list_fund_position_summaries
 from app.db.converters import _now
 
@@ -238,3 +240,34 @@ def test_scan_fund_alerts_creates_signal_event_from_grid_recommendation() -> Non
     assert result.events[0].payload["source_category"] == "fund"
     assert result.events[0].payload["strategy_name"] == "基金涨跌提醒"
     assert duplicate.created_count == 0
+
+
+def test_fund_provider_search_ignores_system_proxy_and_caches(monkeypatch) -> None:
+    EastmoneyFundProvider._search_cache.clear()
+    EastmoneyFundProvider._nav_cache.clear()
+    EastmoneyFundProvider._quote_cache.clear()
+    calls: list[dict[str, object]] = []
+
+    class FakeResponse:
+        content = (
+            b'{"Datas":[{"CODE":"000001","NAME":"Fake Fund",'
+            b'"FundBaseInfo":{"FTYPE":"mixed","JJGS":"Fake Co","JJJL":"Fake Manager"}}]}'
+        )
+
+        def raise_for_status(self) -> None:
+            return None
+
+    def fake_get(*args, **kwargs):
+        calls.append(kwargs)
+        return FakeResponse()
+
+    monkeypatch.setattr(fund_provider.httpx, "get", fake_get)
+
+    provider = EastmoneyFundProvider()
+    first = provider.search("000001", limit=20)
+    second = provider.search("000001", limit=20)
+
+    assert len(first) == 1
+    assert len(second) == 1
+    assert len(calls) == 1
+    assert calls[0]["trust_env"] is False

@@ -1,7 +1,7 @@
 import json
 import re
 from datetime import date, datetime, timedelta, timezone
-from typing import Any
+from typing import Any, ClassVar
 
 import httpx
 
@@ -18,6 +18,16 @@ class FundProviderError(RuntimeError):
 class EastmoneyFundProvider:
     source = "eastmoney"
     _timeout = 8.0
+    _search_cache_ttl = timedelta(minutes=10)
+    _nav_cache_ttl = timedelta(minutes=10)
+    _quote_cache_ttl = timedelta(seconds=30)
+    _search_cache: ClassVar[
+        dict[tuple[str, int], tuple[datetime, list[FundSearchResult]]]
+    ] = {}
+    _nav_cache: ClassVar[dict[tuple[str, int], tuple[datetime, list[FundNavPoint]]]] = {}
+    _quote_cache: ClassVar[
+        dict[tuple[str, str | None, float], tuple[datetime, FundQuote]]
+    ] = {}
     _headers = {
         "User-Agent": "Mozilla/5.0",
         "Accept": "application/json,text/javascript,*/*",
@@ -28,6 +38,11 @@ class EastmoneyFundProvider:
         keyword = query.strip()
         if not keyword:
             return []
+        cache_key = (keyword.lower(), limit)
+        now = _now()
+        cached = self._search_cache.get(cache_key)
+        if cached is not None and now - cached[0] < self._search_cache_ttl:
+            return [item.model_copy() for item in cached[1]]
         payload = self._get_json(
             "https://fundsuggest.eastmoney.com/FundSearch/api/FundSearchAPI.ashx",
             params={"m": "1", "key": keyword},
@@ -56,6 +71,7 @@ class EastmoneyFundProvider:
                     source=self.source,
                 ),
             )
+        self._search_cache[cache_key] = (now, [item.model_copy() for item in results])
         return results
 
     def quote(
@@ -68,6 +84,15 @@ class EastmoneyFundProvider:
         if latest is None:
             navs = self.nav_history(code, limit=1)
             latest = navs[0] if navs else None
+        now = _now()
+        cache_key = (
+            code,
+            latest.nav_date.isoformat() if latest else None,
+            latest.unit_nav if latest else 0,
+        )
+        cached = self._quote_cache.get(cache_key)
+        if cached is not None and now - cached[0] < self._quote_cache_ttl:
+            return cached[1].model_copy()
         estimated_nav = 0.0
         estimated_change_rate = 0.0
         estimate_time: datetime | None = None
@@ -86,7 +111,7 @@ class EastmoneyFundProvider:
         if not name:
             results = self.search(code, limit=1)
             name = results[0].name if results else code
-        return FundQuote(
+        quote = FundQuote(
             fund_code=code,
             name=name,
             nav_date=latest.nav_date if latest else None,
@@ -98,9 +123,16 @@ class EastmoneyFundProvider:
             estimate_time=estimate_time,
             source=self.source,
         )
+        self._quote_cache[cache_key] = (now, quote.model_copy())
+        return quote
 
     def nav_history(self, fund_code: str, *, limit: int = 90) -> list[FundNavPoint]:
         code = fund_code.strip()
+        cache_key = (code, limit)
+        now = _now()
+        cached = self._nav_cache.get(cache_key)
+        if cached is not None and now - cached[0] < self._nav_cache_ttl:
+            return [item.model_copy() for item in cached[1]]
         payload = self._get_json(
             "https://api.fund.eastmoney.com/f10/lsjz",
             params={
@@ -137,6 +169,7 @@ class EastmoneyFundProvider:
                     updated_at=now,
                 ),
             )
+        self._nav_cache[cache_key] = (now, [item.model_copy() for item in points])
         return points
 
     def _get_json(
@@ -151,6 +184,7 @@ class EastmoneyFundProvider:
             params=params,
             headers={**self._headers, **(headers or {})},
             timeout=self._timeout,
+            trust_env=False,
         )
         response.raise_for_status()
         return json.loads(response.content.decode("utf-8", errors="replace"))
@@ -161,6 +195,7 @@ class EastmoneyFundProvider:
             params=params,
             headers=self._headers,
             timeout=self._timeout,
+            trust_env=False,
         )
         response.raise_for_status()
         text = response.content.decode("utf-8", errors="replace")
