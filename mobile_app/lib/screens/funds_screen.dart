@@ -192,6 +192,31 @@ class _FundsScreenState extends State<FundsScreen> {
     }
   }
 
+  Future<void> _toggleSchedulerEnabled() async {
+    final current = _schedulerStatus ?? FundAlertSchedulerStatus.defaults();
+    final nextEnabled = !current.enabled;
+    setState(() => _isRefreshing = true);
+    try {
+      final status = await widget.repository.updateAlertScheduler(
+        FundAlertSchedulerDraft(
+          enabled: nextEnabled,
+          reminderTimes: current.reminderTimes.isEmpty
+              ? const ['14:30']
+              : current.reminderTimes,
+          dueWindowMinutes: current.dueWindowMinutes,
+        ),
+      );
+      if (!mounted) return;
+      setState(() => _schedulerStatus = status);
+      _showSnack(nextEnabled ? '已启用基金提醒自动扫描' : '已停用基金提醒自动扫描');
+      await _load(refresh: false);
+    } catch (error) {
+      if (mounted) _showSnack('切换自动扫描失败：$error');
+    } finally {
+      if (mounted) setState(() => _isRefreshing = false);
+    }
+  }
+
   Future<void> _runSchedulerScan() async {
     setState(() => _isRefreshing = true);
     try {
@@ -292,6 +317,7 @@ class _FundsScreenState extends State<FundsScreen> {
               _FundSchedulerPanel(
                 status: _schedulerStatus ?? FundAlertSchedulerStatus.defaults(),
                 onEdit: _editScheduler,
+                onToggleEnabled: _toggleSchedulerEnabled,
                 onRunNow: _runSchedulerScan,
               ),
               const SizedBox(height: 8),
@@ -467,11 +493,13 @@ class _FundSchedulerPanel extends StatelessWidget {
   const _FundSchedulerPanel({
     required this.status,
     required this.onEdit,
+    required this.onToggleEnabled,
     required this.onRunNow,
   });
 
   final FundAlertSchedulerStatus status;
   final VoidCallback onEdit;
+  final VoidCallback onToggleEnabled;
   final VoidCallback onRunNow;
 
   @override
@@ -521,6 +549,10 @@ class _FundSchedulerPanel extends StatelessWidget {
                   ],
                 ),
               ),
+              Switch(
+                value: status.enabled,
+                onChanged: status.scanning ? null : (_) => onToggleEnabled(),
+              ),
               IconButton(
                 tooltip: '立即扫描',
                 onPressed: status.scanning ? null : onRunNow,
@@ -529,7 +561,7 @@ class _FundSchedulerPanel extends StatelessWidget {
                         dimension: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.play_arrow_rounded),
+                    : const Icon(Icons.refresh_rounded),
               ),
               IconButton(
                 tooltip: '设置时间',
@@ -2002,16 +2034,16 @@ class _FundSchedulerSettingsSheet extends StatefulWidget {
 class _FundSchedulerSettingsSheetState
     extends State<_FundSchedulerSettingsSheet> {
   late bool _enabled;
-  late final TextEditingController _timesController;
+  late List<String> _reminderTimes;
+  final _timeController = TextEditingController();
   late final TextEditingController _dueWindowController;
+  String? _timeError;
 
   @override
   void initState() {
     super.initState();
     _enabled = widget.status.enabled;
-    _timesController = TextEditingController(
-      text: widget.status.reminderTimes.join(', '),
-    );
+    _reminderTimes = _normalizeReminderTimes(widget.status.reminderTimes);
     _dueWindowController = TextEditingController(
       text: widget.status.dueWindowMinutes.toString(),
     );
@@ -2019,28 +2051,62 @@ class _FundSchedulerSettingsSheetState
 
   @override
   void dispose() {
-    _timesController.dispose();
+    _timeController.dispose();
     _dueWindowController.dispose();
     super.dispose();
   }
 
   void _submit() {
-    final times = _timesController.text
-        .split(RegExp(r'[,，\s]+'))
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toList();
     final dueWindow = int.tryParse(_dueWindowController.text.trim());
-    if (times.isEmpty || dueWindow == null || dueWindow < 1 || dueWindow > 60) {
+    if (_reminderTimes.isEmpty ||
+        dueWindow == null ||
+        dueWindow < 1 ||
+        dueWindow > 60) {
       return;
     }
     Navigator.of(context).pop(
       FundAlertSchedulerDraft(
         enabled: _enabled,
-        reminderTimes: times,
+        reminderTimes: _reminderTimes,
         dueWindowMinutes: dueWindow,
       ),
     );
+  }
+
+  void _addTypedTime() {
+    final time = _normalizeReminderTime(_timeController.text);
+    if (time == null) {
+      setState(() => _timeError = '请输入 09:30 这种 24 小时时间');
+      return;
+    }
+    _addTime(time);
+    _timeController.clear();
+  }
+
+  Future<void> _pickTime() async {
+    final now = TimeOfDay.now();
+    final picked = await showTimePicker(context: context, initialTime: now);
+    if (picked == null) return;
+    _addTime(_formatReminderTime(picked.hour, picked.minute));
+  }
+
+  void _addTime(String time) {
+    final next = {..._reminderTimes, time}.toList()..sort();
+    setState(() {
+      _reminderTimes = next;
+      _timeError = null;
+    });
+  }
+
+  void _removeTime(String time) {
+    if (_reminderTimes.length <= 1) {
+      setState(() => _timeError = '至少保留一个提醒时间');
+      return;
+    }
+    setState(() {
+      _reminderTimes = _reminderTimes.where((item) => item != time).toList();
+      _timeError = null;
+    });
   }
 
   @override
@@ -2055,7 +2121,10 @@ class _FundSchedulerSettingsSheetState
       child: ListView(
         shrinkWrap: true,
         children: [
-          _SheetTitle(title: '扫描时间'),
+          _SheetTitle(
+            title: '扫描时间',
+            onClose: () => Navigator.of(context).pop(),
+          ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             value: _enabled,
@@ -2063,13 +2132,50 @@ class _FundSchedulerSettingsSheetState
             title: const Text('启用自动扫描'),
           ),
           const SizedBox(height: 8),
-          TextField(
-            controller: _timesController,
-            keyboardType: TextInputType.text,
-            decoration: const InputDecoration(
-              labelText: '提醒时间',
-              hintText: '14:20, 14:30, 14:50',
+          Text(
+            '提醒时间',
+            style: TextStyle(
+              color: secondaryTextColor(context),
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
             ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _reminderTimes
+                .map(
+                  (time) => InputChip(
+                    label: Text(time),
+                    onDeleted: () => _removeTime(time),
+                    deleteIcon: const Icon(Icons.close_rounded, size: 16),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _timeController,
+            keyboardType: TextInputType.text,
+            textInputAction: TextInputAction.done,
+            decoration: InputDecoration(
+              labelText: '新增提醒时间',
+              hintText: '14:20',
+              errorText: _timeError,
+              suffixIcon: IconButton(
+                tooltip: '添加',
+                onPressed: _addTypedTime,
+                icon: const Icon(Icons.add_rounded),
+              ),
+            ),
+            onSubmitted: (_) => _addTypedTime(),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _pickTime,
+            icon: const Icon(Icons.schedule_rounded),
+            label: const Text('选择时间'),
           ),
           const SizedBox(height: 8),
           TextField(
@@ -2337,6 +2443,27 @@ String _dateOnlyText(DateTime value) {
   final month = local.month.toString().padLeft(2, '0');
   final day = local.day.toString().padLeft(2, '0');
   return '${local.year}-$month-$day';
+}
+
+List<String> _normalizeReminderTimes(List<String> values) {
+  final normalized =
+      values.map(_normalizeReminderTime).whereType<String>().toSet().toList()
+        ..sort();
+  return normalized.isEmpty ? ['14:30'] : normalized;
+}
+
+String? _normalizeReminderTime(String value) {
+  final match = RegExp(r'^(\d{1,2})[:：](\d{1,2})$').firstMatch(value.trim());
+  if (match == null) return null;
+  final hour = int.tryParse(match.group(1)!);
+  final minute = int.tryParse(match.group(2)!);
+  if (hour == null || minute == null) return null;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return _formatReminderTime(hour, minute);
+}
+
+String _formatReminderTime(int hour, int minute) {
+  return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
 }
 
 String _dateTimeText(DateTime? value) {
