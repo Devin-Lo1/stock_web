@@ -903,25 +903,43 @@ class _FundAddSheet extends StatefulWidget {
 
 class _FundAddSheetState extends State<_FundAddSheet> {
   final _queryController = TextEditingController();
+  final _amountController = TextEditingController();
   final _sharesController = TextEditingController();
   final _costNavController = TextEditingController();
   final _feeController = TextEditingController(text: '0');
   List<FundSearchResult> _results = const [];
   FundSearchResult? _selected;
+  bool _useAmount = true;
   bool _isSearching = false;
+  bool _isLoadingNav = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _amountController.addListener(_rebuildConversion);
+    _sharesController.addListener(_rebuildConversion);
+    _costNavController.addListener(_rebuildConversion);
+    _feeController.addListener(_rebuildConversion);
+  }
 
   @override
   void dispose() {
     _queryController.dispose();
+    _amountController.dispose();
     _sharesController.dispose();
     _costNavController.dispose();
     _feeController.dispose();
     super.dispose();
   }
 
+  void _rebuildConversion() {
+    if (mounted) setState(() {});
+  }
+
   Future<void> _search() async {
     final query = _queryController.text.trim();
     if (query.isEmpty) return;
+    FocusScope.of(context).unfocus();
     setState(() => _isSearching = true);
     try {
       final results = await widget.repository.searchFunds(query);
@@ -931,16 +949,36 @@ class _FundAddSheetState extends State<_FundAddSheet> {
     }
   }
 
+  Future<void> _selectFund(FundSearchResult fund) async {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _selected = fund;
+      _isLoadingNav = true;
+    });
+    try {
+      final navs = await widget.repository.loadNavs(
+        fund.code,
+        limit: 1,
+        refresh: true,
+      );
+      if (!mounted ||
+          navs.isEmpty ||
+          _costNavController.text.trim().isNotEmpty) {
+        return;
+      }
+      final nav = navs.first.unitNav;
+      if (nav > 0) _costNavController.text = nav.toStringAsFixed(4);
+    } finally {
+      if (mounted) setState(() => _isLoadingNav = false);
+    }
+  }
+
   void _submit() {
     final selected = _selected;
-    final shares = double.tryParse(_sharesController.text.trim());
     final costNav = double.tryParse(_costNavController.text.trim());
     final fee = double.tryParse(_feeController.text.trim()) ?? 0;
-    if (selected == null ||
-        shares == null ||
-        shares <= 0 ||
-        costNav == null ||
-        costNav < 0) {
+    final shares = _resolvedShares(costNav: costNav, fee: fee);
+    if (selected == null || shares == null || costNav == null || costNav <= 0) {
       return;
     }
     Navigator.of(context).pop(
@@ -951,6 +989,38 @@ class _FundAddSheetState extends State<_FundAddSheet> {
         fee: fee,
       ),
     );
+  }
+
+  double? _resolvedShares({double? costNav, double? fee}) {
+    final nav = costNav ?? double.tryParse(_costNavController.text.trim());
+    final feeValue = fee ?? double.tryParse(_feeController.text.trim()) ?? 0;
+    if (nav == null || nav <= 0) return null;
+    if (_useAmount) {
+      final amount = double.tryParse(_amountController.text.trim());
+      if (amount == null || amount <= feeValue) return null;
+      return (amount - feeValue) / nav;
+    }
+    final shares = double.tryParse(_sharesController.text.trim());
+    if (shares == null || shares <= 0) return null;
+    return shares;
+  }
+
+  double? _resolvedAmount({double? costNav, double? fee}) {
+    final nav = costNav ?? double.tryParse(_costNavController.text.trim());
+    final feeValue = fee ?? double.tryParse(_feeController.text.trim()) ?? 0;
+    final shares = _resolvedShares(costNav: nav, fee: feeValue);
+    if (shares == null || nav == null || nav <= 0) return null;
+    return shares * nav + feeValue;
+  }
+
+  String _conversionText() {
+    final shares = _resolvedShares();
+    final amount = _resolvedAmount();
+    if (shares == null || amount == null) return '';
+    if (_useAmount) {
+      return '预计份额 ${shares.toStringAsFixed(2)}';
+    }
+    return '预计金额 ${amount.toStringAsFixed(2)}';
   }
 
   @override
@@ -965,7 +1035,10 @@ class _FundAddSheetState extends State<_FundAddSheet> {
       child: ListView(
         shrinkWrap: true,
         children: [
-          _SheetTitle(title: '添加场外基金'),
+          _SheetTitle(
+            title: '添加场外基金',
+            onClose: () => Navigator.of(context).pop(),
+          ),
           const SizedBox(height: 12),
           TextField(
             controller: _queryController,
@@ -995,19 +1068,42 @@ class _FundAddSheetState extends State<_FundAddSheet> {
                     trailing: _selected?.code == fund.code
                         ? const Icon(Icons.check_circle_rounded)
                         : null,
-                    onTap: () => setState(() => _selected = fund),
+                    onTap: () => unawaited(_selectFund(fund)),
                   ),
                 ),
+          const SizedBox(height: 8),
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(
+                value: true,
+                icon: Icon(Icons.payments_rounded),
+                label: Text('金额'),
+              ),
+              ButtonSegment(
+                value: false,
+                icon: Icon(Icons.tag_rounded),
+                label: Text('份额'),
+              ),
+            ],
+            selected: {_useAmount},
+            onSelectionChanged: (value) {
+              setState(() => _useAmount = value.first);
+            },
+          ),
           const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
                 child: TextField(
-                  controller: _sharesController,
+                  controller: _useAmount
+                      ? _amountController
+                      : _sharesController,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
-                  decoration: const InputDecoration(labelText: '持有份额'),
+                  decoration: InputDecoration(
+                    labelText: _useAmount ? '买入金额' : '持有份额',
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -1017,7 +1113,9 @@ class _FundAddSheetState extends State<_FundAddSheet> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
-                  decoration: const InputDecoration(labelText: '成本净值'),
+                  decoration: InputDecoration(
+                    labelText: _isLoadingNav ? '成本净值 读取中' : '成本净值',
+                  ),
                 ),
               ),
             ],
@@ -1028,6 +1126,17 @@ class _FundAddSheetState extends State<_FundAddSheet> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: const InputDecoration(labelText: '手续费'),
           ),
+          if (_conversionText().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              _conversionText(),
+              style: TextStyle(
+                color: secondaryTextColor(context),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           FilledButton.icon(
             onPressed: _submit,
@@ -1356,21 +1465,34 @@ class _FundSchedulerSettingsSheetState
 }
 
 class _SheetTitle extends StatelessWidget {
-  const _SheetTitle({required this.title});
+  const _SheetTitle({required this.title, this.onClose});
 
   final String title;
+  final VoidCallback? onClose;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      title,
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(
-        color: primaryTextColor(context),
-        fontSize: 20,
-        fontWeight: FontWeight.w900,
-      ),
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: primaryTextColor(context),
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        if (onClose != null)
+          IconButton(
+            onPressed: onClose,
+            icon: const Icon(Icons.close_rounded),
+            tooltip: '关闭',
+          ),
+      ],
     );
   }
 }
