@@ -1,11 +1,11 @@
 # App 新开发者接手指南
 
-最后更新：2026-05-23
+最后更新：2026-05-24
 
 当前代码功能基线：
 
 ```text
-813bd3d feat: improve monitor scheduler diagnostics
+7ba80fb feat: refine fund portfolio views
 ```
 
 本文档给新开发者使用。目标是：读完 `docs/` 后能知道当前项目做到哪、不能做什么、下一步从哪里开始。
@@ -20,16 +20,20 @@
 - 设置页新增 `数据说明`，说明行情、收益、资金流、策略回测、推送和使用注意。
 - 设置 -> 手机推送新增 `真实推送通道` 状态卡，后端提供 Huawei Push Kit / FCM 配置诊断接口，能显示缺失环境变量和校验模式。
 - 策略监控 scheduler 状态已增强：显示启用监控数、待扫描数、下次运行时间；若有启用监控但 scheduler 未启动，会直接提示启动。
+- 场外基金管理已完成第一版可用闭环：搜索添加基金、基金持仓汇总、估算净值/正式净值切换、当日收益、持有收益、基金交易记录、基金详情页、近 50 日净值趋势和买卖点标记。
+- 基金阈值提醒已支持用户自定义涨跌阈值、买入金额、卖出比例和多个提醒时间；后端基金提醒 scheduler 到点自动刷新、判断策略并写入信号事件。
+- 基金主页已新增策略提醒状态、扫描结果时间、触发数量、下次扫描时间和手动扫描入口；场外基金数据源使用独立基金 provider，不依赖 Futu 行情接口。
 
 最近一次完整验证：
 
 ```text
 Backend compileall: Success
-Backend pytest: 81 passed
+Backend pytest: 88 passed
 Flutter analyze: No issues found
-Flutter test: 46 passed
+Flutter test: 56 passed
+Flutter fund_api_service_test: 7 passed
 LAN debug APK build: Success
-debug APK install: Success，设备包更新时间 2026-05-23 15:25:26
+debug APK install: Success
 ```
 
 当前真机 APK 使用局域网后端：
@@ -40,14 +44,15 @@ http://192.168.1.4:8000
 
 下一位开发者优先做：
 
-1. 真机检查三处新增入口：设置 -> 数据说明、设置 -> 手机推送 -> 真实推送通道、量化 -> 策略监控 -> 调度器状态。
-2. 若要启用真实华为推送，在后端配置：
+1. 真机检查基金主页面、基金详情页、添加场外基金、交易记录、阈值提醒设置、多个提醒时间设置和手动扫描。
+2. 启动后端并观察基金提醒 scheduler：确认到点扫描会刷新基金数据、写入 `signal_events`，App 基金页能显示最近扫描时间和触发数量。
+3. 核对基金估算净值和正式净值口径：盘中优先用估算涨跌辅助判断，正式净值更新后以正式净值和正式日涨跌为准。
+4. 若要启用真实华为推送，在后端配置：
    - `HUAWEI_PUSH_APP_ID`
    - `HUAWEI_PUSH_CLIENT_ID`
    - `HUAWEI_PUSH_CLIENT_SECRET`
    - 可选 `HUAWEI_PUSH_VALIDATE_ONLY=true`
-3. 启动并验证策略监控 scheduler，确认 `last_scanned_at`、`signal_events`、`push_records` 均按预期更新。
-4. 后续按顺序做：真实推送通道联调 -> 策略监控总览 -> 信号处置流 -> 交易记录增强。
+5. 后续按顺序做：基金真机 UI 微调 -> 基金数据源缓存/降级 -> 基金提醒推送联调 -> 基金交易编辑/删除 -> 组合资产总览。
 
 注意：本文顶部“最新交接快照”优先于后面历史章节。后面章节保留开发脉络，但若出现“下一步”冲突，以本节为准。
 
@@ -124,6 +129,12 @@ git log -1 --oneline
   - 真实平均成本和券商式摊薄成本字段。
   - 持仓交易历史接口。
   - 单只持仓收益快照历史接口。
+- 场外基金后端已完成：
+  - `fund_positions`、`fund_trades`、`fund_navs`、`fund_alert_scheduler` 表。
+  - 基金搜索、基金净值、基金持仓、基金交易、基金阈值提醒和基金提醒调度接口。
+  - 独立基金数据源 provider，当前用于场外基金估算净值和正式净值，不依赖 Futu。
+  - 基金提醒 scanner 会把触发结果写入 `signal_events`，后续推送只消费已落库事件。
+  - FastAPI lifespan 会启动/停止基金提醒 scheduler。
 
 ### Flutter 已完成
 
@@ -162,6 +173,11 @@ git log -1 --oneline
   - 单股收益曲线。
   - 建仓、加仓、减仓、清仓交易历史。
   - 加仓、减仓、清仓记录入口。
+- 基金模块已接入：
+  - `fund_models.dart`、`fund_api_service.dart`、`fund_repository.dart`。
+  - `funds_screen.dart`：基金主页面、账户汇总、基金列表、添加基金、交易记录、阈值提醒、scheduler 状态和手动扫描。
+  - `fund_detail_screen.dart`：基金详情页、净值趋势、近 50 日净值、买卖点标记、收益和策略信息。
+  - 盘中估算涨跌可用于收盘前操作提醒；正式净值更新后自动以正式净值路径展示。
 
 ## 4. 当前刚完成的前端验证
 
@@ -178,16 +194,17 @@ D:\flutter\bin\flutter.bat test
 
 ```text
 Flutter analyze: No issues found
-Flutter test: 37 passed
-Backend pytest: 63 passed
+Flutter test: 56 passed
+Flutter fund_api_service_test: 7 passed
+Backend pytest: 88 passed
 ```
 
 最近一次真机安装：
 
 ```powershell
 cd C:\Users\58229\Desktop\stock_web
-.\scripts\build_mobile_lan_debug.ps1
-D:\Android\Sdk\platform-tools\adb.exe install --no-streaming -r mobile_app\build\app\outputs\flutter-apk\app-debug.apk
+.\scripts\build_mobile_lan_debug.ps1 -ApiBaseUrl http://192.168.1.4:8000
+D:\Android\Sdk\platform-tools\adb.exe install -r -d mobile_app\build\app\outputs\flutter-apk\app-debug.apk
 ```
 
 安装结果：
@@ -206,31 +223,42 @@ http://192.168.1.4:8000
 
 ## 5. 下一位开发者马上要做
 
-先做真机检查和小修，不要马上继续大改页面。
+先做真机检查和小修，不要马上继续大改页面。2026-05-24 起，第一优先级是基金模块真机验收；下面股票/策略监控链路已基本跑通，作为回归检查保留。
 
 按顺序验证：
 
-1. 打开 App，确认首页、持仓、信号页能正常连接后端。
-2. 进入持仓页，点击任意持仓，检查详情页：
+1. 打开 App，确认首页、持仓、基金、信号页能正常连接后端。
+2. 进入基金入口，检查基金主页：
+   - 账户资产、当日收益、持有收益是否紧凑显示。
+   - 基金列表是否显示前台估算/正式净值口径。
+   - 策略提醒卡是否能显示最近扫描时间、触发数量和下次扫描。
+   - 多个提醒时间设置是否可保存。
+   - 手动扫描是否会更新扫描结果。
+3. 点击一只基金进入详情页：
+   - 顶部是否保持深色风格，不再出现蓝色头部。
+   - 净值趋势是否加载最近 50 天。
+   - 买入/卖出点位是否标在趋势图上。
+   - 收益和提醒策略页签是否可切换。
+4. 进入持仓页，点击任意股票持仓，检查详情页：
    - 后端收益指标是否有值。
    - 单股收益曲线是否显示；快照不足时是否显示“收益快照不足”。
    - 交易历史是否显示建仓、加仓、减仓、清仓记录。
    - 加仓、减仓、清仓弹窗是否能打开。
    - 提交交易后列表和详情页是否刷新。
-3. 若持仓详情页存在 UI 截断、数据未刷新或后端错误，先修这些问题。
-4. 进入信号页，确认三个入口可打开：
+5. 若基金或持仓详情页存在 UI 截断、数据未刷新或后端错误，先修这些问题。
+6. 进入信号页，确认三个入口可打开：
    - 信号设置。
    - 策略监控。
    - 推送记录。
-5. 进入策略监控，选择一只持仓股票，创建一个监控：
+7. 进入策略监控，选择一只持仓股票，创建一个监控：
    - 策略先选 `price_break_ma` 或 `ma_cross`。
    - 周期先用 `日K`。
    - 扫描间隔先用 `15`。
    - 冷却时间先用 `120`。
    - 启用打开。
    - 推送打开。
-6. 在策略监控页顶部启动 scheduler。
-7. 等待或手动触发扫描后检查：
+8. 在策略监控页顶部启动 scheduler。
+9. 等待或手动触发扫描后检查：
    - 信号页是否出现对应策略信号。
    - 推送记录页是否出现 `sent`、`failed` 或 `skipped` 记录。
 

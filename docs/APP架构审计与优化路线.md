@@ -1,11 +1,11 @@
 # App 架构审计与优化路线
 
-最后更新：2026-05-22
+最后更新：2026-05-24
 
 当前 Git 基线：
 
 ```text
-4d17b72 feat: close push record workflow
+7ba80fb feat: refine fund portfolio views
 ```
 
 本文档记录项目代码和 docs 的结构扫描结论，用于后续一步步优化项目框架结构。后续新增功能前，应先阅读：
@@ -18,7 +18,7 @@
 
 ## 1. 本次验证状态
 
-2026-05-22 当前状态：持仓详情页交易历史、单股收益曲线、加仓/减仓/清仓、单股策略监控、历史信号、推送记录整合已完成；交易历史可删除，历史信号可忽略，推送记录支持按股票/状态筛选、删除和重试。下一步先重新连接手机安装最新 APK，然后启用并验证现有策略监控 scheduler。
+2026-05-24 当前状态：股票持仓详情、交易历史、单股收益曲线、策略监控、历史信号、推送记录、多因子和组合因子已形成完整闭环；场外基金管理已新增搜索添加、估算/正式净值、基金交易、阈值提醒、多个提醒时间 scheduler、基金详情页 50 日净值趋势和买卖点标记。下一步先真机检查基金主页面和基金详情页，再验证基金提醒 scheduler 到点扫描、写入 `signal_events` 和后续推送候选。
 
 最近相关验证：
 
@@ -32,15 +32,16 @@ D:\flutter\bin\flutter.bat test
 结果：
 
 - Flutter analyze 通过，无静态问题。
-- Flutter test 37 passed。
-- 后端 pytest 63 passed。
-- 局域网 debug APK 已打包成功，安装等待手机重新连接。
-- 当前工作区干净。
+- Flutter test 56 passed。
+- `fund_api_service_test` 7 passed。
+- 后端 pytest 88 passed。
+- 局域网 debug APK 已打包并安装成功。
+- 当前工作区在文档更新前干净。
 
 已知警告：
 
 - `backend/app/main.py` 已从 `@app.on_event` 迁移到 lifespan，原 FastAPI 过期警告已处理。
-- 后端在本阶段没有新改动；修改后端时仍必须重新运行 compileall 和 pytest。
+- 基金模块引入第三方基金数据源，后续若出现刷新慢，应优先做缓存 TTL、重试、超时和降级提示，而不是把等待时间堆到 Flutter 页面。
 
 ## 2. 当前代码结构结论
 
@@ -89,6 +90,11 @@ routers -> services / repositories -> db / strategies / futu
    - 表已经存在，但当前主线更多使用 `strategy_definitions`、`backtest_runs`、`signal_events`。
    - 后续要么正式接入，要么标注为预留/遗留，避免开发者误用。
 
+7. 基金数据源与 scheduler
+   - 基金 provider 依赖第三方基金接口，稳定性和速度不应按 Futu 同等假设。
+   - `fund_alert_scheduler.py` 当前是轻量后端任务，适合本地和单实例使用；生产化前应迁移到独立 worker 或持久化调度。
+   - 基金提醒已经写入 `signal_events`，但后续仍需验证推送记录页和信号页对 `source_category=fund` 的展示是否足够清晰。
+
 ### Flutter 现状
 
 当前 Flutter 主线是：
@@ -127,65 +133,76 @@ models -> services -> repositories -> screens -> widgets
    - 第一版策略监控入口已经可用，但创建表单、scheduler 面板和监控列表都在同一文件。
    - 如果继续增加“从回测保存为监控”“按股票筛选监控”“监控详情页”，应拆到 `widgets/strategy_monitor/` 或独立子页面。
 
-6. `mobile_app/lib/screens/push_records_screen.dart`
+6. `mobile_app/lib/screens/funds_screen.dart`
+   - 基金主页第一版已经可用，但账户汇总、列表、添加基金、交易弹窗、提醒设置、scheduler 面板都集中在一个页面。
+   - 后续若继续打磨养基宝式布局，应优先拆 `widgets/fund/`，不要在 screen 内继续堆 UI 子树。
+
+7. `mobile_app/lib/screens/fund_detail_screen.dart`
+   - 基金详情页已有净值趋势、收益和提醒策略页签。
+   - 后续增加关联板块、持仓行业、业绩比较基准或弹幕式走势时，应拆独立图表和信息组件。
+
+8. `mobile_app/lib/screens/push_records_screen.dart`
    - 当前是全局推送记录列表。
    - 后续如果要从某条信号进入推送详情，应支持按 `signal_event_id` 过滤。
 
-7. `mobile_app/lib/sheets/add_position_sheet.dart`
+9. `mobile_app/lib/sheets/add_position_sheet.dart`
    - 添加持仓弹窗仍然偏大。
    - 股票搜索、行情只读卡片、输入控件可继续拆分。
 
-8. `mobile_app/lib_backup/`
+10. `mobile_app/lib_backup/`
    - 仍保留两份旧 `main.dart` 大备份。
    - 不参与编译，但会干扰接手者理解，后续应归档说明或移出 app 源码目录。
 
 ## 3. docs 现状结论
 
-docs 当前最大问题不是内容少，而是历史记录太多、入口失效、多个文档同时写“下一步”。
+docs 当前入口已经校准到 2026-05-24 的基金模块基线。后续维护重点不是补更多历史，而是保持顶部交接快照准确。
 
-发现的问题：
+当前要求：
 
 1. `docs/README.md`
-   - 原本指向的 `项目开发计划与技术方案整合.md`、`项目记忆与交接.md` 等文件当前不存在。
-   - 必须改成当前真实文档入口。
+   - 只保留当前阅读顺序和最新功能基线。
+   - 不再引用不存在的旧入口文档。
 
-2. `docs/APP马上解决任务顺序.md`
-   - 当前 Git 基线仍写旧提交 `8b77fa4`。
-   - 文中多处“马上下一步”已经是历史记录，需要把当前下一步前置说明清楚。
+2. `docs/APP新开发者接手指南.md`
+   - 作为真正接手入口。
+   - 顶部“最新交接快照”必须优先于后面历史章节。
 
-3. `docs/APP总体开发规划.md`
-   - 仍存在固定局域网 IP `192.168.1.4`。
-   - 应改成“电脑当前局域网 IP”，默认使用 `scripts/build_mobile_lan_debug.ps1` 自动探测。
+3. `docs/APP马上解决任务顺序.md`
+   - 顶部 2026-05-24 当前马上任务是短期权威入口。
+   - 旧日期章节只作为历史背景。
 
 4. `docs/APP项目结构说明.md`
-   - 部分文件名已过期，例如 `signal_scan_service.py`，实际为 `signal_scanner.py`。
-   - 部分规划文件如 `strategy_api_service.dart`、`strategy_lab_screen.dart` 当前不存在。
+   - 必须随新增领域模块更新 model、service、repository、screen、router、schema、repository/service 边界。
+   - 基金模块已经记录，后续如果继续拆 `widgets/fund/` 也要同步。
 
 5. `docs/APP后续开发方案.md`
-   - 内容很完整，但偏历史流水账。
-   - 后续应保留背景记录，把当前优先级汇总到本文件和 `APP马上解决任务顺序.md`。
+   - 保留长期路线，但每次功能完成后要把当前优先级前置。
+   - 不要让旧“下一步”压过最新交接快照。
 
 ## 4. 后续优化路线
 
 ### 阶段 0：文档校准
 
+状态：已完成 2026-05-24 基线校准，后续每次重要功能完成后继续维护。
+
 目标：让后续接手者能一眼判断当前状态、下一步和禁止事项。
 
 任务：
 
-1. 更新 `docs/README.md`，改成当前真实阅读顺序。
-2. 更新 `docs/APP马上解决任务顺序.md` 的 Git 基线和当前下一步。
-3. 更新 `docs/APP总体开发规划.md` 中硬编码局域网 IP。
-4. 更新 `docs/APP项目结构说明.md` 中过期文件名和当前结构问题。
-5. 保留旧历史记录，但在顶部说明“以本审计路线为当前优先级”。
+1. 持续更新 `docs/README.md` 的当前真实阅读顺序和最新基线。
+2. 持续更新 `docs/APP马上解决任务顺序.md` 顶部当前任务。
+3. 持续更新 `docs/APP项目结构说明.md` 中新增模块文件。
+4. 保留旧历史记录，但必须在顶部说明“以当前马上任务为准”。
 
 验收：
 
 - 新接手者不需要猜哪个文档最新。
-- 不再把 `192.168.1.4` 当作固定可用后端地址。
-- 不再引用当前不存在的主入口文档作为首读文档。
+- 不把局域网 IP 当作固定可用后端地址。
+- 不引用当前不存在的主入口文档作为首读文档。
 
 ### 阶段 1：信号模型和 UI 解耦
+
+当前基金模块优先级高于本阶段。若新开发者接手后时间有限，先完成基金真机验收、基金数据源稳定和基金提醒推送闭环，再回到信号模型解耦。
 
 目标：让信号数据模型保持纯数据，信号分类、颜色、图标放到 UI 层。
 

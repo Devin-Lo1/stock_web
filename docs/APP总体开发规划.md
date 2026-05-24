@@ -1,6 +1,6 @@
 # App 总体开发规划
 
-最后更新：2026-05-22
+最后更新：2026-05-24
 
 当前最新状态：
 
@@ -10,7 +10,8 @@
 - 交易历史支持删除，历史信号支持忽略。
 - 推送记录支持按股票代码和状态筛选，支持删除和重试。
 - 核心持仓收益、市值、仓位占比以后端 `position_snapshots` 为权威来源。
-- 下一阶段重点是启用并验证现有策略监控 scheduler，然后补扫描日志、真实推送和策略监控总览。
+- 场外基金管理已加入：搜索添加、基金持仓、估算/正式净值、基金交易、阈值提醒、多个提醒时间 scheduler、基金详情页 50 日净值趋势和买卖点标记。
+- 下一阶段重点是真机验收基金页面和提醒 scheduler，然后补基金数据源缓存、基金提醒推送联调、基金交易编辑/删除和组合资产总览。
 
 本文档用于让新接手者快速理解项目目标、阶段路线、技术架构和长期方向。内容整合自：
 
@@ -28,9 +29,11 @@
 第一阶段不是自动交易，也不是投资顾问，而是：
 
 - 手动维护持仓。
+- 管理场外基金持仓。
 - 展示实时或准实时行情。
 - 计算当日收益、持有收益、涨跌幅。
 - 根据阈值生成止盈观察、止损观察、异动提醒。
+- 根据基金估算/正式净值生成收盘前基金操作观察提醒。
 - 展示 K 线与行情概览。
 - 后续接入后端、富途 API、推送、策略量化和回测。
 
@@ -61,13 +64,13 @@
 当前功能完善方向：
 
 ```text
-策略监控配置
+股票策略监控配置 / 基金阈值提醒
   -> scheduler 定时扫描
   -> 扫描日志解释结果
   -> 历史信号落库
   -> 真实推送通道
   -> 推送记录追溯
-  -> 单股详情和总览页统一查看
+  -> 单股详情、基金详情和总览页统一查看
 ```
 
 ## 2. 当前实际状态
@@ -102,6 +105,8 @@ mobile_app/
 - 推送记录查看入口。
 - 推送记录按股票代码/状态筛选、删除和重试。
 - 量化回测入口、历史回测、参数快照、收益曲线和买卖点 K 线。
+- 场外基金主页、基金详情页、基金搜索添加、基金交易记录、基金提醒设置和多个提醒时间 scheduler 状态展示。
+- 基金详情页近 50 日净值趋势和买入/卖出点位标记。
 - 日间/夜间模式。
 - 真机 debug APK 安装验证。
 
@@ -109,8 +114,8 @@ mobile_app/
 
 ```text
 Flutter analyze: No issues found
-Flutter test: 37 passed
-Backend pytest: 63 passed
+Flutter test: 56 passed
+Backend pytest: 88 passed
 LAN debug APK build: Success
 ```
 
@@ -160,6 +165,16 @@ POST   /api/v1/strategies/monitors/scheduler/stop
 GET    /api/v1/notifications/push-records
 POST   /api/v1/notifications/push-records/{record_id}/retry
 DELETE /api/v1/notifications/push-records/{record_id}
+GET    /api/v1/funds/search
+GET    /api/v1/funds/summaries
+GET    /api/v1/funds/{fund_code}/navs
+POST   /api/v1/funds/positions
+DELETE /api/v1/funds/positions/{position_id}
+GET    /api/v1/funds/positions/{position_id}/trades
+POST   /api/v1/funds/positions/{position_id}/trades
+GET    /api/v1/funds/alerts/scheduler/status
+PUT    /api/v1/funds/alerts/scheduler
+POST   /api/v1/funds/alerts/scan
 ```
 
 当前后端包含：
@@ -176,6 +191,10 @@ DELETE /api/v1/notifications/push-records/{record_id}
 - `backend/app/services/signal_scanner.py`
 - `backend/app/services/strategy_monitor_scanner.py`
 - `backend/app/services/strategy_monitor_scheduler.py`
+- `backend/app/services/fund_provider.py`
+- `backend/app/services/funds.py`
+- `backend/app/services/fund_alert_scanner.py`
+- `backend/app/services/fund_alert_scheduler.py`
 - `backend/app/services/push_service.py`
 - `backend/app/services/push_providers/`
 
@@ -201,19 +220,19 @@ docs/APP后续开发方案.md
 
 近期优先：
 
-1. 启用并验证现有策略监控 scheduler。
-2. 增加扫描日志与原因说明，让用户知道每次扫描为什么触发或未触发。
-3. 接入真实推送通道，优先 Huawei Push Kit，再补 FCM。
-4. 建立策略监控总览，统一查看所有股票监控状态。
-5. 完善信号处置流：已读、忽略、加入观察、关联交易、复盘备注。
+1. 真机验收基金主页面和基金详情页。
+2. 验证基金提醒 scheduler 多提醒时间自动扫描和 `signal_events` 落库。
+3. 给基金数据源补缓存、重试、超时和降级提示。
+4. 接入真实推送通道，优先 Huawei Push Kit，再补 FCM。
+5. 建立策略监控和基金提醒总览，统一查看所有观察任务。
 
 中期完善：
 
 1. 持仓风险雷达：成本、均线、回撤、波动、仓位风险。
-2. 组合层面风控：市场分布、集中度、总盈亏、最大回撤。
+2. 组合层面风控：股票和基金资产汇总、市场分布、集中度、总盈亏、最大回撤。
 3. 回测到监控一键落地：从回测结果保存为单股策略监控。
-4. K 线交互增强：十字光标、指标开关、买卖点和信号标记。
-5. 数据健康检查：FutuOpenD、行情权限、K 线更新时间、失败股票。
+4. K 线和基金净值图交互增强：十字光标、指标开关、买卖点和信号标记。
+5. 数据健康检查：FutuOpenD、行情权限、K 线更新时间、基金数据源状态、失败股票/基金。
 
 长期高级：
 

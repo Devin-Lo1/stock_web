@@ -1,14 +1,14 @@
 # App 项目结构说明
 
-最后更新：2026-05-22
+最后更新：2026-05-24
 
 最新功能基线：
 
 ```text
-4d17b72 feat: close push record workflow
+7ba80fb feat: refine fund portfolio views
 ```
 
-本次文档已同步持仓详情页新增结构：`PositionTrade` 模型、持仓交易弹窗、单股收益曲线组件、交易历史组件，以及 `PositionRepository` / `PositionApiService` 中的交易历史和单股快照接口。当前最新功能还包括：交易历史删除、历史信号忽略、单股策略监控/历史信号/推送记录整合、推送记录按股票和状态筛选、删除与重试。
+本次文档已同步持仓详情页、量化策略监控、推送记录和场外基金管理结构。当前最新功能还包括：基金搜索、基金持仓、基金估算/正式净值、基金交易记录、基金阈值提醒、多个提醒时间 scheduler、基金详情页 50 日净值趋势和买卖点标记。
 
 本文档用于说明当前项目每个主要代码文件的职责。新接手者看完后，应能判断某个功能应该在哪个目录、哪个文件下开发。
 
@@ -281,6 +281,36 @@ GET /api/v1/stocks/search
 
 添加持仓弹窗中的本地/远程候选项模型。
 
+### `lib/models/fund_models.dart`
+
+场外基金模型。
+
+包含：
+
+- `FundSearchResult`：基金搜索结果。
+- `FundNavPoint`：基金净值点，包含正式净值、估算净值、日期和涨跌幅。
+- `FundPosition`：基金持仓。
+- `FundPositionSummary`：基金账户汇总、当日收益、持有收益和每只基金摘要。
+- `FundGridRecommendation`：基于用户阈值和基准净值生成的加仓/减仓观察提醒。
+- `FundAlertSettingsDraft`：单只基金阈值、买入金额、卖出比例等提醒设置。
+- `FundAlertSchedulerStatus` / `FundAlertSchedulerDraft`：基金提醒 scheduler 状态和配置。
+- `FundTradeDraft` / `FundTrade`：基金买入、卖出、分红等交易记录。
+
+对应后端：
+
+```text
+GET    /api/v1/funds/search
+GET    /api/v1/funds/summaries
+GET    /api/v1/funds/{fund_code}/navs
+POST   /api/v1/funds/positions
+DELETE /api/v1/funds/positions/{position_id}
+GET    /api/v1/funds/positions/{position_id}/trades
+POST   /api/v1/funds/positions/{position_id}/trades
+GET    /api/v1/funds/alerts/scheduler/status
+PUT    /api/v1/funds/alerts/scheduler
+POST   /api/v1/funds/alerts/scan
+```
+
 ## 6. Flutter 仓储目录
 
 ### `lib/repositories/position_repository.dart`
@@ -350,6 +380,23 @@ GET /api/v1/stocks/search
 - 启动、停止 scheduler。
 
 策略监控页只做表单和状态展示，不直接拼 HTTP。
+
+### `lib/repositories/fund_repository.dart`
+
+基金仓储层。
+
+职责：
+
+- 搜索场外基金。
+- 加载基金账户汇总和基金持仓列表。
+- 加载单只基金净值历史和交易记录。
+- 创建、删除基金持仓。
+- 提交基金买入、卖出、分红等交易记录。
+- 读取和保存基金阈值提醒设置。
+- 读取、保存、启动基金提醒 scheduler 配置。
+- 手动触发基金提醒扫描。
+
+基金页面和基金详情页只调用 repository，不直接拼 HTTP。
 
 ## 7. Flutter 服务目录
 
@@ -453,6 +500,27 @@ GET /api/v1/stocks/search
 - 读取和控制 scheduler。
 
 新增策略监控接口时优先扩展这里，再由 repository 暴露给页面。
+
+### `lib/services/fund_api_service.dart`
+
+场外基金 API service。
+
+职责：
+
+- 搜索基金。
+- 获取基金账户汇总、持仓和净值历史。
+- 获取基金交易记录。
+- 创建和删除基金持仓。
+- 创建基金交易记录。
+- 读取和保存基金阈值提醒设置。
+- 读取和保存基金提醒 scheduler 配置。
+- 手动触发基金提醒扫描。
+
+注意：
+
+- 场外基金不走 Futu 行情接口。
+- 盘中估算净值只能作为收盘前辅助判断，正式净值更新后以后端返回的正式净值和正式日涨跌为准。
+- API 解析测试见 `mobile_app/test/fund_api_service_test.dart`。
 
 ### `lib/services/position_storage_service.dart`
 
@@ -609,6 +677,36 @@ App 主壳。
 - 支持刷新和空/错状态。
 
 后续如果从某条信号进入，应增加 `signalEventId` 过滤，不要在页面内本地遍历全部记录模拟筛选。
+
+### `lib/screens/funds_screen.dart`
+
+场外基金主页。
+
+职责：
+
+- 展示基金账户资产、当日收益、持有收益。
+- 展示基金列表，采用紧凑表格风格，避免卡片过高。
+- 搜索并添加场外基金。
+- 提交基金买入、卖出、分红等交易记录。
+- 设置单只基金涨跌阈值提醒、买入金额和卖出比例。
+- 设置多个提醒时间，读取 scheduler 状态。
+- 手动触发基金提醒扫描，展示最近扫描时间、触发数量和下次扫描。
+- 展示基金策略提醒结果。
+
+后续扩展基金页时，优先拆到 `widgets/fund/`，不要把筛选、表格、弹窗和 scheduler 面板继续堆在一个 screen 中。
+
+### `lib/screens/fund_detail_screen.dart`
+
+基金详情页。
+
+职责：
+
+- 展示单只基金名称、代码、当日涨跌、基金市值和持有收益。
+- 顶部保持项目深色金融风格，不使用蓝色基金 App 头部。
+- 加载最近 50 日净值数据。
+- 展示净值趋势、收益信息和提醒策略。
+- 在净值趋势图上标记买入、卖出等基金交易点位。
+- 从基金主页进入，返回后不破坏基金列表状态。
 
 ### `lib/screens/quant_screen.dart`
 
@@ -1155,17 +1253,31 @@ backend/app/
   repositories/
     __init__.py
     backtests.py
+    fund_alert_scheduler.py
+    funds.py
     market_data.py
+    notifications.py
+    position_snapshots.py
+    position_trades.py
     positions.py
     strategies.py
+    strategy_monitors.py
   routers/
   schemas/
   schemas.py
   services/
     __init__.py
+    fund_alert_scanner.py
+    fund_alert_scheduler.py
+    fund_provider.py
+    funds.py
     futu_client.py
     futu_import.py
+    push_service.py
+    signal_scanner.py
     stock_search.py
+    strategy_monitor_scheduler.py
+    strategy_monitor_scanner.py
 ```
 
 ### `backend/app/main.py`
@@ -1185,6 +1297,8 @@ FastAPI 入口。
 - 富途健康检查。
 - 富途报价。
 - 富途 K 线额度。
+- 基金 API。
+- 基金提醒 scheduler 生命周期。
 - 刷新行情。
 - 刷新 K 线。
 - 统一抛出结构化 API 错误。
@@ -1260,7 +1374,7 @@ backend/app/routers/backtests.py
 
 职责：
 
-- 创建 `positions`、`quote_snapshots`、`klines`、`strategy_definitions`、`backtest_runs`、`backtest_equity_curve`、`backtest_trades`、`strategy_signals`。
+- 创建 `positions`、`quote_snapshots`、`klines`、`strategy_definitions`、`backtest_runs`、`backtest_equity_curve`、`backtest_trades`、`strategy_signals`、`fund_positions`、`fund_trades`、`fund_navs`、`fund_alert_scheduler`。
 - 补齐历史缺失字段。
 - 调用 seed 和历史名称修复。
 
@@ -1383,6 +1497,73 @@ backend/app/routers/backtests.py
 - 通过 API 支持状态查询、启动和停止。
 - 保存最近运行时间、最近结果和最近错误，便于 App 或运维页面展示。
 - 第一版使用轻量 asyncio 后台任务，后续迁移 APScheduler/Celery 时应保留当前 service 边界。
+
+### `backend/app/repositories/funds.py`
+
+场外基金数据库读写。
+
+职责：
+
+- 基金持仓 CRUD。
+- 基金交易记录读写。
+- 基金净值缓存读写。
+- 基金阈值提醒设置保存和读取。
+- 将数据库行转换为基金领域模型。
+
+### `backend/app/repositories/fund_alert_scheduler.py`
+
+基金提醒 scheduler 配置读写。
+
+职责：
+
+- 保存多个提醒时间、启用状态和刷新间隔。
+- 保存最近扫描时间、下次扫描时间、触发数量和错误信息。
+- 只做配置和状态持久化，不计算基金信号。
+
+### `backend/app/services/fund_provider.py`
+
+场外基金数据源 provider。
+
+职责：
+
+- 搜索基金。
+- 获取正式净值、估算净值和净值历史。
+- 将第三方数据源字段转换为项目内部字段。
+
+注意：当前基金数据源是第三方基金数据接口，网络和响应稳定性可能弱于 Futu；后续若真机刷新慢，应优先加缓存 TTL、重试和降级提示。
+
+### `backend/app/services/funds.py`
+
+基金业务聚合服务。
+
+职责：
+
+- 汇总基金账户资产、当日收益和持有收益。
+- 根据估算净值/正式净值选择展示口径。
+- 生成单只基金的阈值提醒建议。
+- 处理基金交易后基准净值和份额变化。
+
+### `backend/app/services/fund_alert_scanner.py`
+
+基金提醒扫描服务。
+
+职责：
+
+- 读取基金持仓和提醒设置。
+- 刷新基金估算/正式净值。
+- 根据用户阈值判断是否触发加仓/减仓观察提醒。
+- 将触发结果写入 `signal_events`。
+
+### `backend/app/services/fund_alert_scheduler.py`
+
+基金提醒后台调度服务。
+
+职责：
+
+- 根据用户配置的多个提醒时间自动运行基金扫描。
+- 保存最近扫描结果、下次扫描时间和错误信息。
+- 支持手动扫描。
+- 调度层只负责定时和状态记录，不写策略计算、不写 SQL。
 
 ### `backend/app/repositories/market_data.py`
 
@@ -1604,6 +1785,7 @@ backend/app/routers/klines.py
 backend/app/routers/signals.py
 backend/app/routers/stocks.py
 backend/app/routers/futu.py
+backend/app/routers/funds.py
 ```
 
 ### `backend/app/main.py`
@@ -1701,6 +1883,23 @@ K 线接口：
 - `GET /api/v1/futu/quote`
 - `GET /api/v1/futu/kline-quota`
 
+### `backend/app/routers/funds.py`
+
+场外基金接口：
+
+- `GET /api/v1/funds/search`
+- `GET /api/v1/funds/summaries`
+- `GET /api/v1/funds/{fund_code}/navs`
+- `POST /api/v1/funds/positions`
+- `DELETE /api/v1/funds/positions/{position_id}`
+- `GET /api/v1/funds/positions/{position_id}/trades`
+- `POST /api/v1/funds/positions/{position_id}/trades`
+- `GET /api/v1/funds/alerts/scheduler/status`
+- `PUT /api/v1/funds/alerts/scheduler`
+- `POST /api/v1/funds/alerts/scan`
+
+基金接口用于场外开放式基金管理，和 Futu 股票/交易所行情接口分开维护。
+
 ### `backend/app/routers/strategies.py`
 
 策略定义和策略监控接口：
@@ -1732,6 +1931,7 @@ backend/app/schemas/quotes.py
 backend/app/schemas/klines.py
 backend/app/schemas/signals.py
 backend/app/schemas/stocks.py
+backend/app/schemas/funds.py
 ```
 
 ### `backend/app/schemas/__init__.py`
@@ -1787,6 +1987,19 @@ K 线模型：
 股票搜索模型：
 
 - `StockSearchResult`
+
+### `backend/app/schemas/funds.py`
+
+场外基金模型：
+
+- `FundSearchResult`
+- `FundNavPoint`
+- `FundPosition`
+- `FundPositionSummary`
+- `FundGridRecommendation`
+- `FundAlertSettings`
+- `FundAlertSchedulerStatus`
+- `FundTrade`
 
 后续新增策略和回测时，应继续按领域新增：
 
