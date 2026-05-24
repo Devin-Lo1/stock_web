@@ -92,6 +92,8 @@ class FundApiService {
     required double shares,
     required double costNav,
     required double fee,
+    DateTime? tradeDate,
+    String note = '',
   }) async {
     final payload = await _client.post('/api/v1/funds/positions', {
       'fund_code': fund.code,
@@ -100,6 +102,8 @@ class FundApiService {
       'shares': shares,
       'cost_nav': costNav,
       'fee': fee,
+      if (tradeDate != null) 'trade_date': _dateString(tradeDate),
+      if (note.isNotEmpty) 'note': note,
     });
     return FundPosition.fromJson(payload as Map<String, dynamic>);
   }
@@ -125,4 +129,11 @@ class FundApiService {
       draft.toJson(),
     );
   }
+}
+
+String _dateString(DateTime value) {
+  final local = DateTime(value.year, value.month, value.day);
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  return '${local.year}-$month-$day';
 }

@@ -12,16 +12,14 @@ class FundDetailScreen extends StatefulWidget {
     super.key,
     required this.summary,
     required this.repository,
-    required this.onBuy,
-    required this.onSell,
+    required this.onAdjust,
     required this.onEditAlert,
     required this.onDelete,
   });
 
   final FundPositionSummary summary;
   final FundRepository repository;
-  final VoidCallback onBuy;
-  final VoidCallback onSell;
+  final VoidCallback onAdjust;
   final VoidCallback onEditAlert;
   final VoidCallback onDelete;
 
@@ -179,11 +177,10 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                       navs: _navs,
                       trades: _trades,
                     ),
-                    _ProfitTab(summary: summary),
+                    _ProfitTab(summary: summary, onAdjust: widget.onAdjust),
                     _AlertTab(
                       summary: summary,
-                      onBuy: widget.onBuy,
-                      onSell: widget.onSell,
+                      onAdjust: widget.onAdjust,
                       onEditAlert: widget.onEditAlert,
                       onDelete: widget.onDelete,
                     ),
@@ -246,9 +243,10 @@ class _TrendTab extends StatelessWidget {
 }
 
 class _ProfitTab extends StatelessWidget {
-  const _ProfitTab({required this.summary});
+  const _ProfitTab({required this.summary, required this.onAdjust});
 
   final FundPositionSummary summary;
+  final VoidCallback onAdjust;
 
   @override
   Widget build(BuildContext context) {
@@ -270,6 +268,12 @@ class _ProfitTab extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
+        FilledButton.icon(
+          onPressed: onAdjust,
+          icon: const Icon(Icons.edit_note_rounded),
+          label: const Text('修改持仓'),
+        ),
+        const SizedBox(height: 12),
         _InfoPanel(
           title: summary.isEstimated ? '当前按盘中估算计算' : '当前按正式净值计算',
           content: summary.isEstimated
@@ -284,15 +288,13 @@ class _ProfitTab extends StatelessWidget {
 class _AlertTab extends StatelessWidget {
   const _AlertTab({
     required this.summary,
-    required this.onBuy,
-    required this.onSell,
+    required this.onAdjust,
     required this.onEditAlert,
     required this.onDelete,
   });
 
   final FundPositionSummary summary;
-  final VoidCallback onBuy;
-  final VoidCallback onSell;
+  final VoidCallback onAdjust;
   final VoidCallback onEditAlert;
   final VoidCallback onDelete;
 
@@ -330,24 +332,10 @@ class _AlertTab extends StatelessWidget {
           label: const Text('设置提醒规则'),
         ),
         const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: FilledButton.tonalIcon(
-                onPressed: onBuy,
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('记录买入'),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: onSell,
-                icon: const Icon(Icons.remove_rounded),
-                label: const Text('记录卖出'),
-              ),
-            ),
-          ],
+        FilledButton.icon(
+          onPressed: onAdjust,
+          icon: const Icon(Icons.edit_note_rounded),
+          label: const Text('修改持仓'),
         ),
         const SizedBox(height: 10),
         OutlinedButton.icon(

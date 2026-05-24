@@ -45,12 +45,16 @@ class FundRepository {
     required double shares,
     required double costNav,
     required double fee,
+    DateTime? tradeDate,
+    String note = '',
   }) {
     return _apiService.createPosition(
       fund: fund,
       shares: shares,
       costNav: costNav,
       fee: fee,
+      tradeDate: tradeDate,
+      note: note,
     );
   }
 

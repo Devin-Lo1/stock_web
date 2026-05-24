@@ -78,12 +78,14 @@ void main() {
   test('createTrade posts action payload', () async {
     late String method;
     late Uri requestedUri;
+    late Map<String, dynamic> requestBody;
     final service = FundApiService(
       ApiClient(
         baseUrl: 'http://test.local',
         httpClient: MockClient((request) async {
           method = request.method;
           requestedUri = request.url;
+          requestBody = jsonDecode(request.body) as Map<String, dynamic>;
           return http.Response('{}', 201);
         }),
       ),
@@ -91,11 +93,56 @@ void main() {
 
     await service.createTrade(
       'position-1',
-      const FundTradeDraft(action: 'buy', shares: 100, nav: 1.2),
+      FundTradeDraft(
+        action: 'buy',
+        shares: 100,
+        nav: 1.2,
+        tradeDate: DateTime(2026, 5, 22),
+        note: 'sync',
+      ),
     );
 
     expect(method, 'POST');
     expect(requestedUri.path, '/api/v1/funds/positions/position-1/trades');
+    expect(requestBody['trade_date'], '2026-05-22');
+    expect(requestBody['note'], 'sync');
+  });
+
+  test('createPosition posts sync date and note payload', () async {
+    late Map<String, dynamic> requestBody;
+    final service = FundApiService(
+      ApiClient(
+        baseUrl: 'http://test.local',
+        httpClient: MockClient((request) async {
+          requestBody = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(
+            '{"id":"position-1","fund_code":"000001","name":"Fund A",'
+            '"fund_type":"mixed","shares":100,"avg_cost_nav":1.2,'
+            '"invested_amount":120,"realized_profit":0,"currency":"CNY"}',
+            201,
+          );
+        }),
+      ),
+    );
+
+    await service.createPosition(
+      fund: const FundSearchResult(
+        code: '000001',
+        name: 'Fund A',
+        fundType: 'mixed',
+        company: '',
+        manager: '',
+        source: 'eastmoney',
+      ),
+      shares: 100,
+      costNav: 1.2,
+      fee: 0,
+      tradeDate: DateTime(2026, 5, 22),
+      note: 'opening sync',
+    );
+
+    expect(requestBody['trade_date'], '2026-05-22');
+    expect(requestBody['note'], 'opening sync');
   });
 
   test('fetchTrades reads fund trade markers', () async {

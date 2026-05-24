@@ -82,6 +82,8 @@ class _FundsScreenState extends State<FundsScreen> {
         shares: draft.shares,
         costNav: draft.costNav,
         fee: draft.fee,
+        tradeDate: draft.tradeDate,
+        note: draft.note,
       );
       await _load(refresh: true, showSpinner: true);
     } catch (error) {
@@ -89,7 +91,11 @@ class _FundsScreenState extends State<FundsScreen> {
     }
   }
 
-  Future<void> _trade(FundPositionSummary summary, String action) async {
+  Future<void> _trade(
+    FundPositionSummary summary,
+    String action, {
+    String? operationLabel,
+  }) async {
     final draft = await showModalBottomSheet<FundTradeDraft>(
       context: context,
       isScrollControlled: true,
@@ -98,7 +104,11 @@ class _FundsScreenState extends State<FundsScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
       ),
-      builder: (context) => _FundTradeSheet(summary: summary, action: action),
+      builder: (context) => _FundTradeSheet(
+        summary: summary,
+        action: action,
+        operationLabel: operationLabel,
+      ),
     );
     if (draft == null) return;
     try {
@@ -106,6 +116,35 @@ class _FundsScreenState extends State<FundsScreen> {
       await _load(refresh: true);
     } catch (error) {
       if (mounted) _showSnack('交易记录失败：$error');
+    }
+  }
+
+  Future<void> _adjustFund(FundPositionSummary summary) async {
+    final action = await showModalBottomSheet<_FundSyncAction>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: cardColor(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+      ),
+      builder: (context) => _FundSyncActionSheet(summary: summary),
+    );
+    if (action == null) return;
+    switch (action) {
+      case _FundSyncAction.buy:
+        await _trade(summary, 'buy', operationLabel: '同步加仓');
+        break;
+      case _FundSyncAction.sell:
+        await _trade(summary, 'sell', operationLabel: '同步减仓');
+        break;
+      case _FundSyncAction.recurring:
+        await _trade(summary, 'buy', operationLabel: '同步定投');
+        break;
+      case _FundSyncAction.convert:
+      case _FundSyncAction.batch:
+        if (mounted) _showSnack('转换和批量同步入口已预留，当前先用加仓/减仓记录迁移。');
+        break;
     }
   }
 
@@ -200,8 +239,7 @@ class _FundsScreenState extends State<FundsScreen> {
         builder: (detailContext) => FundDetailScreen(
           summary: summary,
           repository: widget.repository,
-          onBuy: () => _trade(summary, 'buy'),
-          onSell: () => _trade(summary, 'sell'),
+          onAdjust: () => _adjustFund(summary),
           onEditAlert: () => _editAlert(summary),
           onDelete: () {
             Navigator.of(detailContext).pop();
@@ -892,6 +930,172 @@ class _SmallSignalBadge extends StatelessWidget {
   }
 }
 
+enum _FundSyncAction { buy, sell, recurring, convert, batch }
+
+class _FundSyncActionSheet extends StatelessWidget {
+  const _FundSyncActionSheet({required this.summary});
+
+  final FundPositionSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final position = summary.position;
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
+      ),
+      child: ListView(
+        shrinkWrap: true,
+        children: [
+          _SheetTitle(
+            title: '修改持仓',
+            onClose: () => Navigator.of(context).pop(),
+          ),
+          const SizedBox(height: 8),
+          _NoticeBox(text: '修改仅用于同步原平台记录，并非真实交易。请确认已在原平台完成操作。'),
+          const SizedBox(height: 12),
+          _FundTradeSummaryCard(summary: summary),
+          const SizedBox(height: 12),
+          _SyncMetricGrid(
+            items: [
+              _SyncMetricItem(
+                '持有金额',
+                _money(summary.marketValue, signed: false),
+              ),
+              _SyncMetricItem('持有收益', _money(summary.holdingProfit)),
+              _SyncMetricItem('持有份额', position.shares.toStringAsFixed(2)),
+              const _SyncMetricItem('持有天数', '按记录'),
+            ],
+          ),
+          const SizedBox(height: 12),
+          GridView.count(
+            crossAxisCount: 2,
+            childAspectRatio: 2.15,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              _SyncActionTile(
+                label: '同步加仓',
+                color: const Color(0xFFFF4D67),
+                onTap: () => Navigator.of(context).pop(_FundSyncAction.buy),
+              ),
+              _SyncActionTile(
+                label: '同步减仓',
+                color: const Color(0xFF20C997),
+                onTap: () => Navigator.of(context).pop(_FundSyncAction.sell),
+              ),
+              _SyncActionTile(
+                label: '同步定投',
+                color: appAccentColor(context),
+                onTap: () =>
+                    Navigator.of(context).pop(_FundSyncAction.recurring),
+              ),
+              _SyncActionTile(
+                label: '同步转换',
+                color: appAccentColor(context),
+                onTap: () => Navigator.of(context).pop(_FundSyncAction.convert),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(context).pop(_FundSyncAction.batch),
+            icon: const Icon(Icons.library_add_check_rounded),
+            label: const Text('批量同步操作'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SyncActionTile extends StatelessWidget {
+  const _SyncActionTile({
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: onTap,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        side: BorderSide(color: color.withValues(alpha: 0.35)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      child: Text(label, style: const TextStyle(fontWeight: FontWeight.w900)),
+    );
+  }
+}
+
+class _SyncMetricGrid extends StatelessWidget {
+  const _SyncMetricGrid({required this.items});
+
+  final List<_SyncMetricItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: items
+          .map(
+            (item) => Container(
+              width: (MediaQuery.sizeOf(context).width - 56) / 2,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+              decoration: BoxDecoration(
+                color: appAccentContainerColor(context).withValues(alpha: 0.28),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: borderColor(context)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.label,
+                    style: TextStyle(
+                      color: secondaryTextColor(context),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    item.value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: primaryTextColor(context),
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+class _SyncMetricItem {
+  const _SyncMetricItem(this.label, this.value);
+
+  final String label;
+  final String value;
+}
+
 class _FundAddSheet extends StatefulWidget {
   const _FundAddSheet({required this.repository});
 
@@ -907,11 +1111,13 @@ class _FundAddSheetState extends State<_FundAddSheet> {
   final _sharesController = TextEditingController();
   final _costNavController = TextEditingController();
   final _feeController = TextEditingController(text: '0');
+  final _holdingProfitController = TextEditingController();
   List<FundSearchResult> _results = const [];
   FundSearchResult? _selected;
   bool _useAmount = true;
   bool _isSearching = false;
   bool _isLoadingNav = false;
+  _FundTradeTimeSelection _tradeTime = _FundTradeTimeSelection.initial();
 
   @override
   void initState() {
@@ -920,6 +1126,7 @@ class _FundAddSheetState extends State<_FundAddSheet> {
     _sharesController.addListener(_rebuildConversion);
     _costNavController.addListener(_rebuildConversion);
     _feeController.addListener(_rebuildConversion);
+    _holdingProfitController.addListener(_rebuildConversion);
   }
 
   @override
@@ -929,6 +1136,7 @@ class _FundAddSheetState extends State<_FundAddSheet> {
     _sharesController.dispose();
     _costNavController.dispose();
     _feeController.dispose();
+    _holdingProfitController.dispose();
     super.dispose();
   }
 
@@ -975,52 +1183,91 @@ class _FundAddSheetState extends State<_FundAddSheet> {
 
   void _submit() {
     final selected = _selected;
-    final costNav = double.tryParse(_costNavController.text.trim());
-    final fee = double.tryParse(_feeController.text.trim()) ?? 0;
-    final shares = _resolvedShares(costNav: costNav, fee: fee);
-    if (selected == null || shares == null || costNav == null || costNav <= 0) {
+    final values = _resolvedCreateValues();
+    if (selected == null || values == null) {
       return;
     }
     Navigator.of(context).pop(
       _FundCreateDraft(
         fund: selected,
-        shares: shares,
-        costNav: costNav,
-        fee: fee,
+        shares: values.shares,
+        costNav: values.costNav,
+        fee: values.fee,
+        tradeDate: _tradeTime.confirmDate,
+        note: _createNote(values),
       ),
     );
   }
 
-  double? _resolvedShares({double? costNav, double? fee}) {
-    final nav = costNav ?? double.tryParse(_costNavController.text.trim());
-    final feeValue = fee ?? double.tryParse(_feeController.text.trim()) ?? 0;
-    if (nav == null || nav <= 0) return null;
+  _FundCreateValues? _resolvedCreateValues() {
+    final nav = double.tryParse(_costNavController.text.trim());
+    final fee = double.tryParse(_feeController.text.trim()) ?? 0;
+    if (nav == null || nav <= 0 || fee < 0) return null;
+    final profitText = _holdingProfitController.text.trim();
+    final holdingProfit = profitText.isEmpty
+        ? null
+        : double.tryParse(profitText);
+    if (profitText.isNotEmpty && holdingProfit == null) return null;
+
+    double shares;
+    double referenceAmount;
     if (_useAmount) {
       final amount = double.tryParse(_amountController.text.trim());
-      if (amount == null || amount <= feeValue) return null;
-      return (amount - feeValue) / nav;
+      if (amount == null || amount <= 0) return null;
+      referenceAmount = amount;
+      shares = holdingProfit == null ? (amount - fee) / nav : amount / nav;
+    } else {
+      final parsedShares = double.tryParse(_sharesController.text.trim());
+      if (parsedShares == null || parsedShares <= 0) return null;
+      shares = parsedShares;
+      referenceAmount = shares * nav;
     }
-    final shares = double.tryParse(_sharesController.text.trim());
-    if (shares == null || shares <= 0) return null;
-    return shares;
-  }
+    if (shares <= 0) return null;
 
-  double? _resolvedAmount({double? costNav, double? fee}) {
-    final nav = costNav ?? double.tryParse(_costNavController.text.trim());
-    final feeValue = fee ?? double.tryParse(_feeController.text.trim()) ?? 0;
-    final shares = _resolvedShares(costNav: nav, fee: feeValue);
-    if (shares == null || nav == null || nav <= 0) return null;
-    return shares * nav + feeValue;
+    final costNav = holdingProfit == null
+        ? nav
+        : (referenceAmount - holdingProfit - fee) / shares;
+    if (costNav <= 0) return null;
+    final amount = holdingProfit == null ? shares * nav + fee : referenceAmount;
+    return _FundCreateValues(
+      shares: shares,
+      costNav: costNav,
+      fee: fee,
+      amount: amount,
+      holdingProfit: holdingProfit,
+    );
   }
 
   String _conversionText() {
-    final shares = _resolvedShares();
-    final amount = _resolvedAmount();
-    if (shares == null || amount == null) return '';
-    if (_useAmount) {
-      return '预计份额 ${shares.toStringAsFixed(2)}';
+    final values = _resolvedCreateValues();
+    if (values == null) return '';
+    if (values.holdingProfit != null) {
+      return '同步份额 ${values.shares.toStringAsFixed(2)} · 成本净值 ${values.costNav.toStringAsFixed(4)}';
     }
-    return '预计金额 ${amount.toStringAsFixed(2)}';
+    return _useAmount
+        ? '预计份额 ${values.shares.toStringAsFixed(2)}'
+        : '预计金额 ${values.amount.toStringAsFixed(2)}';
+  }
+
+  String _createNote(_FundCreateValues values) {
+    final parts = <String>[
+      '同步导入',
+      '原平台时间 ${_dateLabel(_tradeTime.date)} ${_tradeTime.cutoffLabel}',
+      '确认日 ${_dateOnlyText(_tradeTime.confirmDate)}',
+    ];
+    if (values.holdingProfit != null) {
+      parts.add('持有收益 ${values.holdingProfit!.toStringAsFixed(2)}');
+    }
+    return parts.join('；');
+  }
+
+  Future<void> _editTradeTime() async {
+    final next = await _showFundTradeTimePicker(
+      context: context,
+      title: '买入时间',
+      initial: _tradeTime,
+    );
+    if (mounted && next != null) setState(() => _tradeTime = next);
   }
 
   @override
@@ -1102,7 +1349,7 @@ class _FundAddSheetState extends State<_FundAddSheet> {
                     decimal: true,
                   ),
                   decoration: InputDecoration(
-                    labelText: _useAmount ? '买入金额' : '持有份额',
+                    labelText: _useAmount ? '买入/持有金额' : '持有份额',
                   ),
                 ),
               ),
@@ -1114,7 +1361,7 @@ class _FundAddSheetState extends State<_FundAddSheet> {
                     decimal: true,
                   ),
                   decoration: InputDecoration(
-                    labelText: _isLoadingNav ? '成本净值 读取中' : '成本净值',
+                    labelText: _isLoadingNav ? '净值 读取中' : '成本/同步净值',
                   ),
                 ),
               ),
@@ -1125,6 +1372,24 @@ class _FundAddSheetState extends State<_FundAddSheet> {
             controller: _feeController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: const InputDecoration(labelText: '手续费'),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _holdingProfitController,
+            keyboardType: const TextInputType.numberWithOptions(
+              decimal: true,
+              signed: true,
+            ),
+            decoration: const InputDecoration(
+              labelText: '初始持有收益',
+              helperText: '迁移旧持仓时填写，用当前金额反推成本净值。',
+            ),
+          ),
+          const SizedBox(height: 8),
+          _TradeTimeTile(
+            label: '原平台买入时间',
+            selection: _tradeTime,
+            onTap: _editTradeTime,
           ),
           if (_conversionText().isNotEmpty) ...[
             const SizedBox(height: 8),
@@ -1150,52 +1415,147 @@ class _FundAddSheetState extends State<_FundAddSheet> {
 }
 
 class _FundTradeSheet extends StatefulWidget {
-  const _FundTradeSheet({required this.summary, required this.action});
+  const _FundTradeSheet({
+    required this.summary,
+    required this.action,
+    this.operationLabel,
+  });
 
   final FundPositionSummary summary;
   final String action;
+  final String? operationLabel;
 
   @override
   State<_FundTradeSheet> createState() => _FundTradeSheetState();
 }
 
 class _FundTradeSheetState extends State<_FundTradeSheet> {
+  final _amountController = TextEditingController();
   late final TextEditingController _sharesController;
   late final TextEditingController _navController;
-  final _feeController = TextEditingController(text: '0');
+  late final TextEditingController _feeRateController;
+  late bool _useAmount;
+  double? _selectedSellRatio;
+  _FundTradeTimeSelection _tradeTime = _FundTradeTimeSelection.initial();
 
   @override
   void initState() {
     super.initState();
+    final isBuy = widget.action == 'buy';
+    _useAmount = isBuy;
     _sharesController = TextEditingController();
     _navController = TextEditingController(
       text: widget.summary.displayNav > 0
           ? widget.summary.displayNav.toStringAsFixed(4)
           : '',
     );
+    _feeRateController = TextEditingController(text: isBuy ? '0' : '0.50');
+    _amountController.addListener(_rebuild);
+    _sharesController.addListener(_rebuild);
+    _navController.addListener(_rebuild);
+    _feeRateController.addListener(_rebuild);
   }
 
   @override
   void dispose() {
+    _amountController.dispose();
     _sharesController.dispose();
     _navController.dispose();
-    _feeController.dispose();
+    _feeRateController.dispose();
     super.dispose();
   }
 
+  void _rebuild() {
+    if (mounted) setState(() {});
+  }
+
+  bool get _isBuy => widget.action == 'buy';
+
+  String get _title => widget.operationLabel ?? (_isBuy ? '同步加仓' : '同步减仓');
+
   void _submit() {
-    final shares = double.tryParse(_sharesController.text.trim());
-    final nav = double.tryParse(_navController.text.trim());
-    final fee = double.tryParse(_feeController.text.trim()) ?? 0;
-    if (shares == null || shares <= 0 || nav == null || nav < 0) return;
+    final values = _resolvedTradeValues();
+    if (values == null) return;
     Navigator.of(context).pop(
-      FundTradeDraft(action: widget.action, shares: shares, nav: nav, fee: fee),
+      FundTradeDraft(
+        action: widget.action,
+        shares: values.shares,
+        nav: values.nav,
+        fee: values.fee,
+        tradeDate: _tradeTime.confirmDate,
+        note: _tradeNote(values),
+      ),
     );
+  }
+
+  _FundTradeValues? _resolvedTradeValues() {
+    final nav = double.tryParse(_navController.text.trim());
+    final feeRate = double.tryParse(_feeRateController.text.trim()) ?? 0;
+    if (nav == null || nav <= 0 || feeRate < 0) return null;
+
+    double shares;
+    double amount;
+    if (_useAmount) {
+      final parsedAmount = double.tryParse(_amountController.text.trim());
+      if (parsedAmount == null || parsedAmount <= 0) return null;
+      amount = parsedAmount;
+      final fee = amount * feeRate / 100;
+      shares = _isBuy ? (amount - fee) / nav : amount / nav;
+    } else {
+      final parsedShares = double.tryParse(_sharesController.text.trim());
+      if (parsedShares == null || parsedShares <= 0) return null;
+      shares = parsedShares;
+      amount = shares * nav;
+    }
+
+    if (shares <= 0) return null;
+    if (!_isBuy && shares > widget.summary.position.shares) return null;
+    final fee = amount * feeRate / 100;
+    return _FundTradeValues(
+      shares: shares,
+      nav: nav,
+      amount: amount,
+      fee: fee,
+      feeRate: feeRate,
+    );
+  }
+
+  String _tradeNote(_FundTradeValues values) {
+    return [
+      _title,
+      '原平台时间 ${_dateLabel(_tradeTime.date)} ${_tradeTime.cutoffLabel}',
+      '确认日 ${_dateOnlyText(_tradeTime.confirmDate)}',
+      '金额 ${values.amount.toStringAsFixed(2)}',
+      '费率 ${values.feeRate.toStringAsFixed(2)}%',
+    ].join('；');
+  }
+
+  void _applySellRatio(double ratio) {
+    final shares = widget.summary.position.shares * ratio;
+    _sharesController.text = shares.toStringAsFixed(2);
+    setState(() {
+      _useAmount = false;
+      _selectedSellRatio = ratio;
+    });
+  }
+
+  Future<void> _editTradeTime() async {
+    final next = await _showFundTradeTimePicker(
+      context: context,
+      title: _isBuy ? '加仓时间' : '减仓时间',
+      initial: _tradeTime,
+    );
+    if (mounted && next != null) setState(() => _tradeTime = next);
+  }
+
+  void _setFeeRate(double value) {
+    _feeRateController.text = value.toStringAsFixed(2);
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    final isBuy = widget.action == 'buy';
+    final values = _resolvedTradeValues();
     return Padding(
       padding: EdgeInsets.only(
         left: 16,
@@ -1203,23 +1563,84 @@ class _FundTradeSheetState extends State<_FundTradeSheet> {
         top: 16,
         bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: ListView(
+        shrinkWrap: true,
         children: [
           _SheetTitle(
-            title: '${isBuy ? '买入' : '卖出'} ${widget.summary.position.name}',
+            title: '$_title ${widget.summary.position.name}',
+            onClose: () => Navigator.of(context).pop(),
           ),
+          const SizedBox(height: 8),
+          _NoticeBox(text: '这里仅同步你在原平台已完成的操作，不会真实下单。3 点后会按下一确认日记录。'),
           const SizedBox(height: 12),
+          _FundTradeSummaryCard(summary: widget.summary),
+          const SizedBox(height: 12),
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(
+                value: true,
+                icon: Icon(Icons.payments_rounded),
+                label: Text('金额'),
+              ),
+              ButtonSegment(
+                value: false,
+                icon: Icon(Icons.tag_rounded),
+                label: Text('份额'),
+              ),
+            ],
+            selected: {_useAmount},
+            onSelectionChanged: (value) {
+              setState(() {
+                _useAmount = value.first;
+                if (_useAmount) _selectedSellRatio = null;
+              });
+            },
+          ),
+          if (!_isBuy) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _RatioChip(
+                  label: '1/4',
+                  selected: _selectedSellRatio == 0.25,
+                  onTap: () => _applySellRatio(0.25),
+                ),
+                _RatioChip(
+                  label: '1/3',
+                  selected: _selectedSellRatio == 1 / 3,
+                  onTap: () => _applySellRatio(1 / 3),
+                ),
+                _RatioChip(
+                  label: '1/2',
+                  selected: _selectedSellRatio == 0.5,
+                  onTap: () => _applySellRatio(0.5),
+                ),
+                _RatioChip(
+                  label: '全部',
+                  selected: _selectedSellRatio == 1,
+                  onTap: () => _applySellRatio(1),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
                 child: TextField(
-                  controller: _sharesController,
+                  controller: _useAmount
+                      ? _amountController
+                      : _sharesController,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
-                  decoration: const InputDecoration(labelText: '份额'),
+                  decoration: InputDecoration(
+                    labelText: _useAmount
+                        ? (_isBuy ? '同步买入金额' : '同步卖出金额')
+                        : (_isBuy ? '同步买入份额' : '同步卖出份额'),
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -1236,17 +1657,243 @@ class _FundTradeSheetState extends State<_FundTradeSheet> {
           ),
           const SizedBox(height: 8),
           TextField(
-            controller: _feeController,
+            controller: _feeRateController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: '手续费'),
+            decoration: const InputDecoration(labelText: '手续费率 %'),
           ),
+          if (!_isBuy) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _RateChip(label: '1.50%', onTap: () => _setFeeRate(1.5)),
+                _RateChip(label: '0.50%', onTap: () => _setFeeRate(0.5)),
+                _RateChip(label: '0.00%', onTap: () => _setFeeRate(0)),
+              ],
+            ),
+          ],
+          const SizedBox(height: 8),
+          _TradeTimeTile(
+            label: _isBuy ? '原平台买入时间' : '原平台卖出时间',
+            selection: _tradeTime,
+            onTap: _editTradeTime,
+          ),
+          if (values != null) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _SummaryChip(text: '份额 ${values.shares.toStringAsFixed(2)}'),
+                _SummaryChip(text: '手续费 ${values.fee.toStringAsFixed(2)}'),
+                _SummaryChip(
+                  text: '确认 ${_dateOnlyText(_tradeTime.confirmDate)}',
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 14),
           FilledButton.icon(
             onPressed: _submit,
-            icon: Icon(isBuy ? Icons.add_rounded : Icons.remove_rounded),
-            label: Text(isBuy ? '记录买入' : '记录卖出'),
+            icon: Icon(_isBuy ? Icons.add_rounded : Icons.remove_rounded),
+            label: const Text('确认同步'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _NoticeBox extends StatelessWidget {
+  const _NoticeBox({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFC857).withValues(alpha: 0.11),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: const Color(0xFFFFC857).withValues(alpha: 0.22),
+        ),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: secondaryTextColor(context),
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _FundTradeSummaryCard extends StatelessWidget {
+  const _FundTradeSummaryCard({required this.summary});
+
+  final FundPositionSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final latest = summary.latestNav;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: appAccentContainerColor(context).withValues(alpha: 0.24),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            summary.position.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: primaryTextColor(context),
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            '${summary.position.fundCode} · 最新净值 ${summary.displayNav.toStringAsFixed(4)}'
+            '${latest == null ? '' : '（${_dateOnlyText(latest.navDate)}）'} · ${_percent(summary.displayChangeRate)}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: secondaryTextColor(context),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TradeTimeTile extends StatelessWidget {
+  const _TradeTimeTile({
+    required this.label,
+    required this.selection,
+    required this.onTap,
+  });
+
+  final String label;
+  final _FundTradeTimeSelection selection;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: appAccentContainerColor(context).withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: borderColor(context)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: secondaryTextColor(context),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Text(
+              '${_dateLabel(selection.date)} ${selection.cutoffLabel}',
+              style: TextStyle(
+                color: primaryTextColor(context),
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: secondaryTextColor(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RatioChip extends StatelessWidget {
+  const _RatioChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      selected: selected,
+      label: Text(label),
+      onSelected: (_) => onTap(),
+      selectedColor: appAccentContainerColor(context),
+      labelStyle: TextStyle(
+        color: selected ? appAccentColor(context) : secondaryTextColor(context),
+        fontWeight: FontWeight.w900,
+      ),
+    );
+  }
+}
+
+class _RateChip extends StatelessWidget {
+  const _RateChip({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ActionChip(
+      label: Text(label),
+      onPressed: onTap,
+      visualDensity: VisualDensity.compact,
+    );
+  }
+}
+
+class _SummaryChip extends StatelessWidget {
+  const _SummaryChip({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: appAccentContainerColor(context).withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(7),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: secondaryTextColor(context),
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }
@@ -1503,12 +2150,177 @@ class _FundCreateDraft {
     required this.shares,
     required this.costNav,
     required this.fee,
+    required this.tradeDate,
+    required this.note,
   });
 
   final FundSearchResult fund;
   final double shares;
   final double costNav;
   final double fee;
+  final DateTime tradeDate;
+  final String note;
+}
+
+class _FundCreateValues {
+  const _FundCreateValues({
+    required this.shares,
+    required this.costNav,
+    required this.fee,
+    required this.amount,
+    required this.holdingProfit,
+  });
+
+  final double shares;
+  final double costNav;
+  final double fee;
+  final double amount;
+  final double? holdingProfit;
+}
+
+class _FundTradeValues {
+  const _FundTradeValues({
+    required this.shares,
+    required this.nav,
+    required this.amount,
+    required this.fee,
+    required this.feeRate,
+  });
+
+  final double shares;
+  final double nav;
+  final double amount;
+  final double fee;
+  final double feeRate;
+}
+
+class _FundTradeTimeSelection {
+  const _FundTradeTimeSelection({
+    required this.date,
+    required this.afterCutoff,
+  });
+
+  factory _FundTradeTimeSelection.initial() {
+    final now = DateTime.now();
+    return _FundTradeTimeSelection(
+      date: DateTime(now.year, now.month, now.day),
+      afterCutoff: now.hour >= 15,
+    );
+  }
+
+  final DateTime date;
+  final bool afterCutoff;
+
+  DateTime get confirmDate {
+    final base = DateTime(date.year, date.month, date.day);
+    return afterCutoff ? base.add(const Duration(days: 1)) : base;
+  }
+
+  String get cutoffLabel => afterCutoff ? '下午3点后' : '下午3点前';
+}
+
+Future<_FundTradeTimeSelection?> _showFundTradeTimePicker({
+  required BuildContext context,
+  required String title,
+  required _FundTradeTimeSelection initial,
+}) {
+  var selection = initial;
+  return showModalBottomSheet<_FundTradeTimeSelection>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: cardColor(context),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+    ),
+    builder: (sheetContext) {
+      return StatefulBuilder(
+        builder: (context, setSheetState) {
+          Future<void> pickDate() async {
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: selection.date,
+              firstDate: DateTime(2010),
+              lastDate: DateTime.now().add(const Duration(days: 365)),
+            );
+            if (picked == null) return;
+            setSheetState(() {
+              selection = _FundTradeTimeSelection(
+                date: DateTime(picked.year, picked.month, picked.day),
+                afterCutoff: selection.afterCutoff,
+              );
+            });
+          }
+
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 16,
+              bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _SheetTitle(title: title),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: pickDate,
+                  icon: const Icon(Icons.calendar_month_rounded),
+                  label: Text(_dateLabel(selection.date)),
+                ),
+                const SizedBox(height: 10),
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(value: false, label: Text('下午3点前')),
+                    ButtonSegment(value: true, label: Text('下午3点后')),
+                  ],
+                  selected: {selection.afterCutoff},
+                  onSelectionChanged: (value) {
+                    setSheetState(() {
+                      selection = _FundTradeTimeSelection(
+                        date: selection.date,
+                        afterCutoff: value.first,
+                      );
+                    });
+                  },
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  '确认日：${_dateOnlyText(selection.confirmDate)}',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: secondaryTextColor(context),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        child: const Text('取消'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () =>
+                            Navigator.of(sheetContext).pop(selection),
+                        child: const Text('确认'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    },
+  );
 }
 
 String _money(double value, {bool signed = true}) {
@@ -1529,6 +2341,20 @@ String _percent(double value) {
       ? '-'
       : '';
   return '$sign${value.abs().toStringAsFixed(2)}%';
+}
+
+String _dateLabel(DateTime value) {
+  final local = value.toLocal();
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  return '$month月$day日';
+}
+
+String _dateOnlyText(DateTime value) {
+  final local = value.toLocal();
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  return '${local.year}-$month-$day';
 }
 
 String _dateTimeText(DateTime? value) {

@@ -339,6 +339,7 @@ class FundTradeDraft {
     required this.shares,
     required this.nav,
     this.fee = 0,
+    this.tradeDate,
     this.note = '',
   });
 
@@ -346,6 +347,7 @@ class FundTradeDraft {
   final double shares;
   final double nav;
   final double fee;
+  final DateTime? tradeDate;
   final String note;
 
   Map<String, dynamic> toJson() {
@@ -354,9 +356,17 @@ class FundTradeDraft {
       'shares': shares,
       'nav': nav,
       'fee': fee,
+      if (tradeDate != null) 'trade_date': _dateString(tradeDate!),
       'note': note,
     };
   }
+}
+
+String _dateString(DateTime value) {
+  final local = DateTime(value.year, value.month, value.day);
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  return '${local.year}-$month-$day';
 }
 
 class FundTrade {
