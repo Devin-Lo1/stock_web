@@ -95,16 +95,24 @@ void main() {
       'position-1',
       FundTradeDraft(
         action: 'buy',
-        shares: 100,
-        nav: 1.2,
+        shares: 0,
+        nav: 0,
+        amount: 1200,
+        autoNav: true,
         tradeDate: DateTime(2026, 5, 22),
+        operationDate: DateTime(2026, 5, 21),
+        operationAfterCutoff: true,
         note: 'sync',
       ),
     );
 
     expect(method, 'POST');
     expect(requestedUri.path, '/api/v1/funds/positions/position-1/trades');
+    expect(requestBody['amount'], 1200);
+    expect(requestBody['auto_nav'], isTrue);
     expect(requestBody['trade_date'], '2026-05-22');
+    expect(requestBody['operation_date'], '2026-05-21');
+    expect(requestBody['operation_after_cutoff'], isTrue);
     expect(requestBody['note'], 'sync');
   });
 
@@ -136,12 +144,20 @@ void main() {
       ),
       shares: 100,
       costNav: 1.2,
+      amount: 120,
       fee: 0,
+      autoNav: true,
       tradeDate: DateTime(2026, 5, 22),
+      operationDate: DateTime(2026, 5, 21),
+      operationAfterCutoff: true,
       note: 'opening sync',
     );
 
+    expect(requestBody['amount'], 120);
+    expect(requestBody['auto_nav'], isTrue);
     expect(requestBody['trade_date'], '2026-05-22');
+    expect(requestBody['operation_date'], '2026-05-21');
+    expect(requestBody['operation_after_cutoff'], isTrue);
     expect(requestBody['note'], 'opening sync');
   });
 

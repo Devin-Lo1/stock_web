@@ -81,8 +81,12 @@ class _FundsScreenState extends State<FundsScreen> {
         fund: draft.fund,
         shares: draft.shares,
         costNav: draft.costNav,
+        amount: draft.amount,
         fee: draft.fee,
+        autoNav: draft.autoNav,
         tradeDate: draft.tradeDate,
+        operationDate: draft.operationDate,
+        operationAfterCutoff: draft.operationAfterCutoff,
         note: draft.note,
       );
       await _load(refresh: true, showSpinner: true);
@@ -1224,8 +1228,12 @@ class _FundAddSheetState extends State<_FundAddSheet> {
         fund: selected,
         shares: values.shares,
         costNav: values.costNav,
+        amount: _useAmount && values.holdingProfit == null ? values.amount : 0,
         fee: values.fee,
+        autoNav: values.holdingProfit == null,
         tradeDate: _tradeTime.confirmDate,
+        operationDate: _tradeTime.date,
+        operationAfterCutoff: _tradeTime.afterCutoff,
         note: _createNote(values),
       ),
     );
@@ -1285,7 +1293,7 @@ class _FundAddSheetState extends State<_FundAddSheet> {
     final parts = <String>[
       '同步导入',
       '原平台时间 ${_dateLabel(_tradeTime.date)} ${_tradeTime.cutoffLabel}',
-      '确认日 ${_dateOnlyText(_tradeTime.confirmDate)}',
+      '预计确认日 ${_dateOnlyText(_tradeTime.confirmDate)}',
     ];
     if (values.holdingProfit != null) {
       parts.add('持有收益 ${values.holdingProfit!.toStringAsFixed(2)}');
@@ -1513,8 +1521,12 @@ class _FundTradeSheetState extends State<_FundTradeSheet> {
         action: widget.action,
         shares: values.shares,
         nav: values.nav,
+        amount: _useAmount ? values.amount : 0,
         fee: values.fee,
+        autoNav: true,
         tradeDate: _tradeTime.confirmDate,
+        operationDate: _tradeTime.date,
+        operationAfterCutoff: _tradeTime.afterCutoff,
         note: _tradeNote(values),
       ),
     );
@@ -1556,7 +1568,7 @@ class _FundTradeSheetState extends State<_FundTradeSheet> {
     return [
       _title,
       '原平台时间 ${_dateLabel(_tradeTime.date)} ${_tradeTime.cutoffLabel}',
-      '确认日 ${_dateOnlyText(_tradeTime.confirmDate)}',
+      '预计确认日 ${_dateOnlyText(_tradeTime.confirmDate)}',
       '金额 ${values.amount.toStringAsFixed(2)}',
       '费率 ${values.feeRate.toStringAsFixed(2)}%',
     ].join('；');
@@ -1603,7 +1615,7 @@ class _FundTradeSheetState extends State<_FundTradeSheet> {
             onClose: () => Navigator.of(context).pop(),
           ),
           const SizedBox(height: 8),
-          _NoticeBox(text: '这里仅同步你在原平台已完成的操作，不会真实下单。3 点后会按下一确认日记录。'),
+          _NoticeBox(text: '这里仅同步你在原平台已完成的操作，不会真实下单。后端会按基金净值交易日确认。'),
           const SizedBox(height: 12),
           _FundTradeSummaryCard(summary: widget.summary),
           const SizedBox(height: 12),
@@ -1720,7 +1732,7 @@ class _FundTradeSheetState extends State<_FundTradeSheet> {
                 _SummaryChip(text: '份额 ${values.shares.toStringAsFixed(2)}'),
                 _SummaryChip(text: '手续费 ${values.fee.toStringAsFixed(2)}'),
                 _SummaryChip(
-                  text: '确认 ${_dateOnlyText(_tradeTime.confirmDate)}',
+                  text: '预计 ${_dateOnlyText(_tradeTime.confirmDate)}',
                 ),
               ],
             ),
@@ -2233,16 +2245,24 @@ class _FundCreateDraft {
     required this.fund,
     required this.shares,
     required this.costNav,
+    required this.amount,
     required this.fee,
+    required this.autoNav,
     required this.tradeDate,
+    required this.operationDate,
+    required this.operationAfterCutoff,
     required this.note,
   });
 
   final FundSearchResult fund;
   final double shares;
   final double costNav;
+  final double amount;
   final double fee;
+  final bool autoNav;
   final DateTime tradeDate;
+  final DateTime operationDate;
+  final bool operationAfterCutoff;
   final String note;
 }
 
@@ -2372,7 +2392,7 @@ Future<_FundTradeTimeSelection?> _showFundTradeTimePicker({
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  '确认日：${_dateOnlyText(selection.confirmDate)}',
+                  '预计确认：${_dateOnlyText(selection.confirmDate)}，后端会按净值交易日校准',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: secondaryTextColor(context),

@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from uuid import uuid4
 
 from ..db.converters import _datetime_to_text, _now, _text_to_datetime
@@ -15,6 +15,9 @@ from ..schemas import (
 
 class FundTradeError(ValueError):
     pass
+
+
+_NAV_LOOKUP_LIMIT = 5000
 
 
 def list_fund_positions() -> list[FundPosition]:
@@ -52,14 +55,34 @@ def get_fund_position(position_id: str) -> FundPosition | None:
 
 def create_fund_position(payload: FundPositionCreate) -> FundPosition:
     now = _now()
-    invested_amount = payload.shares * payload.cost_nav + payload.fee
-    avg_cost_nav = invested_amount / payload.shares if payload.shares > 0 else 0
+    fund_code = payload.fund_code.strip()
+    trade_date = _resolve_operation_trade_date(
+        fund_code=fund_code,
+        operation_date=payload.operation_date,
+        operation_after_cutoff=payload.operation_after_cutoff,
+        fallback_trade_date=payload.trade_date,
+    )
+    cost_nav = _resolve_nav_value(
+        fund_code=fund_code,
+        trade_date=trade_date,
+        provided_nav=payload.cost_nav,
+        auto_nav=payload.auto_nav,
+    )
+    shares = _resolve_trade_shares(
+        action="buy",
+        provided_shares=payload.shares,
+        amount=payload.amount,
+        nav=cost_nav,
+        fee=payload.fee,
+    )
+    invested_amount = shares * cost_nav + payload.fee if shares > 0 else 0
+    avg_cost_nav = invested_amount / shares if shares > 0 else 0
     position = FundPosition(
         id=str(uuid4()),
-        fund_code=payload.fund_code.strip(),
+        fund_code=fund_code,
         name=payload.name.strip(),
         fund_type=payload.fund_type.strip(),
-        shares=payload.shares,
+        shares=shares,
         avg_cost_nav=avg_cost_nav,
         invested_amount=invested_amount,
         realized_profit=0,
@@ -72,15 +95,17 @@ def create_fund_position(payload: FundPositionCreate) -> FundPosition:
         updated_at=now,
     )
     opening_trade = None
-    if payload.shares > 0:
+    if shares > 0:
         opening_trade = _build_fund_trade(
             position,
             FundTradeCreate(
                 action="buy",
-                shares=payload.shares,
-                nav=payload.cost_nav,
+                shares=shares,
+                nav=cost_nav,
                 fee=payload.fee,
-                trade_date=payload.trade_date,
+                trade_date=trade_date,
+                operation_date=payload.operation_date,
+                operation_after_cutoff=payload.operation_after_cutoff,
                 note=payload.note,
             ),
         )
@@ -157,9 +182,9 @@ def create_fund_trade_for_position(
     payload: FundTradeCreate,
 ) -> FundTrade:
     trade = _build_fund_trade(position, payload)
-    updated = _position_after_trade(position, trade)
     with _connect() as connection:
         _insert_fund_trade(connection, trade)
+        updated = _recalculate_position_from_trades(connection, position)
         connection.execute(
             """
             UPDATE fund_positions
@@ -202,7 +227,8 @@ def list_fund_trades(
         rows = connection.execute(
             f"""
             SELECT id, fund_position_id, fund_code, name, action, shares, nav,
-                   fee, trade_date, note, created_at, updated_at
+                   fee, trade_date, operation_date, operation_after_cutoff,
+                   note, created_at, updated_at
             FROM fund_trades
             {where}
             ORDER BY trade_date DESC, created_at DESC
@@ -294,9 +320,10 @@ def _insert_fund_trade(connection, trade: FundTrade) -> None:
         """
         INSERT INTO fund_trades (
             id, fund_position_id, fund_code, name, action, shares, nav, fee,
-            trade_date, note, created_at, updated_at
+            trade_date, operation_date, operation_after_cutoff, note,
+            created_at, updated_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             trade.id,
@@ -308,6 +335,8 @@ def _insert_fund_trade(connection, trade: FundTrade) -> None:
             trade.nav,
             trade.fee,
             trade.trade_date.isoformat(),
+            trade.operation_date.isoformat() if trade.operation_date else None,
+            1 if trade.operation_after_cutoff else 0,
             trade.note,
             _datetime_to_text(trade.created_at),
             _datetime_to_text(trade.updated_at),
@@ -317,20 +346,192 @@ def _insert_fund_trade(connection, trade: FundTrade) -> None:
 
 def _build_fund_trade(position: FundPosition, payload: FundTradeCreate) -> FundTrade:
     now = _now()
+    trade_date = _resolve_operation_trade_date(
+        fund_code=position.fund_code,
+        operation_date=payload.operation_date,
+        operation_after_cutoff=payload.operation_after_cutoff,
+        fallback_trade_date=payload.trade_date,
+    )
+    nav = _resolve_nav_value(
+        fund_code=position.fund_code,
+        trade_date=trade_date,
+        provided_nav=payload.nav,
+        auto_nav=payload.auto_nav,
+    )
+    shares = _resolve_trade_shares(
+        action=payload.action,
+        provided_shares=payload.shares,
+        amount=payload.amount,
+        nav=nav,
+        fee=payload.fee,
+    )
+    if shares <= 0:
+        raise FundTradeError("fund trade shares must be greater than zero")
     return FundTrade(
         id=str(uuid4()),
         fund_position_id=position.id,
         fund_code=position.fund_code,
         name=position.name,
         action=payload.action,
-        shares=payload.shares,
-        nav=payload.nav,
+        shares=shares,
+        nav=nav,
         fee=payload.fee,
-        trade_date=payload.trade_date or now.date(),
+        trade_date=trade_date,
+        operation_date=payload.operation_date,
+        operation_after_cutoff=payload.operation_after_cutoff,
         note=payload.note,
         created_at=now,
         updated_at=now,
     )
+
+
+def _resolve_operation_trade_date(
+    *,
+    fund_code: str,
+    operation_date: date | None,
+    operation_after_cutoff: bool,
+    fallback_trade_date: date | None,
+) -> date:
+    if operation_date is None:
+        return fallback_trade_date or _now().date()
+    navs = _sorted_navs_for_code(fund_code)
+    point = _first_confirmation_nav(
+        navs,
+        operation_date=operation_date,
+        operation_after_cutoff=operation_after_cutoff,
+    )
+    if point is None:
+        _refresh_navs_for_code(fund_code)
+        navs = _sorted_navs_for_code(fund_code)
+        point = _first_confirmation_nav(
+            navs,
+            operation_date=operation_date,
+            operation_after_cutoff=operation_after_cutoff,
+        )
+    if point is not None:
+        return point.nav_date
+    return _weekday_confirmation_date(operation_date, operation_after_cutoff)
+
+
+def _first_confirmation_nav(
+    navs: list[FundNavPoint],
+    *,
+    operation_date: date,
+    operation_after_cutoff: bool,
+) -> FundNavPoint | None:
+    for point in navs:
+        if operation_after_cutoff:
+            if point.nav_date > operation_date:
+                return point
+        elif point.nav_date >= operation_date:
+            return point
+    return None
+
+
+def _weekday_confirmation_date(
+    operation_date: date,
+    operation_after_cutoff: bool,
+) -> date:
+    candidate = operation_date + timedelta(days=1 if operation_after_cutoff else 0)
+    while candidate.weekday() >= 5:
+        candidate += timedelta(days=1)
+    return candidate
+
+
+def _resolve_nav_value(
+    *,
+    fund_code: str,
+    trade_date: date,
+    provided_nav: float,
+    auto_nav: bool,
+) -> float:
+    nav = provided_nav
+    if auto_nav or nav <= 0:
+        point = _nav_point_for_date(fund_code, trade_date)
+        if point is not None and point.unit_nav > 0:
+            nav = point.unit_nav
+    if nav <= 0:
+        raise FundTradeError("fund nav is required for trade date")
+    return nav
+
+
+def _resolve_trade_shares(
+    *,
+    action: str,
+    provided_shares: float,
+    amount: float,
+    nav: float,
+    fee: float,
+) -> float:
+    if amount > 0:
+        if nav <= 0:
+            raise FundTradeError("fund nav is required for amount conversion")
+        if action == "buy":
+            available_amount = amount - fee
+            if available_amount <= 0:
+                raise FundTradeError("fund buy amount must be greater than fee")
+            return available_amount / nav
+        return amount / nav
+    return provided_shares
+
+
+def _nav_point_for_date(fund_code: str, nav_date: date) -> FundNavPoint | None:
+    navs = _sorted_navs_for_code(fund_code)
+    point = _find_nav_point(navs, nav_date)
+    if point is not None:
+        return point
+    _refresh_navs_for_code(fund_code)
+    return _find_nav_point(_sorted_navs_for_code(fund_code), nav_date)
+
+
+def _find_nav_point(
+    navs: list[FundNavPoint],
+    nav_date: date,
+) -> FundNavPoint | None:
+    for point in navs:
+        if point.nav_date == nav_date:
+            return point
+    return None
+
+
+def _sorted_navs_for_code(fund_code: str) -> list[FundNavPoint]:
+    return sorted(list_fund_navs(fund_code, limit=_NAV_LOOKUP_LIMIT), key=lambda item: item.nav_date)
+
+
+def _refresh_navs_for_code(fund_code: str) -> None:
+    try:
+        from ..services.fund_provider import EastmoneyFundProvider
+
+        points = EastmoneyFundProvider().nav_history(fund_code, limit=_NAV_LOOKUP_LIMIT)
+    except Exception:
+        return
+    upsert_fund_navs(points)
+
+
+def _recalculate_position_from_trades(connection, position: FundPosition) -> FundPosition:
+    rows = connection.execute(
+        """
+        SELECT id, fund_position_id, fund_code, name, action, shares, nav,
+               fee, trade_date, operation_date, operation_after_cutoff,
+               note, created_at, updated_at
+        FROM fund_trades
+        WHERE fund_position_id = ?
+        ORDER BY trade_date ASC, created_at ASC
+        """,
+        (position.id,),
+    ).fetchall()
+    updated = position.model_copy(
+        update={
+            "shares": 0,
+            "avg_cost_nav": 0,
+            "invested_amount": 0,
+            "realized_profit": 0,
+            "updated_at": _now(),
+        },
+    )
+    for row in rows:
+        updated = _position_after_trade(updated, _row_to_fund_trade(row))
+    return updated.model_copy(update={"updated_at": _now()})
 
 
 def _position_after_trade(position: FundPosition, trade: FundTrade) -> FundPosition:
@@ -409,6 +610,10 @@ def _row_to_fund_trade(row) -> FundTrade:
         nav=row["nav"],
         fee=row["fee"],
         trade_date=date.fromisoformat(row["trade_date"]),
+        operation_date=date.fromisoformat(row["operation_date"])
+        if row["operation_date"]
+        else None,
+        operation_after_cutoff=bool(row["operation_after_cutoff"]),
         note=row["note"],
         created_at=_text_to_datetime(row["created_at"]),
         updated_at=_text_to_datetime(row["updated_at"]),

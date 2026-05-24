@@ -98,6 +98,122 @@ def test_fund_trades_can_be_listed_by_position() -> None:
     assert trades[0].fund_code == "012414"
 
 
+def test_fund_opening_trade_uses_nav_trading_day_after_cutoff() -> None:
+    upsert_fund_navs(
+        [
+            FundNavPoint(
+                fund_code="000002",
+                nav_date=date(2026, 5, 22),
+                unit_nav=1.0,
+                updated_at=_now(),
+            ),
+            FundNavPoint(
+                fund_code="000002",
+                nav_date=date(2026, 5, 25),
+                unit_nav=1.25,
+                updated_at=_now(),
+            ),
+        ],
+    )
+
+    position = create_fund_position(
+        FundPositionCreate(
+            fund_code="000002",
+            name="History Fund",
+            fund_type="mixed",
+            amount=1000,
+            auto_nav=True,
+            operation_date=date(2026, 5, 22),
+            operation_after_cutoff=True,
+        ),
+    )
+    trades = list_fund_trades(position_id=position.id)
+
+    assert round(position.shares, 2) == 800
+    assert position.avg_cost_nav == 1.25
+    assert trades[0].trade_date == date(2026, 5, 25)
+    assert trades[0].operation_date == date(2026, 5, 22)
+    assert trades[0].operation_after_cutoff is True
+
+
+def test_fund_trade_amount_uses_historical_nav() -> None:
+    upsert_fund_navs(
+        [
+            FundNavPoint(
+                fund_code="000003",
+                nav_date=date(2026, 5, 20),
+                unit_nav=2.0,
+                updated_at=_now(),
+            ),
+        ],
+    )
+    position = create_fund_position(
+        FundPositionCreate(
+            fund_code="000003",
+            name="Amount Fund",
+            fund_type="mixed",
+            shares=100,
+            cost_nav=1.0,
+            trade_date=date(2026, 5, 19),
+        ),
+    )
+
+    trade = create_fund_trade_for_position(
+        position,
+        FundTradeCreate(
+            action="buy",
+            amount=600,
+            fee=2,
+            auto_nav=True,
+            operation_date=date(2026, 5, 20),
+        ),
+    )
+
+    assert trade.trade_date == date(2026, 5, 20)
+    assert trade.nav == 2.0
+    assert round(trade.shares, 2) == 299
+
+
+def test_fund_position_rebuilds_from_out_of_order_trades() -> None:
+    position = create_fund_position(
+        FundPositionCreate(
+            fund_code="000004",
+            name="Ledger Fund",
+            fund_type="mixed",
+            shares=100,
+            cost_nav=1.0,
+            trade_date=date(2026, 5, 22),
+        ),
+    )
+    create_fund_trade_for_position(
+        position,
+        FundTradeCreate(
+            action="buy",
+            shares=100,
+            nav=2.0,
+            trade_date=date(2026, 5, 20),
+        ),
+    )
+    updated = get_fund_position(position.id)
+    assert updated is not None
+    create_fund_trade_for_position(
+        updated,
+        FundTradeCreate(
+            action="sell",
+            shares=50,
+            nav=3.0,
+            trade_date=date(2026, 5, 21),
+        ),
+    )
+
+    rebuilt = get_fund_position(position.id)
+    assert rebuilt is not None
+    assert rebuilt.shares == 150
+    assert round(rebuilt.invested_amount, 2) == 200
+    assert round(rebuilt.avg_cost_nav, 4) == 1.3333
+    assert round(rebuilt.realized_profit, 2) == 50
+
+
 def test_fund_summary_uses_estimate_until_official_nav_updates() -> None:
     position = create_fund_position(
         FundPositionCreate(

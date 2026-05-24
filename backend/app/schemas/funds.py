@@ -48,14 +48,18 @@ class FundPositionCreate(BaseModel):
     fund_code: str = Field(min_length=1, max_length=20)
     name: str = Field(min_length=1)
     fund_type: str = ""
-    shares: float = Field(ge=0)
-    cost_nav: float = Field(ge=0)
+    shares: float = Field(default=0, ge=0)
+    cost_nav: float = Field(default=0, ge=0)
+    amount: float = Field(default=0, ge=0)
     fee: float = Field(default=0, ge=0)
+    auto_nav: bool = False
     alert_enabled: bool = True
     alert_threshold_percent: float = Field(default=5, gt=0)
     alert_buy_amount: float = Field(default=5000, ge=0)
     alert_sell_ratio: float = Field(default=0.25, gt=0, le=1)
     trade_date: date | None = None
+    operation_date: date | None = None
+    operation_after_cutoff: bool = False
     note: str = Field(default="", max_length=500)
 
 
@@ -88,10 +92,14 @@ class FundPosition(BaseModel):
 
 class FundTradeCreate(BaseModel):
     action: FundTradeAction
-    shares: float = Field(gt=0)
-    nav: float = Field(ge=0)
+    shares: float = Field(default=0, ge=0)
+    nav: float = Field(default=0, ge=0)
+    amount: float = Field(default=0, ge=0)
     fee: float = Field(default=0, ge=0)
+    auto_nav: bool = False
     trade_date: date | None = None
+    operation_date: date | None = None
+    operation_after_cutoff: bool = False
     note: str = Field(default="", max_length=500)
 
 
@@ -105,6 +113,8 @@ class FundTrade(BaseModel):
     nav: float
     fee: float
     trade_date: date
+    operation_date: date | None = None
+    operation_after_cutoff: bool = False
     note: str = ""
     created_at: datetime
     updated_at: datetime

@@ -44,16 +44,24 @@ class FundRepository {
     required FundSearchResult fund,
     required double shares,
     required double costNav,
+    double amount = 0,
     required double fee,
+    bool autoNav = false,
     DateTime? tradeDate,
+    DateTime? operationDate,
+    bool operationAfterCutoff = false,
     String note = '',
   }) {
     return _apiService.createPosition(
       fund: fund,
       shares: shares,
       costNav: costNav,
+      amount: amount,
       fee: fee,
+      autoNav: autoNav,
       tradeDate: tradeDate,
+      operationDate: operationDate,
+      operationAfterCutoff: operationAfterCutoff,
       note: note,
     );
   }

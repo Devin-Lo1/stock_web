@@ -332,16 +332,24 @@ class FundTradeDraft {
     required this.action,
     required this.shares,
     required this.nav,
+    this.amount = 0,
     this.fee = 0,
+    this.autoNav = false,
     this.tradeDate,
+    this.operationDate,
+    this.operationAfterCutoff = false,
     this.note = '',
   });
 
   final String action;
   final double shares;
   final double nav;
+  final double amount;
   final double fee;
+  final bool autoNav;
   final DateTime? tradeDate;
+  final DateTime? operationDate;
+  final bool operationAfterCutoff;
   final String note;
 
   Map<String, dynamic> toJson() {
@@ -349,8 +357,12 @@ class FundTradeDraft {
       'action': action,
       'shares': shares,
       'nav': nav,
+      'amount': amount,
       'fee': fee,
+      'auto_nav': autoNav,
       if (tradeDate != null) 'trade_date': _dateString(tradeDate!),
+      if (operationDate != null) 'operation_date': _dateString(operationDate!),
+      'operation_after_cutoff': operationAfterCutoff,
       'note': note,
     };
   }
@@ -374,6 +386,8 @@ class FundTrade {
     required this.nav,
     required this.fee,
     required this.tradeDate,
+    required this.operationDate,
+    required this.operationAfterCutoff,
     required this.note,
   });
 
@@ -386,6 +400,8 @@ class FundTrade {
   final double nav;
   final double fee;
   final DateTime tradeDate;
+  final DateTime? operationDate;
+  final bool operationAfterCutoff;
   final String note;
 
   bool get isBuy => action == 'buy';
@@ -403,6 +419,8 @@ class FundTrade {
       tradeDate:
           DateTime.tryParse(json['trade_date'] as String? ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
+      operationDate: DateTime.tryParse(json['operation_date'] as String? ?? ''),
+      operationAfterCutoff: json['operation_after_cutoff'] as bool? ?? false,
       note: json['note'] as String? ?? '',
     );
   }

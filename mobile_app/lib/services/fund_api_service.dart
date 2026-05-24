@@ -91,8 +91,12 @@ class FundApiService {
     required FundSearchResult fund,
     required double shares,
     required double costNav,
+    double amount = 0,
     required double fee,
+    bool autoNav = false,
     DateTime? tradeDate,
+    DateTime? operationDate,
+    bool operationAfterCutoff = false,
     String note = '',
   }) async {
     final payload = await _client.post('/api/v1/funds/positions', {
@@ -101,8 +105,12 @@ class FundApiService {
       'fund_type': fund.fundType,
       'shares': shares,
       'cost_nav': costNav,
+      'amount': amount,
       'fee': fee,
+      'auto_nav': autoNav,
       if (tradeDate != null) 'trade_date': _dateString(tradeDate),
+      if (operationDate != null) 'operation_date': _dateString(operationDate),
+      'operation_after_cutoff': operationAfterCutoff,
       if (note.isNotEmpty) 'note': note,
     });
     return FundPosition.fromJson(payload as Map<String, dynamic>);

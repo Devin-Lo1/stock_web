@@ -182,11 +182,20 @@ def init_database(*, seed_defaults: bool = True) -> None:
                 nav REAL NOT NULL,
                 fee REAL NOT NULL,
                 trade_date TEXT NOT NULL,
+                operation_date TEXT,
+                operation_after_cutoff INTEGER NOT NULL DEFAULT 0,
                 note TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )
             """,
+        )
+        _ensure_column(connection, "fund_trades", "operation_date", "TEXT")
+        _ensure_column(
+            connection,
+            "fund_trades",
+            "operation_after_cutoff",
+            "INTEGER NOT NULL DEFAULT 0",
         )
         connection.execute(
             """
