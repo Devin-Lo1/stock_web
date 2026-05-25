@@ -132,6 +132,13 @@ sudo nano /etc/futu-opend/FutuOpenD.xml
 
 只在该服务器本地配置富途登录账号和 `login_pwd_md5` 或 `login_pwd`。不要把该文件提交到 Git，不要把账号密码写入文档或聊天记录。
 
+也可以使用仓库脚本交互配置。脚本会隐藏读取明文密码，在服务器本机计算 MD5，并只写入 `login_pwd_md5`：
+
+```bash
+cd /home/ubuntu/stock_web
+bash scripts/configure_futu_opend_login.sh
+```
+
 启动并验证：
 
 ```bash
