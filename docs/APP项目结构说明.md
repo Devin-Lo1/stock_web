@@ -414,6 +414,7 @@ POST   /api/v1/funds/alerts/scan
 职责：
 
 - baseUrl。
+- 可选 `API_ACCESS_TOKEN` Bearer token。
 - GET/POST/PUT/DELETE。
 - JSON 编解码。
 - 请求超时。
@@ -423,6 +424,8 @@ POST   /api/v1/funds/alerts/scan
 - 将网络不可达归一为 `NETWORK_UNAVAILABLE`。
 
 所有后端请求都应经过它。
+
+公网 API 启用 token 时，App 通过 `--dart-define=API_ACCESS_TOKEN=...` 注入 token，`ApiClient` 统一添加 `Authorization` header。页面和各业务 service 不要重复拼鉴权 header。
 
 ### `lib/services/position_api_service.dart`
 

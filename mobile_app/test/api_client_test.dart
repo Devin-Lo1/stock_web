@@ -6,6 +6,20 @@ import 'package:http/testing.dart';
 import 'package:stock_mobile/services/api_client.dart';
 
 void main() {
+  test('ApiClient sends bearer token when configured', () async {
+    final client = ApiClient(
+      baseUrl: 'http://test.local',
+      apiAccessToken: 'secret-token',
+      httpClient: MockClient((request) async {
+        expect(request.headers['authorization'], 'Bearer secret-token');
+        expect(request.headers['accept'], 'application/json');
+        return http.Response('[]', 200);
+      }),
+    );
+
+    await client.get('/api/v1/positions');
+  });
+
   test('ApiClient parses structured backend errors', () async {
     final client = ApiClient(
       baseUrl: 'http://test.local',

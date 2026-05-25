@@ -272,9 +272,11 @@ mutedIconColor(context)
 - 后端不可用时应保留本地缓存或 fallback，而不是让 App 崩溃。
 - 真机调试访问本机后端时必须处理地址问题。
 - 每次切换后端连接方式后，必须重新构建或重新运行 App，确认 `API_BASE_URL` 已经生效。
+- 公网 API 启用访问保护后，构建 App 必须同时传入 `--dart-define=API_ACCESS_TOKEN=...`；该 token 只允许保存在服务器 `.env`、本机临时 shell 变量或构建机安全变量中，不得提交 Git、写入文档或聊天记录。
 - 每次重新插拔手机、重启 ADB、重启电脑后，若使用 USB reverse，必须重新检查端口转发。
 - 项目当前默认采用局域网真机调试。重新构建真机 APK 时禁止裸跑 `flutter build apk --debug`，必须运行 `.\scripts\build_mobile_lan_debug.ps1` 或显式传入 `--dart-define=API_BASE_URL=http://电脑当前局域网IP:8000`，否则 App 会回退到 `http://127.0.0.1:8000`，真机将无法通过局域网连接后端。
 - 若构建连接云服务器的 APK，必须显式传入 `--dart-define=API_BASE_URL=http://119.91.47.141` 或后续正式域名；不要混用局域网包和云服务器包。
+- 当前后端只在设置 `API_ACCESS_TOKEN` 时保护 `/api/v1/*`；`/` 和 `/health` 保持公开用于部署脚本、Nginx 和基础监控。App 端统一由 `services/api_client.dart` 添加 Bearer token，不要在页面或各 service 中手写鉴权 header。
 - 公网部署后，后端健康检查正常不等于 FutuOpenD 正常。FutuOpenD 默认由后端通过 `FUTU_HOST` / `FUTU_PORT` 访问，禁止让 Flutter 直连 FutuOpenD，禁止将 FutuOpenD 端口直接暴露公网。
 - 电脑切换 Wi-Fi、热点、路由器或网卡后，局域网 IP 可能变化；必须重新构建并安装 APK。`build_mobile_lan_debug.ps1` 默认会自动探测当前带默认网关的 IPv4 地址。
 - 真机 APK 安装后必须到 App 设置页核对“后端 API”显示的地址；如果不是当前电脑局域网地址，本次 APK 视为构建错误，必须重新构建安装。
@@ -302,6 +304,12 @@ D:\flutter\bin\flutter.bat build apk --debug --dart-define=API_BASE_URL=http://�
 
 ```powershell
 .\scripts\build_mobile_lan_debug.ps1
+```
+
+公网 API 已启用 token 时，可使用脚本参数传入，不要把 token 写死进脚本：
+
+```powershell
+.\scripts\build_mobile_lan_debug.ps1 -ApiBaseUrl http://119.91.47.141 -ApiAccessToken $env:STOCK_WEB_API_TOKEN
 ```
 
 切换为局域网后，为确认没有继续依赖 USB reverse，应清空转发：

@@ -1,5 +1,6 @@
 param(
-    [string]$ApiBaseUrl = ""
+    [string]$ApiBaseUrl = "",
+    [string]$ApiAccessToken = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -31,10 +32,22 @@ if ([string]::IsNullOrWhiteSpace($ApiBaseUrl)) {
 }
 
 Write-Host "Building debug APK with API_BASE_URL=$ApiBaseUrl"
+if (-not [string]::IsNullOrWhiteSpace($ApiAccessToken)) {
+    Write-Host "API access token: configured"
+}
 
 Push-Location $mobileDir
 try {
-    & $flutter build apk --debug "--dart-define=API_BASE_URL=$ApiBaseUrl"
+    $buildArgs = @(
+        "build",
+        "apk",
+        "--debug",
+        "--dart-define=API_BASE_URL=$ApiBaseUrl"
+    )
+    if (-not [string]::IsNullOrWhiteSpace($ApiAccessToken)) {
+        $buildArgs += "--dart-define=API_ACCESS_TOKEN=$ApiAccessToken"
+    }
+    & $flutter @buildArgs
 } finally {
     Pop-Location
 }

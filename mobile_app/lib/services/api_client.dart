@@ -5,9 +5,10 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class ApiClient {
-  ApiClient({http.Client? httpClient, String? baseUrl})
+  ApiClient({http.Client? httpClient, String? baseUrl, String? apiAccessToken})
     : _httpClient = httpClient ?? http.Client(),
-      baseUrl = baseUrl ?? _defaultBaseUrl;
+      baseUrl = baseUrl ?? _defaultBaseUrl,
+      _apiAccessToken = apiAccessToken ?? _defaultApiAccessToken;
 
   static const _requestTimeout = Duration(seconds: 12);
 
@@ -16,11 +17,16 @@ class ApiClient {
     defaultValue: 'http://127.0.0.1:8000',
   );
 
+  static const _defaultApiAccessToken = String.fromEnvironment(
+    'API_ACCESS_TOKEN',
+  );
+
   final http.Client _httpClient;
   final String baseUrl;
+  final String _apiAccessToken;
 
   Future<Object?> get(String path, {Map<String, String>? query}) async {
-    return _send(() => _httpClient.get(_uri(path, query)));
+    return _send(() => _httpClient.get(_uri(path, query), headers: _headers()));
   }
 
   Future<Object?> post(
@@ -31,7 +37,7 @@ class ApiClient {
     return _send(
       () => _httpClient.post(
         _uri(path, query),
-        headers: _jsonHeaders,
+        headers: _headers(json: true),
         body: jsonEncode(body),
       ),
     );
@@ -41,14 +47,14 @@ class ApiClient {
     return _send(
       () => _httpClient.put(
         _uri(path),
-        headers: _jsonHeaders,
+        headers: _headers(json: true),
         body: jsonEncode(body),
       ),
     );
   }
 
   Future<void> delete(String path) async {
-    await _send(() => _httpClient.delete(_uri(path)));
+    await _send(() => _httpClient.delete(_uri(path), headers: _headers()));
   }
 
   Uri _uri(String path, [Map<String, String>? query]) {
@@ -91,10 +97,13 @@ class ApiClient {
     return jsonDecode(utf8.decode(response.bodyBytes));
   }
 
-  static const _jsonHeaders = {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  };
+  Map<String, String> _headers({bool json = false}) {
+    final headers = <String, String>{'Accept': 'application/json'};
+    if (json) headers['Content-Type'] = 'application/json';
+    final token = _apiAccessToken.trim();
+    if (token.isNotEmpty) headers['Authorization'] = 'Bearer $token';
+    return headers;
+  }
 
   ApiException _decodeError(http.Response response) {
     if (response.body.isEmpty) {

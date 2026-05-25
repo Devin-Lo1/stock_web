@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 from .db.init import init_database
+from .middleware.api_auth import install_api_token_middleware
 from .routers import backtests, funds, futu, health, klines, notifications, positions, quotes, signals
 from .routers import stocks, strategies
 from .services.strategy_monitor_scheduler import (
@@ -41,6 +42,7 @@ app = FastAPI(
 )
 
 
+install_api_token_middleware(app)
 app.include_router(health.router)
 app.include_router(positions.router)
 app.include_router(quotes.router)

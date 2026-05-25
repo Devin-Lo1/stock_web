@@ -16,6 +16,7 @@
 - Nginx 配置：`/etc/nginx/sites-available/stock-web`
 - 数据库：PostgreSQL，本机 `127.0.0.1:5432`，库名 `stock_web`，用户 `stock_web`。
 - 数据库密码只允许放在服务器 `.env` 中，禁止写入文档、代码和 Git。
+- 公网 API token 只允许放在服务器 `.env` 的 `API_ACCESS_TOKEN` 中，禁止写入文档、代码和 Git。
 - 备份脚本：
   - `scripts/backup_postgres.sh`
   - `scripts/install_postgres_backup_timer.sh`
@@ -192,6 +193,35 @@ curl -sS http://119.91.47.141/health
 
 如果变更了数据库结构，先确认迁移或初始化逻辑，再重启服务。
 
+### 5.1 公网 API 访问保护
+
+后端支持通过服务器 `.env` 中的 `API_ACCESS_TOKEN` 启用简单 token 保护：
+
+```env
+API_ACCESS_TOKEN=change-me
+```
+
+启用后：
+
+- `/` 和 `/health` 保持公开，用于 Nginx、部署脚本和基础监控。
+- `/api/v1/*` 必须携带 `Authorization: Bearer <token>` 或 `X-API-Token: <token>`。
+- Flutter App 通过 `--dart-define=API_ACCESS_TOKEN=...` 注入 token，由 `ApiClient` 统一添加请求头。
+- 不要把真实 token 写入 Git、文档、聊天记录或脚本默认值。
+
+服务器检查示例：
+
+```bash
+curl -sS http://119.91.47.141/health
+curl -sS http://119.91.47.141/api/v1/futu/health
+curl -sS -H "Authorization: Bearer $API_ACCESS_TOKEN" http://119.91.47.141/api/v1/futu/health
+```
+
+App 云端 debug 包构建示例：
+
+```powershell
+.\scripts\build_mobile_lan_debug.ps1 -ApiBaseUrl http://119.91.47.141 -ApiAccessToken $env:STOCK_WEB_API_TOKEN
+```
+
 ## 6. 服务器待确认事项
 
 下一位开发者接手后优先确认：
@@ -219,8 +249,8 @@ sudo ss -ltnp | grep -E ':(80|8000|11111|22222|5432)'
 
 ## 7. 下一步开发顺序
 
-1. 给公网 API 增加访问保护：至少先加简单 token 或登录态，避免公网 API 被随便调用。
-2. 购买或绑定域名后配置 HTTPS；没有 HTTPS 前不要把敏感功能开放给陌生网络。
+1. 公网 API 已加简单 token 保护，下一步购买或绑定域名后配置 HTTPS。
+2. 没有 HTTPS 前不要把更敏感的功能开放给陌生网络。
 3. 持续真机验证云端 App：基金主页、基金详情、基金交易记录、基金提醒 scheduler、股票持仓缓存展示。
 4. 股票实时行情已恢复，继续回归股票搜索、K 线刷新、资金流向、单股策略监控和信号扫描。
 5. 继续完善基金历史记录迁移：按养基宝规则核对历史买入/卖出日期、三点前后确认日、费率、份额和成本净值重建。

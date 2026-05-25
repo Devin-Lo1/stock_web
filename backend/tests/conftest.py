@@ -8,6 +8,7 @@ TEST_DATABASE_URL = os.getenv(
     "postgresql://stock_web:stock_web_dev_2026@127.0.0.1:5432/stock_web_test",
 )
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+os.environ.pop("API_ACCESS_TOKEN", None)
 
 from app import database  # noqa: E402
 

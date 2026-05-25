@@ -32,6 +32,7 @@ App debug APK 已构建为连接公网 API：http://119.91.47.141
 场外基金持仓重建逻辑已支持按交易历史、历史日期和三点前后规则重建
 Futu 连接参数已改为 FUTU_HOST / FUTU_PORT / FUTU_CONNECT_TIMEOUT_SECONDS 环境变量
 云服务器本机 FutuOpenD 已安装、登录并验证通过
+公网 API 已新增 API_ACCESS_TOKEN 简单 token 保护
 ```
 
 当前最重要判断：
@@ -52,7 +53,10 @@ Futu 连接参数已改为 FUTU_HOST / FUTU_PORT / FUTU_CONNECT_TIMEOUT_SECONDS 
    - `sudo ss -ltnp | grep -E ':(11111|22222)'`
    - `curl -sS http://119.91.47.141/api/v1/futu/health`
    - 禁止将 FutuOpenD 端口直接暴露公网。
-4. 给公网 API 增加访问保护，至少先做简单 token 或登录态。
+4. 确认公网 API 保护：
+   - `/health` 应保持公开。
+   - `/api/v1/*` 未带 token 应返回 401。
+   - App 云端包必须通过 `API_ACCESS_TOKEN` 构建。
 5. 后续绑定域名和 HTTPS，再考虑长期公网使用。
 6. 真机重点验证基金：添加基金、金额/份额互转、历史买入/卖出、三点前后确认日、手续费率、持仓重建、基金提醒多时间扫描。
 
