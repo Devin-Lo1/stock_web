@@ -1387,14 +1387,24 @@ double _chartCostNav({
   if (_isChartCostPlausible(fallbackCostNav, minNav: minNav, maxNav: maxNav)) {
     return fallbackCostNav;
   }
-  final tradeCostNav = _costNavFromTrades(trades, upTo: points.last.navDate);
+  final tradeCostNav = _costNavFromTrades(
+    trades,
+    upTo: points.last.navDate,
+    minNav: minNav,
+    maxNav: maxNav,
+  );
   if (_isChartCostPlausible(tradeCostNav, minNav: minNav, maxNav: maxNav)) {
     return tradeCostNav;
   }
   return 0;
 }
 
-double _costNavFromTrades(List<FundTrade> trades, {required DateTime upTo}) {
+double _costNavFromTrades(
+  List<FundTrade> trades, {
+  required DateTime upTo,
+  required double minNav,
+  required double maxNav,
+}) {
   final sorted =
       trades.where((trade) => !trade.tradeDate.isAfter(upTo)).toList()
         ..sort((a, b) => a.tradeDate.compareTo(b.tradeDate));
@@ -1403,6 +1413,9 @@ double _costNavFromTrades(List<FundTrade> trades, {required DateTime upTo}) {
   var avgCostNav = 0.0;
   for (final trade in sorted) {
     if (trade.shares <= 0 || trade.nav <= 0) continue;
+    if (!_isChartCostPlausible(trade.nav, minNav: minNav, maxNav: maxNav)) {
+      continue;
+    }
     if (trade.isBuy) {
       investedAmount += trade.shares * trade.nav + trade.fee;
       shares += trade.shares;

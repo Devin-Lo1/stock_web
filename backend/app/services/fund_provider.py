@@ -1,4 +1,5 @@
 import json
+import html
 import re
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, ClassVar
@@ -132,15 +133,133 @@ class EastmoneyFundProvider:
 
     def nav_history(self, fund_code: str, *, limit: int = 90) -> list[FundNavPoint]:
         code = fund_code.strip()
-        cache_key = (code, limit)
+        bounded_limit = max(1, min(limit, 1000))
+        cache_key = (code, bounded_limit)
         now = _now()
         cached = self._nav_cache.get(cache_key)
         if cached is not None and now - cached[0] < self._nav_cache_ttl:
             return [item.model_copy() for item in cached[1]]
+        try:
+            points = self._trend_nav_history(code)
+            by_date = {point.nav_date: point for point in points}
+            try:
+                for point in self._f10_nav_table_history(
+                    code,
+                    limit=min(max(bounded_limit, 30), 120),
+                ):
+                    by_date[point.nav_date] = point
+            except Exception:
+                pass
+            points = sorted(by_date.values(), key=lambda item: item.nav_date, reverse=True)
+        except Exception:
+            try:
+                points = self._f10_nav_table_history(code, limit=bounded_limit)
+            except Exception:
+                points = self._legacy_nav_history(code, limit=bounded_limit)
+        if not points:
+            raise FundProviderError("fund nav response is empty")
+        result = points[:bounded_limit]
+        self._nav_cache[cache_key] = (now, [item.model_copy() for item in result])
+        return result
+
+    def _trend_nav_history(self, fund_code: str) -> list[FundNavPoint]:
+        now = _now()
+        text = self._get_text(
+            f"https://fund.eastmoney.com/pingzhongdata/{fund_code}.js",
+            params={"v": str(int(datetime.now().timestamp() * 1000))},
+            headers={"Referer": f"https://fund.eastmoney.com/{fund_code}.html"},
+        )
+        trend_match = re.search(
+            r"var\s+Data_netWorthTrend\s*=\s*(\[.*?\]);",
+            text,
+            flags=re.S,
+        )
+        if trend_match is None:
+            raise FundProviderError("fund nav trend response is empty")
+        trend_rows = json.loads(trend_match.group(1))
+        accumulated_by_date: dict[date, float] = {}
+        accumulated_match = re.search(
+            r"var\s+Data_ACWorthTrend\s*=\s*(\[.*?\]);",
+            text,
+            flags=re.S,
+        )
+        if accumulated_match is not None:
+            for row in json.loads(accumulated_match.group(1)):
+                if not isinstance(row, list) or len(row) < 2:
+                    continue
+                nav_date = _date_from_epoch_ms(row[0])
+                if nav_date is not None:
+                    accumulated_by_date[nav_date] = _float(row[1])
+
+        points: list[FundNavPoint] = []
+        for row in trend_rows:
+            if not isinstance(row, dict):
+                continue
+            nav_date = _date_from_epoch_ms(row.get("x"))
+            unit_nav = _float(row.get("y"))
+            if nav_date is None or unit_nav <= 0:
+                continue
+            points.append(
+                FundNavPoint(
+                    fund_code=fund_code,
+                    nav_date=nav_date,
+                    unit_nav=unit_nav,
+                    accumulated_nav=accumulated_by_date.get(nav_date, unit_nav),
+                    daily_growth_rate=_float(row.get("equityReturn")),
+                    source=self.source,
+                    updated_at=now,
+                )
+            )
+        return sorted(points, key=lambda item: item.nav_date, reverse=True)
+
+    def _f10_nav_table_history(
+        self,
+        fund_code: str,
+        *,
+        limit: int,
+    ) -> list[FundNavPoint]:
+        now = _now()
+        text = self._get_text(
+            "https://fundf10.eastmoney.com/F10DataApi.aspx",
+            params={
+                "type": "lsjz",
+                "code": fund_code,
+                "page": "1",
+                "per": str(limit),
+                "sdate": "",
+                "edate": "",
+                "rt": str(int(datetime.now().timestamp() * 1000)),
+            },
+            headers={"Referer": f"https://fundf10.eastmoney.com/jjjz_{fund_code}.html"},
+        )
+        points: list[FundNavPoint] = []
+        for row_html in re.findall(r"<tr[^>]*>(.*?)</tr>", text, flags=re.S):
+            cells = re.findall(r"<td[^>]*>(.*?)</td>", row_html, flags=re.S)
+            if len(cells) < 4:
+                continue
+            nav_date = _parse_date(_strip_html(cells[0]))
+            if nav_date is None:
+                continue
+            points.append(
+                FundNavPoint(
+                    fund_code=fund_code,
+                    nav_date=nav_date,
+                    unit_nav=_float(_strip_html(cells[1])),
+                    accumulated_nav=_float(_strip_html(cells[2])),
+                    daily_growth_rate=_float(_strip_html(cells[3])),
+                    subscribe_status=_strip_html(cells[4]) if len(cells) > 4 else "",
+                    redeem_status=_strip_html(cells[5]) if len(cells) > 5 else "",
+                    source=self.source,
+                    updated_at=now,
+                )
+            )
+        return sorted(points, key=lambda item: item.nav_date, reverse=True)
+
+    def _legacy_nav_history(self, fund_code: str, *, limit: int) -> list[FundNavPoint]:
         payload = self._get_json(
             "https://api.fund.eastmoney.com/f10/lsjz",
             params={
-                "fundCode": code,
+                "fundCode": fund_code,
                 "pageIndex": "1",
                 "pageSize": str(limit),
                 "startDate": "",
@@ -162,7 +281,7 @@ class EastmoneyFundProvider:
                 continue
             points.append(
                 FundNavPoint(
-                    fund_code=code,
+                    fund_code=fund_code,
                     nav_date=nav_date,
                     unit_nav=_float(row.get("DWJZ")),
                     accumulated_nav=_float(row.get("LJJZ")),
@@ -173,7 +292,6 @@ class EastmoneyFundProvider:
                     updated_at=now,
                 ),
             )
-        self._nav_cache[cache_key] = (now, [item.model_copy() for item in points])
         return points
 
     def benchmark_history(
@@ -315,6 +433,23 @@ class EastmoneyFundProvider:
         response.raise_for_status()
         return json.loads(response.content.decode("utf-8", errors="replace"))
 
+    def _get_text(
+        self,
+        url: str,
+        *,
+        params: dict[str, str],
+        headers: dict[str, str] | None = None,
+    ) -> str:
+        response = httpx.get(
+            url,
+            params=params,
+            headers={**self._headers, **(headers or {})},
+            timeout=self._timeout,
+            trust_env=False,
+        )
+        response.raise_for_status()
+        return response.content.decode("utf-8-sig", errors="replace")
+
     def _get_jsonp(self, url: str, *, params: dict[str, str]) -> dict[str, Any]:
         response = httpx.get(
             url,
@@ -335,6 +470,14 @@ def _parse_date(value: object) -> date | None:
     if not isinstance(value, str) or not value:
         return None
     return date.fromisoformat(value[:10])
+
+
+def _date_from_epoch_ms(value: object) -> date | None:
+    try:
+        timestamp = float(value) / 1000
+    except (TypeError, ValueError):
+        return None
+    return datetime.fromtimestamp(timestamp, tz=UTC).astimezone(CN_TZ).date()
 
 
 def _parse_datetime(value: object) -> datetime | None:
@@ -358,3 +501,7 @@ def _float(value: object) -> float:
         except ValueError:
             return 0.0
     return 0.0
+
+
+def _strip_html(value: str) -> str:
+    return html.unescape(re.sub(r"<[^>]+>", "", value)).strip()

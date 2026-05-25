@@ -391,6 +391,51 @@ def test_fund_provider_search_ignores_system_proxy_and_caches(monkeypatch) -> No
     assert calls[0]["trust_env"] is False
 
 
+def test_fund_provider_reads_long_nav_trend_and_merges_latest(monkeypatch) -> None:
+    EastmoneyFundProvider._nav_cache.clear()
+    calls: list[str] = []
+
+    class FakeResponse:
+        def __init__(self, content: bytes) -> None:
+            self.content = content
+
+        def raise_for_status(self) -> None:
+            return None
+
+    def fake_get(url, *args, **kwargs):
+        calls.append(str(url))
+        if "pingzhongdata" in str(url):
+            return FakeResponse(
+                b'var Data_netWorthTrend = ['
+                b'{"x":1747958400000,"y":1.1688,"equityReturn":0},'
+                b'{"x":1779408000000,"y":5.4687,"equityReturn":6.36}'
+                b'];'
+                b'var Data_ACWorthTrend = ['
+                b'[1747958400000,1.1688],[1779408000000,5.4687]'
+                b'];'
+            )
+        return FakeResponse(
+            (
+                'var apidata={ content:"<table><tbody>'
+                '<tr><td>2026-05-25</td><td>5.7114</td><td>5.7114</td>'
+                '<td>4.44%</td><td>限制大额申购</td><td>开放赎回</td><td></td></tr>'
+                '</tbody></table>"};'
+            ).encode("utf-8")
+        )
+
+    monkeypatch.setattr(fund_provider.httpx, "get", fake_get)
+
+    provider = EastmoneyFundProvider()
+    points = provider.nav_history("022365", limit=370)
+
+    assert points[0].nav_date == date(2026, 5, 25)
+    assert points[0].unit_nav == 5.7114
+    assert points[1].nav_date == date(2026, 5, 22)
+    assert points[-1].nav_date == date(2025, 5, 23)
+    assert round((points[0].unit_nav / points[-1].unit_nav - 1) * 100, 2) == 388.66
+    assert any("pingzhongdata" in call for call in calls)
+
+
 def test_fund_provider_reads_hs300_benchmark_history(monkeypatch) -> None:
     EastmoneyFundProvider._benchmark_cache.clear()
     calls: list[dict[str, object]] = []
