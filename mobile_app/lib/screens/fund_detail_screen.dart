@@ -23,6 +23,18 @@ enum _FundTrendRange {
   final int calendarDays;
 }
 
+enum _ProfitRange {
+  oneMonth('近1月', 31),
+  threeMonths('近3月', 93),
+  sixMonths('近6月', 186),
+  all('全部', 0);
+
+  const _ProfitRange(this.label, this.calendarDays);
+
+  final String label;
+  final int calendarDays;
+}
+
 class FundDetailScreen extends StatefulWidget {
   const FundDetailScreen({
     super.key,
@@ -209,7 +221,13 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                       benchmarks: _benchmarks,
                       trades: _trades,
                     ),
-                    _ProfitTab(summary: summary, onAdjust: widget.onAdjust),
+                    _ProfitTab(
+                      summary: summary,
+                      navs: _navs,
+                      trades: _trades,
+                      isLoading: _isLoadingNavs,
+                      onAdjust: widget.onAdjust,
+                    ),
                     _AlertTab(
                       summary: summary,
                       onAdjust: widget.onAdjust,
@@ -385,44 +403,411 @@ class _TrendWindow {
   final DateTime axisEnd;
 }
 
-class _ProfitTab extends StatelessWidget {
-  const _ProfitTab({required this.summary, required this.onAdjust});
+class _ProfitTab extends StatefulWidget {
+  const _ProfitTab({
+    required this.summary,
+    required this.navs,
+    required this.trades,
+    required this.isLoading,
+    required this.onAdjust,
+  });
 
   final FundPositionSummary summary;
+  final List<FundNavPoint> navs;
+  final List<FundTrade> trades;
+  final bool isLoading;
   final VoidCallback onAdjust;
 
   @override
+  State<_ProfitTab> createState() => _ProfitTabState();
+}
+
+class _ProfitTabState extends State<_ProfitTab> {
+  _ProfitRange _selectedRange = _ProfitRange.threeMonths;
+
+  @override
   Widget build(BuildContext context) {
+    final summary = widget.summary;
     final position = summary.position;
+    final points = _filterProfitPoints(
+      _buildProfitCurvePoints(
+        summary: summary,
+        navs: widget.navs,
+        trades: widget.trades,
+      ),
+      _selectedRange,
+    );
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
       children: [
-        _MetricGrid(
+        _ProfitMetricStrip(
           items: [
-            _MetricItem('份额', position.shares.toStringAsFixed(2)),
-            _MetricItem('成本净值', position.avgCostNav.toStringAsFixed(4)),
-            _MetricItem(
+            _ProfitMetricItem('份额', position.shares.toStringAsFixed(2)),
+            _ProfitMetricItem('成本净值', position.avgCostNav.toStringAsFixed(4)),
+            _ProfitMetricItem(
               summary.isEstimated ? '估算净值' : '正式净值',
               summary.displayNav.toStringAsFixed(4),
             ),
-            _MetricItem('当日收益', _money(summary.dayProfit)),
-            _MetricItem('持有收益', _money(summary.holdingProfit)),
-            _MetricItem('持有收益率', _percent(summary.holdingProfitRate)),
+            _ProfitMetricItem('当日收益', _money(summary.dayProfit)),
+            _ProfitMetricItem('持有收益', _money(summary.holdingProfit)),
+            _ProfitMetricItem('收益率', _percent(summary.holdingProfitRate)),
           ],
         ),
-        const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: onAdjust,
-          icon: const Icon(Icons.edit_note_rounded),
-          label: const Text('修改持仓'),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            _ProfitLegend(
+              value: points.isEmpty ? summary.totalProfit : points.last.value,
+            ),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: widget.onAdjust,
+              icon: const Icon(Icons.edit_note_rounded, size: 18),
+              label: const Text('修改持仓'),
+            ),
+          ],
         ),
+        const SizedBox(height: 6),
+        _ProfitCurveCard(points: points, isLoading: widget.isLoading),
         const SizedBox(height: 12),
-        _InfoPanel(
-          title: summary.isEstimated ? '当前按盘中估算计算' : '当前按正式净值计算',
-          content: summary.isEstimated
-              ? '收盘前估算用于辅助判断，正式净值更新后会自动切换。'
-              : '正式净值通常在交易日晚间更新，刷新后会覆盖盘中估算口径。',
+        _ProfitRangeSelector(
+          selectedRange: _selectedRange,
+          onChanged: (range) => setState(() => _selectedRange = range),
         ),
+      ],
+    );
+  }
+}
+
+class _ProfitMetricStrip extends StatelessWidget {
+  const _ProfitMetricStrip({required this.items});
+
+  final List<_ProfitMetricItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: cardColor(context),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor(context)),
+      ),
+      child: GridView.count(
+        crossAxisCount: 3,
+        childAspectRatio: 2.55,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 8,
+        physics: const NeverScrollableScrollPhysics(),
+        shrinkWrap: true,
+        children: [
+          for (final item in items)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: secondaryTextColor(context),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    item.value,
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: _profitValueColor(context, item.value),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfitMetricItem {
+  const _ProfitMetricItem(this.label, this.value);
+
+  final String label;
+  final String value;
+}
+
+class _ProfitLegend extends StatelessWidget {
+  const _ProfitLegend({required this.value});
+
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    const color = Color(0xFF4D7CFE);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 16,
+          height: 3,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(999),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          '累计收益',
+          style: TextStyle(
+            color: secondaryTextColor(context),
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          _money(value),
+          style: TextStyle(
+            color: _profitColor(value),
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfitCurveCard extends StatelessWidget {
+  const _ProfitCurveCard({required this.points, required this.isLoading});
+
+  final List<_ProfitCurvePoint> points;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 300,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cardColor(context),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor(context)),
+      ),
+      child: isLoading
+          ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+          : points.length < 2
+          ? Center(
+              child: Text(
+                '收益曲线需要至少两个确认日',
+                style: TextStyle(
+                  color: secondaryTextColor(context),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            )
+          : CustomPaint(
+              painter: _ProfitCurvePainter(
+                points: points,
+                gridColor: borderColor(context).withValues(alpha: 0.55),
+                labelColor: secondaryTextColor(context),
+              ),
+              child: const SizedBox.expand(),
+            ),
+    );
+  }
+}
+
+class _ProfitCurvePainter extends CustomPainter {
+  const _ProfitCurvePainter({
+    required this.points,
+    required this.gridColor,
+    required this.labelColor,
+  });
+
+  static const _lineColor = Color(0xFF4D7CFE);
+
+  final List<_ProfitCurvePoint> points;
+  final Color gridColor;
+  final Color labelColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final chart = Rect.fromLTWH(8, 24, size.width - 16, size.height - 58);
+    final values = points.map((point) => point.value).toList();
+    var minValue = values.reduce(math.min);
+    var maxValue = values.reduce(math.max);
+    if ((maxValue - minValue).abs() < 0.01) {
+      maxValue += 10;
+      minValue -= 10;
+    }
+    final padding = math.max(10.0, (maxValue - minValue).abs() * 0.12);
+    minValue -= padding;
+    maxValue += padding;
+    final range = maxValue - minValue;
+
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 1;
+    for (var i = 0; i <= 2; i++) {
+      final y = chart.top + chart.height / 2 * i;
+      canvas.drawLine(Offset(chart.left, y), Offset(chart.right, y), gridPaint);
+    }
+    if (minValue < 0 && maxValue > 0) {
+      _drawDashedLine(canvas, chart, _yFor(0, chart, minValue, range));
+    }
+
+    final path = Path();
+    for (var i = 0; i < points.length; i++) {
+      final offset = _offsetFor(i, chart, minValue, range);
+      if (i == 0) {
+        path.moveTo(offset.dx, offset.dy);
+      } else {
+        path.lineTo(offset.dx, offset.dy);
+      }
+    }
+    final fillPath = Path.from(path)
+      ..lineTo(chart.right, chart.bottom)
+      ..lineTo(chart.left, chart.bottom)
+      ..close();
+    canvas.drawPath(
+      fillPath,
+      Paint()..color = _lineColor.withValues(alpha: 0.08),
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = _lineColor
+        ..strokeWidth = 1.8
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+
+    final lastOffset = _offsetFor(points.length - 1, chart, minValue, range);
+    canvas.drawCircle(lastOffset, 3.4, Paint()..color = _lineColor);
+
+    _drawText(canvas, _compactMoney(maxValue), Offset(0, chart.top - 22));
+    _drawText(canvas, _compactMoney(minValue), Offset(0, chart.bottom + 4));
+    _drawText(
+      canvas,
+      _shortDate(points.first.date),
+      Offset(chart.left, chart.bottom + 28),
+    );
+    _drawText(
+      canvas,
+      _shortDate(points[points.length ~/ 2].date),
+      Offset(chart.center.dx - 22, chart.bottom + 28),
+    );
+    _drawText(
+      canvas,
+      _shortDate(points.last.date),
+      Offset(chart.right - 44, chart.bottom + 28),
+    );
+  }
+
+  Offset _offsetFor(int index, Rect chart, double minValue, double range) {
+    final x = points.length == 1
+        ? chart.left
+        : chart.left + chart.width * index / (points.length - 1);
+    final y = _yFor(points[index].value, chart, minValue, range);
+    return Offset(x, y);
+  }
+
+  double _yFor(double value, Rect chart, double minValue, double range) {
+    return chart.bottom - (value - minValue) / range * chart.height;
+  }
+
+  void _drawDashedLine(Canvas canvas, Rect chart, double y) {
+    final paint = Paint()
+      ..color = gridColor.withValues(alpha: 0.85)
+      ..strokeWidth = 1;
+    var x = chart.left;
+    while (x < chart.right) {
+      canvas.drawLine(
+        Offset(x, y),
+        Offset(math.min(x + 8, chart.right), y),
+        paint,
+      );
+      x += 13;
+    }
+  }
+
+  void _drawText(Canvas canvas, String text, Offset offset) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: labelColor,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: 90);
+    painter.paint(canvas, offset);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ProfitCurvePainter oldDelegate) {
+    return oldDelegate.points != points ||
+        oldDelegate.gridColor != gridColor ||
+        oldDelegate.labelColor != labelColor;
+  }
+}
+
+class _ProfitRangeSelector extends StatelessWidget {
+  const _ProfitRangeSelector({
+    required this.selectedRange,
+    required this.onChanged,
+  });
+
+  final _ProfitRange selectedRange;
+  final ValueChanged<_ProfitRange> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (final range in _ProfitRange.values)
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(6),
+                onTap: () => onChanged(range),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  padding: const EdgeInsets.symmetric(vertical: 9),
+                  decoration: BoxDecoration(
+                    color: range == selectedRange
+                        ? appAccentColor(context).withValues(alpha: 0.16)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    range.label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: range == selectedRange
+                          ? appAccentColor(context)
+                          : secondaryTextColor(context),
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -1440,4 +1825,209 @@ bool _isChartCostPlausible(
 }) {
   if (costNav <= 0 || minNav <= 0 || maxNav <= 0) return false;
   return costNav >= minNav * 0.6 && costNav <= maxNav * 1.4;
+}
+
+class _ProfitCurvePoint {
+  const _ProfitCurvePoint({required this.date, required this.value});
+
+  final DateTime date;
+  final double value;
+}
+
+List<_ProfitCurvePoint> _buildProfitCurvePoints({
+  required FundPositionSummary summary,
+  required List<FundNavPoint> navs,
+  required List<FundTrade> trades,
+}) {
+  final sortedNavs = navs.where((point) => point.unitNav > 0).toList()
+    ..sort((a, b) => a.navDate.compareTo(b.navDate));
+  if (sortedNavs.isEmpty) {
+    return summary.displayNav > 0
+        ? [
+            _ProfitCurvePoint(
+              date: summary.latestNav?.navDate ?? DateTime.now(),
+              value: summary.totalProfit,
+            ),
+          ]
+        : const [];
+  }
+
+  final sortedTrades = _sortedProfitTrades(trades);
+  if (sortedTrades.isEmpty) {
+    return _positionCostCurve(summary, sortedNavs);
+  }
+
+  final points = <_ProfitCurvePoint>[];
+  var shares = 0.0;
+  var investedAmount = 0.0;
+  var realizedProfit = 0.0;
+  var avgCostNav = 0.0;
+  var tradeIndex = 0;
+
+  for (final nav in sortedNavs) {
+    while (tradeIndex < sortedTrades.length &&
+        !sortedTrades[tradeIndex].tradeDate.isAfter(nav.navDate)) {
+      final state = _applyProfitTrade(
+        trade: sortedTrades[tradeIndex],
+        shares: shares,
+        investedAmount: investedAmount,
+        realizedProfit: realizedProfit,
+        avgCostNav: avgCostNav,
+      );
+      shares = state.shares;
+      investedAmount = state.investedAmount;
+      realizedProfit = state.realizedProfit;
+      avgCostNav = state.avgCostNav;
+      tradeIndex += 1;
+    }
+    if (shares <= 0 && realizedProfit == 0) continue;
+    points.add(
+      _ProfitCurvePoint(
+        date: nav.navDate,
+        value: shares * nav.unitNav - investedAmount + realizedProfit,
+      ),
+    );
+  }
+
+  _mergeSummaryProfitPoint(points, summary);
+  return points;
+}
+
+List<FundTrade> _sortedProfitTrades(List<FundTrade> trades) {
+  final indexed = trades
+      .asMap()
+      .entries
+      .where((entry) => entry.value.shares > 0 && entry.value.nav > 0)
+      .toList();
+  indexed.sort((a, b) {
+    final dateCompare = a.value.tradeDate.compareTo(b.value.tradeDate);
+    if (dateCompare != 0) return dateCompare;
+    return b.key.compareTo(a.key);
+  });
+  return [for (final entry in indexed) entry.value];
+}
+
+List<_ProfitCurvePoint> _positionCostCurve(
+  FundPositionSummary summary,
+  List<FundNavPoint> sortedNavs,
+) {
+  final position = summary.position;
+  if (position.shares <= 0 || position.investedAmount <= 0) {
+    return const [];
+  }
+  final points = [
+    for (final nav in sortedNavs)
+      _ProfitCurvePoint(
+        date: nav.navDate,
+        value:
+            position.shares * nav.unitNav -
+            position.investedAmount +
+            position.realizedProfit,
+      ),
+  ];
+  _mergeSummaryProfitPoint(points, summary);
+  return points;
+}
+
+void _mergeSummaryProfitPoint(
+  List<_ProfitCurvePoint> points,
+  FundPositionSummary summary,
+) {
+  if (summary.displayNav <= 0) return;
+  final date = summary.displayTime == null
+      ? summary.latestNav?.navDate
+      : DateTime(
+          summary.displayTime!.year,
+          summary.displayTime!.month,
+          summary.displayTime!.day,
+        );
+  if (date == null) return;
+  final point = _ProfitCurvePoint(date: date, value: summary.totalProfit);
+  if (points.isEmpty) {
+    points.add(point);
+    return;
+  }
+  final last = points.last;
+  final sameDate =
+      last.date.year == date.year &&
+      last.date.month == date.month &&
+      last.date.day == date.day;
+  if (sameDate) {
+    points[points.length - 1] = point;
+  } else if (date.isAfter(last.date)) {
+    points.add(point);
+  }
+}
+
+_ProfitReplayState _applyProfitTrade({
+  required FundTrade trade,
+  required double shares,
+  required double investedAmount,
+  required double realizedProfit,
+  required double avgCostNav,
+}) {
+  if (trade.isBuy) {
+    final nextInvested = investedAmount + trade.shares * trade.nav + trade.fee;
+    final nextShares = shares + trade.shares;
+    return _ProfitReplayState(
+      shares: nextShares,
+      investedAmount: nextInvested,
+      realizedProfit: realizedProfit,
+      avgCostNav: nextShares > 0 ? nextInvested / nextShares : 0,
+    );
+  }
+  final soldShares = math.min(trade.shares, shares);
+  final costBasis = avgCostNav * soldShares;
+  final proceeds = soldShares * trade.nav - trade.fee;
+  final nextShares = math.max(0.0, shares - soldShares);
+  final nextInvested = math.max(0.0, investedAmount - costBasis);
+  return _ProfitReplayState(
+    shares: nextShares,
+    investedAmount: nextInvested,
+    realizedProfit: realizedProfit + proceeds - costBasis,
+    avgCostNav: nextShares > 0 ? nextInvested / nextShares : 0,
+  );
+}
+
+class _ProfitReplayState {
+  const _ProfitReplayState({
+    required this.shares,
+    required this.investedAmount,
+    required this.realizedProfit,
+    required this.avgCostNav,
+  });
+
+  final double shares;
+  final double investedAmount;
+  final double realizedProfit;
+  final double avgCostNav;
+}
+
+List<_ProfitCurvePoint> _filterProfitPoints(
+  List<_ProfitCurvePoint> points,
+  _ProfitRange range,
+) {
+  if (points.length < 2 || range == _ProfitRange.all) return points;
+  final latest = points.last.date;
+  final start = latest.subtract(Duration(days: range.calendarDays));
+  final filtered = points
+      .where((point) => !point.date.isBefore(start))
+      .toList();
+  if (filtered.length >= 2) return filtered;
+  return points.sublist(math.max(0, points.length - 2));
+}
+
+Color _profitValueColor(BuildContext context, String value) {
+  if (value.startsWith('-')) return const Color(0xFF20C997);
+  if (value.startsWith('+')) return const Color(0xFFFF4D67);
+  return primaryTextColor(context);
+}
+
+String _compactMoney(double value) {
+  final sign = value < 0 ? '-' : '';
+  final absValue = value.abs();
+  if (absValue >= 10000) {
+    return '$sign${(absValue / 10000).toStringAsFixed(2)}万';
+  }
+  return '$sign${absValue.toStringAsFixed(2)}';
 }
