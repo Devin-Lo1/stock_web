@@ -247,20 +247,30 @@ class _TrendTab extends StatefulWidget {
 }
 
 class _TrendTabState extends State<_TrendTab> {
-  _FundTrendRange _selectedRange = _FundTrendRange.threeMonths;
+  _FundTrendRange _selectedRange = _FundTrendRange.oneMonth;
   bool _showMoreNavRows = false;
 
   @override
   Widget build(BuildContext context) {
     final sorted = List<FundNavPoint>.of(widget.navs)
       ..sort((a, b) => a.navDate.compareTo(b.navDate));
-    final visiblePoints = _filterRange(sorted, _selectedRange);
-    final benchmarkPoints = _filterBenchmarks(widget.benchmarks, visiblePoints);
+    final window = _buildWindow(sorted, _selectedRange);
+    final visiblePoints = window.points;
+    final benchmarkPoints = _filterBenchmarks(
+      widget.benchmarks,
+      window.axisStart,
+      window.axisEnd,
+    );
+    final chartCostNav = _chartCostNav(
+      points: visiblePoints,
+      trades: widget.trades,
+      fallbackCostNav: widget.summary.position.avgCostNav,
+    );
     final rowCount = math.min(
       _showMoreNavRows ? _expandedNavRows : _initialNavRows,
-      sorted.length,
+      visiblePoints.length,
     );
-    final rows = sorted.reversed.take(rowCount).toList();
+    final rows = visiblePoints.reversed.take(rowCount).toList();
     return NotificationListener<ScrollUpdateNotification>(
       onNotification: (notification) {
         if (!_showMoreNavRows && notification.metrics.pixels > 80) {
@@ -274,7 +284,7 @@ class _TrendTabState extends State<_TrendTab> {
           _TrendLegend(
             points: visiblePoints,
             benchmarks: benchmarkPoints,
-            costNav: widget.summary.position.avgCostNav,
+            costNav: chartCostNav,
           ),
           const SizedBox(height: 10),
           Container(
@@ -301,7 +311,9 @@ class _TrendTabState extends State<_TrendTab> {
                     points: visiblePoints,
                     benchmarks: benchmarkPoints,
                     trades: widget.trades,
-                    costNav: widget.summary.position.avgCostNav,
+                    axisStart: window.axisStart,
+                    axisEnd: window.axisEnd,
+                    costNav: chartCostNav,
                   ),
           ),
           const SizedBox(height: 12),
@@ -317,26 +329,39 @@ class _TrendTabState extends State<_TrendTab> {
     );
   }
 
-  List<FundNavPoint> _filterRange(
-    List<FundNavPoint> points,
-    _FundTrendRange range,
-  ) {
-    if (points.length < 2) return points;
+  _TrendWindow _buildWindow(List<FundNavPoint> points, _FundTrendRange range) {
+    if (points.isEmpty) {
+      final now = DateTime.now();
+      return _TrendWindow(points: points, axisStart: now, axisEnd: now);
+    }
     final latest = points.last.navDate;
-    final start = latest.subtract(Duration(days: range.calendarDays));
+    final requestedStart = latest.subtract(Duration(days: range.calendarDays));
+    final first = points.first.navDate;
+    final axisStart =
+        first.isAfter(requestedStart) &&
+            first.difference(requestedStart).inDays <= 3
+        ? first
+        : requestedStart;
     final filtered = points
-        .where((point) => !point.navDate.isBefore(start))
+        .where(
+          (point) =>
+              !point.navDate.isBefore(axisStart) &&
+              !point.navDate.isAfter(latest),
+        )
         .toList();
-    return filtered.length >= 2 ? filtered : points;
+    return _TrendWindow(
+      points: filtered.length >= 2 ? filtered : points,
+      axisStart: filtered.length >= 2 ? axisStart : points.first.navDate,
+      axisEnd: latest,
+    );
   }
 
   List<FundBenchmarkPoint> _filterBenchmarks(
     List<FundBenchmarkPoint> benchmarks,
-    List<FundNavPoint> points,
+    DateTime start,
+    DateTime end,
   ) {
-    if (benchmarks.isEmpty || points.length < 2) return const [];
-    final start = points.first.navDate;
-    final end = points.last.navDate;
+    if (benchmarks.isEmpty) return const [];
     final sorted = List<FundBenchmarkPoint>.of(benchmarks)
       ..sort((a, b) => a.tradeDate.compareTo(b.tradeDate));
     return sorted
@@ -346,6 +371,18 @@ class _TrendTabState extends State<_TrendTab> {
         )
         .toList();
   }
+}
+
+class _TrendWindow {
+  const _TrendWindow({
+    required this.points,
+    required this.axisStart,
+    required this.axisEnd,
+  });
+
+  final List<FundNavPoint> points;
+  final DateTime axisStart;
+  final DateTime axisEnd;
 }
 
 class _ProfitTab extends StatelessWidget {
@@ -627,12 +664,16 @@ class _FundNavCurve extends StatefulWidget {
     required this.points,
     required this.benchmarks,
     required this.trades,
+    required this.axisStart,
+    required this.axisEnd,
     required this.costNav,
   });
 
   final List<FundNavPoint> points;
   final List<FundBenchmarkPoint> benchmarks;
   final List<FundTrade> trades;
+  final DateTime axisStart;
+  final DateTime axisEnd;
   final double costNav;
 
   @override
@@ -641,6 +682,15 @@ class _FundNavCurve extends StatefulWidget {
 
 class _FundNavCurveState extends State<_FundNavCurve> {
   int? _selectedIndex;
+
+  @override
+  void didUpdateWidget(covariant _FundNavCurve oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final selected = _selectedIndex;
+    if (selected != null && selected >= widget.points.length) {
+      _selectedIndex = null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -659,6 +709,8 @@ class _FundNavCurveState extends State<_FundNavCurve> {
               benchmarks: widget.benchmarks,
               trades: widget.trades,
               selectedIndex: _selectedIndex,
+              axisStart: widget.axisStart,
+              axisEnd: widget.axisEnd,
               costNav: widget.costNav,
               gridColor: borderColor(context),
               labelColor: secondaryTextColor(context),
@@ -699,9 +751,27 @@ class _FundNavCurveState extends State<_FundNavCurve> {
   void _select(double dx) {
     if (widget.points.length < 2 || context.size == null) return;
     final ratio = (dx / context.size!.width).clamp(0.0, 1.0);
-    setState(
-      () => _selectedIndex = (ratio * (widget.points.length - 1)).round(),
+    final totalDays = math.max(
+      1,
+      widget.axisEnd.difference(widget.axisStart).inDays,
     );
+    final selectedDate = widget.axisStart.add(
+      Duration(days: (ratio * totalDays).round()),
+    );
+    setState(() => _selectedIndex = _nearestFundPointIndex(selectedDate));
+  }
+
+  int _nearestFundPointIndex(DateTime date) {
+    var bestIndex = 0;
+    var bestDistance = 1 << 30;
+    for (var i = 0; i < widget.points.length; i++) {
+      final distance = widget.points[i].navDate.difference(date).inDays.abs();
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = i;
+      }
+    }
+    return bestIndex;
   }
 }
 
@@ -711,6 +781,8 @@ class _FundNavCurvePainter extends CustomPainter {
     required this.benchmarks,
     required this.trades,
     required this.selectedIndex,
+    required this.axisStart,
+    required this.axisEnd,
     required this.costNav,
     required this.gridColor,
     required this.labelColor,
@@ -724,6 +796,8 @@ class _FundNavCurvePainter extends CustomPainter {
   final List<FundBenchmarkPoint> benchmarks;
   final List<FundTrade> trades;
   final int? selectedIndex;
+  final DateTime axisStart;
+  final DateTime axisEnd;
   final double costNav;
   final Color gridColor;
   final Color labelColor;
@@ -801,7 +875,7 @@ class _FundNavCurvePainter extends CustomPainter {
     _drawTradeMarkers(canvas, chart, fundValues, minValue, range);
     final selected = selectedIndex;
     if (selected != null && selected >= 0 && selected < points.length) {
-      final x = _xForIndex(chart, selected, points.length);
+      final x = _xForDate(chart, points[selected].navDate);
       final y = _yFor(fundValues[selected], chart, minValue, range);
       canvas.drawLine(
         Offset(x, chart.top),
@@ -817,17 +891,20 @@ class _FundNavCurvePainter extends CustomPainter {
     _drawText(canvas, _percent(minValue), Offset(0, chart.bottom + 4));
     _drawText(
       canvas,
-      _shortDate(points.first.navDate),
+      _shortDate(axisStart),
       Offset(chart.left, chart.bottom + 28),
+    );
+    final middleDate = axisStart.add(
+      Duration(days: axisEnd.difference(axisStart).inDays ~/ 2),
     );
     _drawText(
       canvas,
-      _shortDate(points[points.length ~/ 2].navDate),
+      _shortDate(middleDate),
       Offset(chart.center.dx - 22, chart.bottom + 28),
     );
     _drawText(
       canvas,
-      _shortDate(points.last.navDate),
+      _shortDate(axisEnd),
       Offset(chart.right - 44, chart.bottom + 28),
     );
   }
@@ -840,7 +917,7 @@ class _FundNavCurvePainter extends CustomPainter {
   ) {
     final path = Path();
     for (var i = 0; i < values.length; i++) {
-      final x = _xForIndex(chart, i, values.length);
+      final x = _xForDate(chart, points[i].navDate);
       final y = _yFor(values[i], chart, minValue, range);
       if (i == 0) {
         path.moveTo(x, y);
@@ -913,7 +990,7 @@ class _FundNavCurvePainter extends CustomPainter {
     for (final trade in trades) {
       final index = _nearestPointIndex(trade.tradeDate);
       if (index == null) continue;
-      final x = _xForIndex(chart, index, points.length);
+      final x = _xForDate(chart, points[index].navDate);
       final y = _yFor(values[index], chart, minValue, range);
       final color = trade.isBuy
           ? const Color(0xFFFF4D67)
@@ -947,20 +1024,9 @@ class _FundNavCurvePainter extends CustomPainter {
     return bestDistance <= 7 ? bestIndex : null;
   }
 
-  double _xForIndex(Rect chart, int index, int count) {
-    if (count <= 1) return chart.left;
-    return chart.left + chart.width * index / (count - 1);
-  }
-
   double _xForDate(Rect chart, DateTime date) {
-    final totalDays = math.max(
-      1,
-      points.last.navDate.difference(points.first.navDate).inDays,
-    );
-    final days = date
-        .difference(points.first.navDate)
-        .inDays
-        .clamp(0, totalDays);
+    final totalDays = math.max(1, axisEnd.difference(axisStart).inDays);
+    final days = date.difference(axisStart).inDays.clamp(0, totalDays);
     return chart.left + chart.width * days / totalDays;
   }
 
@@ -974,6 +1040,8 @@ class _FundNavCurvePainter extends CustomPainter {
         oldDelegate.benchmarks != benchmarks ||
         oldDelegate.trades != trades ||
         oldDelegate.selectedIndex != selectedIndex ||
+        oldDelegate.axisStart != axisStart ||
+        oldDelegate.axisEnd != axisEnd ||
         oldDelegate.costNav != costNav;
   }
 }
@@ -1301,4 +1369,59 @@ List<double> _benchmarkReturnValues(List<FundBenchmarkPoint> points) {
   if (points.isEmpty || points.first.close <= 0) return const [];
   final first = points.first.close;
   return [for (final point in points) (point.close / first - 1) * 100];
+}
+
+double _chartCostNav({
+  required List<FundNavPoint> points,
+  required List<FundTrade> trades,
+  required double fallbackCostNav,
+}) {
+  if (points.isEmpty) return fallbackCostNav > 0 ? fallbackCostNav : 0;
+  final navValues = points
+      .map((point) => point.unitNav)
+      .where((value) => value > 0)
+      .toList();
+  if (navValues.isEmpty) return fallbackCostNav > 0 ? fallbackCostNav : 0;
+  final minNav = navValues.reduce(math.min);
+  final maxNav = navValues.reduce(math.max);
+  if (_isChartCostPlausible(fallbackCostNav, minNav: minNav, maxNav: maxNav)) {
+    return fallbackCostNav;
+  }
+  final tradeCostNav = _costNavFromTrades(trades, upTo: points.last.navDate);
+  if (_isChartCostPlausible(tradeCostNav, minNav: minNav, maxNav: maxNav)) {
+    return tradeCostNav;
+  }
+  return 0;
+}
+
+double _costNavFromTrades(List<FundTrade> trades, {required DateTime upTo}) {
+  final sorted =
+      trades.where((trade) => !trade.tradeDate.isAfter(upTo)).toList()
+        ..sort((a, b) => a.tradeDate.compareTo(b.tradeDate));
+  var shares = 0.0;
+  var investedAmount = 0.0;
+  var avgCostNav = 0.0;
+  for (final trade in sorted) {
+    if (trade.shares <= 0 || trade.nav <= 0) continue;
+    if (trade.isBuy) {
+      investedAmount += trade.shares * trade.nav + trade.fee;
+      shares += trade.shares;
+      avgCostNav = shares > 0 ? investedAmount / shares : 0;
+      continue;
+    }
+    final soldShares = math.min(trade.shares, shares);
+    investedAmount = math.max(0, investedAmount - avgCostNav * soldShares);
+    shares = math.max(0, shares - soldShares);
+    avgCostNav = shares > 0 ? investedAmount / shares : 0;
+  }
+  return avgCostNav;
+}
+
+bool _isChartCostPlausible(
+  double costNav, {
+  required double minNav,
+  required double maxNav,
+}) {
+  if (costNav <= 0 || minNav <= 0 || maxNav <= 0) return false;
+  return costNav >= minNav * 0.6 && costNav <= maxNav * 1.4;
 }

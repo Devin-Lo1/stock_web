@@ -12,6 +12,7 @@ from app.repositories.fund_alert_scheduler import (
     update_fund_alert_scheduler_config,
 )
 from app.schemas import (
+    Candle,
     FundAlertSchedulerUpdate,
     FundNavPoint,
     FundPositionCreate,
@@ -420,3 +421,55 @@ def test_fund_provider_reads_hs300_benchmark_history(monkeypatch) -> None:
     assert len(cached) == 2
     assert len(calls) == 1
     assert calls[0]["trust_env"] is False
+
+
+def test_fund_provider_uses_futu_hs300_fallback(monkeypatch) -> None:
+    EastmoneyFundProvider._benchmark_cache.clear()
+    calls: list[dict[str, object]] = []
+
+    def fail_get(*args, **kwargs):
+        raise fund_provider.FundProviderError("eastmoney disconnected")
+
+    def fake_request_history_klines(**kwargs):
+        calls.append(kwargs)
+        return [
+            Candle(
+                code="SH.000300",
+                market="SH",
+                period="day",
+                time=datetime(2026, 5, 20, tzinfo=timezone.utc),
+                open=3900,
+                high=3910,
+                low=3890,
+                close=3900,
+                volume=1,
+                turnover=1,
+            ),
+            Candle(
+                code="SH.000300",
+                market="SH",
+                period="day",
+                time=datetime(2026, 5, 21, tzinfo=timezone.utc),
+                open=3900,
+                high=3940,
+                low=3890,
+                close=3939,
+                volume=1,
+                turnover=1,
+            ),
+        ]
+
+    monkeypatch.setattr(fund_provider.httpx, "get", fail_get)
+    monkeypatch.setattr(
+        "app.services.futu_client.request_history_klines",
+        fake_request_history_klines,
+    )
+
+    provider = EastmoneyFundProvider()
+    points = provider.benchmark_history("hs300", limit=10)
+
+    assert len(points) == 2
+    assert points[-1].close == 3939
+    assert points[-1].daily_growth_rate == 1.0
+    assert points[-1].source == "futu"
+    assert calls[0]["code"] == "SH.000300"

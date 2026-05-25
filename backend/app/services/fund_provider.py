@@ -194,6 +194,25 @@ class EastmoneyFundProvider:
 
         today = datetime.now(CN_TZ).date()
         begin = today - timedelta(days=max(45, bounded_limit * 2 + 14))
+        try:
+            result = self._eastmoney_hs300_history(bounded_limit, begin)
+        except Exception as error:
+            try:
+                result = self._futu_hs300_history(bounded_limit, begin, today)
+            except Exception as fallback_error:
+                raise FundProviderError(str(error)) from fallback_error
+
+        self._benchmark_cache[cache_key] = (
+            now,
+            [item.model_copy() for item in result],
+        )
+        return result
+
+    def _eastmoney_hs300_history(
+        self,
+        limit: int,
+        begin: date,
+    ) -> list[FundBenchmarkPoint]:
         payload = self._get_json(
             "https://push2his.eastmoney.com/api/qt/stock/kline/get",
             params={
@@ -236,13 +255,48 @@ class EastmoneyFundProvider:
                     source=self.source,
                 )
             )
+        if not points:
+            raise FundProviderError("benchmark history response is empty")
+        return points[-limit:]
 
-        result = points[-bounded_limit:]
-        self._benchmark_cache[cache_key] = (
-            now,
-            [item.model_copy() for item in result],
+    def _futu_hs300_history(
+        self,
+        limit: int,
+        begin: date,
+        end: date,
+    ) -> list[FundBenchmarkPoint]:
+        from .futu_client import request_history_klines
+
+        candles = request_history_klines(
+            code="SH.000300",
+            period="day",
+            max_count=limit,
+            start=begin.isoformat(),
+            end=end.isoformat(),
         )
-        return result
+        points: list[FundBenchmarkPoint] = []
+        previous_close = 0.0
+        for candle in candles:
+            close = candle.close
+            change_rate = (
+                (close - previous_close) / previous_close * 100
+                if previous_close > 0
+                else 0.0
+            )
+            previous_close = close
+            points.append(
+                FundBenchmarkPoint(
+                    code="000300",
+                    name="沪深300",
+                    trade_date=candle.time.date(),
+                    close=close,
+                    daily_growth_rate=change_rate,
+                    source="futu",
+                )
+            )
+        if not points:
+            raise FundProviderError("benchmark history fallback response is empty")
+        return points[-limit:]
 
     def _get_json(
         self,
