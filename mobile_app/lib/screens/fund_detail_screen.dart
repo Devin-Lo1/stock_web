@@ -506,27 +506,34 @@ class _TrendLegend extends StatelessWidget {
   Widget build(BuildContext context) {
     final fundReturn = _fundReturn(points);
     final benchmarkReturn = _benchmarkReturn(benchmarks);
-    return Wrap(
-      spacing: 12,
-      runSpacing: 8,
-      children: [
-        _LegendItem(
-          color: const Color(0xFF4D7CFE),
-          label: '本基金',
-          value: fundReturn == null ? '--' : _percent(fundReturn),
+    return SizedBox(
+      width: double.infinity,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Row(
+          children: [
+            _LegendItem(
+              color: const Color(0xFF4D7CFE),
+              label: '本基金',
+              value: fundReturn == null ? '--' : _percent(fundReturn),
+            ),
+            const SizedBox(width: 10),
+            _LegendItem(
+              color: const Color(0xFFEA8A35),
+              label: '沪深300',
+              value: benchmarkReturn == null ? '--' : _percent(benchmarkReturn),
+            ),
+            const SizedBox(width: 10),
+            _LegendItem(
+              color: secondaryTextColor(context),
+              label: '成本价',
+              value: costNav > 0 ? costNav.toStringAsFixed(4) : '--',
+              dashed: true,
+            ),
+          ],
         ),
-        _LegendItem(
-          color: const Color(0xFFEA8A35),
-          label: '沪深300',
-          value: benchmarkReturn == null ? '--' : _percent(benchmarkReturn),
-        ),
-        _LegendItem(
-          color: secondaryTextColor(context),
-          label: '成本价',
-          value: costNav > 0 ? costNav.toStringAsFixed(4) : '--',
-          dashed: true,
-        ),
-      ],
+      ),
     );
   }
 }
@@ -550,22 +557,24 @@ class _LegendItem extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         CustomPaint(
-          size: const Size(18, 8),
+          size: const Size(14, 6),
           painter: _LegendLinePainter(color: color, dashed: dashed),
         ),
-        const SizedBox(width: 5),
+        const SizedBox(width: 4),
         Text(
           label,
           style: TextStyle(
             color: secondaryTextColor(context),
+            fontSize: 12,
             fontWeight: FontWeight.w800,
           ),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 3),
         Text(
           value,
           style: TextStyle(
             color: value.startsWith('--') ? secondaryTextColor(context) : color,
+            fontSize: 12,
             fontWeight: FontWeight.w900,
           ),
         ),
@@ -584,7 +593,7 @@ class _LegendLinePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = color
-      ..strokeWidth = 2.2
+      ..strokeWidth = 1.5
       ..strokeCap = StrokeCap.round;
     if (!dashed) {
       canvas.drawLine(
@@ -846,7 +855,7 @@ class _FundNavCurvePainter extends CustomPainter {
         benchmarkPath,
         Paint()
           ..color = _benchmarkColor
-          ..strokeWidth = 2
+          ..strokeWidth = 1.4
           ..style = PaintingStyle.stroke
           ..strokeCap = StrokeCap.round
           ..strokeJoin = StrokeJoin.round,
@@ -866,7 +875,7 @@ class _FundNavCurvePainter extends CustomPainter {
       fundPath,
       Paint()
         ..color = _fundColor
-        ..strokeWidth = 2.5
+        ..strokeWidth = 1.8
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round,
@@ -884,7 +893,7 @@ class _FundNavCurvePainter extends CustomPainter {
           ..color = _fundColor.withValues(alpha: 0.35)
           ..strokeWidth = 1,
       );
-      canvas.drawCircle(Offset(x, y), 4.5, Paint()..color = _fundColor);
+      canvas.drawCircle(Offset(x, y), 3.5, Paint()..color = _fundColor);
     }
 
     _drawText(canvas, _percent(maxValue), Offset(0, chart.top - 22));
@@ -985,7 +994,7 @@ class _FundNavCurvePainter extends CustomPainter {
     final markerPaint = Paint()..style = PaintingStyle.fill;
     final borderPaint = Paint()
       ..color = const Color(0xFFFFFFFF)
-      ..strokeWidth = 1.6
+      ..strokeWidth = 1.1
       ..style = PaintingStyle.stroke;
     for (final trade in trades) {
       final index = _nearestPointIndex(trade.tradeDate);
@@ -996,14 +1005,8 @@ class _FundNavCurvePainter extends CustomPainter {
           ? const Color(0xFFFF4D67)
           : const Color(0xFF20C997);
       markerPaint.color = color;
-      canvas.drawCircle(Offset(x, y), 5.5, markerPaint);
-      canvas.drawCircle(Offset(x, y), 5.5, borderPaint);
-      _drawText(
-        canvas,
-        trade.isBuy ? '买' : '卖',
-        Offset(x - 5, y - 22),
-        color: color,
-      );
+      canvas.drawCircle(Offset(x, y), 3.8, markerPaint);
+      canvas.drawCircle(Offset(x, y), 3.8, borderPaint);
     }
   }
 

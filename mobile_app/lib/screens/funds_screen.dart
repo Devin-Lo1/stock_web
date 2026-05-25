@@ -148,9 +148,8 @@ class _FundsScreenState extends State<FundsScreen> {
       case _FundSyncAction.recurring:
         await _trade(summary, 'buy', operationLabel: '同步定投');
         break;
-      case _FundSyncAction.convert:
       case _FundSyncAction.batch:
-        if (mounted) _showSnack('转换和批量同步入口已预留，当前先用加仓/减仓记录迁移。');
+        if (mounted) _showSnack('批量同步入口已预留，当前先用加仓/减仓记录迁移。');
         break;
     }
   }
@@ -989,7 +988,7 @@ class _SmallSignalBadge extends StatelessWidget {
   }
 }
 
-enum _FundSyncAction { correct, buy, sell, recurring, convert, batch }
+enum _FundSyncAction { correct, buy, sell, recurring, batch }
 
 class _FundSyncActionSheet extends StatelessWidget {
   const _FundSyncActionSheet({required this.summary});
@@ -1058,11 +1057,6 @@ class _FundSyncActionSheet extends StatelessWidget {
                 color: appAccentColor(context),
                 onTap: () =>
                     Navigator.of(context).pop(_FundSyncAction.recurring),
-              ),
-              _SyncActionTile(
-                label: '同步转换',
-                color: appAccentColor(context),
-                onTap: () => Navigator.of(context).pop(_FundSyncAction.convert),
               ),
             ],
           ),
