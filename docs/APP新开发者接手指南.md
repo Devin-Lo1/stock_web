@@ -27,7 +27,7 @@ docs/APP服务器部署与Futu交接说明.md
 1. 按 `docs/APP服务器部署与Futu交接说明.md` 检查服务器 systemd、Nginx、PostgreSQL、备份和防火墙。
 2. 确认 `futu-opend`、`stock-web-backend`、`nginx`、`postgresql` 均为 active。
 3. 继续保持 FutuOpenD 的 `11111` 和 `22222` 只监听 `127.0.0.1`，禁止暴露公网。
-4. 后续公网使用前补后端访问保护和 HTTPS。
+4. 公网 API 已启用 `API_ACCESS_TOKEN` 简单访问保护；后续继续补域名、HTTPS、登录态和限流。
 
 注意：本文后面保留了局域网真机调试历史说明；现在若面向云服务器真机包，必须用 `--dart-define=API_BASE_URL=http://119.91.47.141` 重新构建 APK。
 

@@ -28,8 +28,8 @@ dcdce44 feat: protect public api with token
 
 新增架构风险：
 
-1. 公网 API 暂无完整访问保护，后续要补 token 或登录态。
-2. HTTP 暂未上 HTTPS，后续绑定域名后配置证书。
+1. 公网 API 已启用 `API_ACCESS_TOKEN` 简单 token 保护，但还不是完整登录态；后续要补账号体系、限流和更细权限。
+2. HTTP 暂未上 HTTPS，token 仍可能在不可信网络中被抓包；后续绑定域名后配置证书。
 3. FutuOpenD 不应直接暴露公网，若放在家用电脑，应通过 Tailscale/WireGuard/SSH 隧道让云服务器访问。
 4. 数据库密码曾在调试聊天中出现，生产使用前建议轮换。
 
