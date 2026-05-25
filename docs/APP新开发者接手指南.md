@@ -5,7 +5,7 @@
 当前代码功能基线：
 
 ```text
-2f0e13d chore: add server database backup scripts
+7d1797b chore: add futu opend login config helper
 ```
 
 本文档给新开发者使用。目标是：读完 `docs/` 后能知道当前项目做到哪、不能做什么、下一步从哪里开始。
@@ -20,13 +20,13 @@ docs/APP服务器部署与Futu交接说明.md
 
 最近项目发生了部署形态变化：App 已从局域网后端切到腾讯云轻量服务器公网后端，当前公网 API 为 `http://119.91.47.141`，服务器路径为 `/home/ubuntu/stock_web`，后端由 Nginx 反代到 FastAPI，数据库为服务器本机 PostgreSQL。
 
-当前 App 显示 Futu 接口不可用的主要原因：云服务器没有运行 FutuOpenD，且后端默认连接 `127.0.0.1:11111`。这只影响股票实时行情、K 线刷新、股票搜索、资金流向和依赖新行情的策略扫描，不代表后端整体离线；基金功能和数据库功能不依赖 Futu。
+2026-05-25 已在云服务器本机部署并登录命令行 FutuOpenD，服务名为 `futu-opend`，只监听 `127.0.0.1:11111` 和本机运维口 `127.0.0.1:22222`。后端通过 `FUTU_HOST=127.0.0.1`、`FUTU_PORT=11111` 访问 FutuOpenD；公网 `/api/v1/futu/health` 已验证返回 `status=ok`、`program_status_type=READY`。若后续 App 再次显示 Futu 不可用，优先检查 `futu-opend` 是否运行、富途账号是否仍登录、以及 `11111` 是否仍只在本机监听。
 
 下一位开发者优先做：
 
 1. 按 `docs/APP服务器部署与Futu交接说明.md` 检查服务器 systemd、Nginx、PostgreSQL、备份和防火墙。
-2. 决定 FutuOpenD 部署方式：云服务器本机、家里电脑通过安全隧道访问，或独立行情节点。
-3. 在恢复股票实时行情前，不要把 FutuOpenD 的 `11111` 端口直接暴露到公网。
+2. 确认 `futu-opend`、`stock-web-backend`、`nginx`、`postgresql` 均为 active。
+3. 继续保持 FutuOpenD 的 `11111` 和 `22222` 只监听 `127.0.0.1`，禁止暴露公网。
 4. 后续公网使用前补后端访问保护和 HTTPS。
 
 注意：本文后面保留了局域网真机调试历史说明；现在若面向云服务器真机包，必须用 `--dart-define=API_BASE_URL=http://119.91.47.141` 重新构建 APK。

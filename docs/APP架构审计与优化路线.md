@@ -5,7 +5,7 @@
 当前 Git 基线：
 
 ```text
-2f0e13d chore: add server database backup scripts
+7d1797b chore: add futu opend login config helper
 ```
 
 本文档记录项目代码和 docs 的结构扫描结论，用于后续一步步优化项目框架结构。后续新增功能前，应先阅读：
@@ -23,7 +23,7 @@
 
 - App -> 腾讯云公网 API -> Nginx -> FastAPI -> PostgreSQL。
 - 场外基金 provider 独立于 Futu，可以在云端继续工作。
-- FutuOpenD 仍是股票行情链路的外部依赖。云服务器没有运行 FutuOpenD 时，股票实时行情、K 线刷新、股票搜索、资金流向和依赖新行情的策略扫描不可用。
+- FutuOpenD 仍是股票行情链路的外部依赖。2026-05-25 已在云服务器本机部署 `futu-opend`，只监听 `127.0.0.1:11111` 和 `127.0.0.1:22222`，公网 `/api/v1/futu/health` 已验证 `status=ok`、`program_status_type=READY`。若该服务停止，股票实时行情、K 线刷新、股票搜索、资金流向和依赖新行情的策略扫描会不可用。
 - 后端已支持通过 `FUTU_HOST`、`FUTU_PORT`、`FUTU_CONNECT_TIMEOUT_SECONDS` 配置 FutuOpenD 地址。
 
 新增架构风险：

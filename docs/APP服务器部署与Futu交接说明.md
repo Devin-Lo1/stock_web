@@ -24,9 +24,9 @@
 本地最近功能基线：
 
 ```text
-2f0e13d chore: add server database backup scripts
-2de2e0b chore: add backend deploy helper
-255e127 feat: rebuild fund holdings from trade history
+7d1797b chore: add futu opend login config helper
+518d8e2 chore: enable local futu opend telnet control
+0c3956c chore: add futu opend server install helper
 ```
 
 ## 2. 当前 App 连接方式
@@ -43,33 +43,40 @@ adb install -r build\app\outputs\flutter-apk\app-debug.apk
 
 如果后续改回局域网调试，再使用 `scripts/build_mobile_lan_debug.ps1`。不要裸跑 `flutter build apk --debug`，否则真机可能回退到 `127.0.0.1:8000`。
 
-## 3. 为什么 App 显示 Futu 接口不可用
+## 3. 当前 FutuOpenD 状态
 
-这是当前云端部署后的预期问题，不代表后端整体挂了。
+2026-05-25 已在云服务器本机部署命令行 FutuOpenD，并使用富途账号 ID 登录成功。
 
-原因：
+当前状态：
 
-- App 已连接云服务器。
-- 后端 Futu 客户端默认连接 `FUTU_HOST=127.0.0.1`、`FUTU_PORT=11111`。
-- 这表示云服务器会连接“云服务器本机”的 FutuOpenD。
-- 当前云服务器没有运行 FutuOpenD，也没有配置可达的远程 FutuOpenD，所以 `/api/v1/futu/*`、股票实时行情刷新、K 线刷新、股票搜索和依赖新行情的策略扫描会提示 Futu 不可用。
+- systemd 服务：`futu-opend`
+- OpenD 安装目录：`/opt/futu-opend`
+- 本机配置文件：`/etc/futu-opend/FutuOpenD.xml`
+- API 监听：`127.0.0.1:11111`
+- telnet 运维口：`127.0.0.1:22222`
+- 后端 `.env`：`FUTU_HOST=127.0.0.1`、`FUTU_PORT=11111`、`FUTU_CONNECT_TIMEOUT_SECONDS=2`
+- 已验证：`http://119.91.47.141/api/v1/futu/health` 返回 `status=ok`、`program_status_type=READY`
+- 已验证：`/api/v1/futu/quote?code=HK.00700` 可返回真实行情
 
-不受影响的部分：
+安全边界：
 
-- `/health`
-- PostgreSQL
-- 持仓和基金数据库读写
-- 场外基金数据源、基金净值、基金估算、基金提醒
-- 已缓存行情的只读展示
+- FutuOpenD 的 `11111` 和 `22222` 端口只允许监听 `127.0.0.1`。
+- UFW 只开放 `22/tcp` 和 `80/tcp`。
+- 不要把 `/etc/futu-opend/FutuOpenD.xml` 提交到 Git；该文件包含本机登录配置。
+- 不要把富途账号密码、`.env`、数据库密码或 SSH 私钥写入文档、聊天记录和 Git。
 
-## 4. Futu 后续方案
+若 App 后续再次显示 Futu 不可用，优先检查：
 
-短期可接受方案：
+```bash
+systemctl status futu-opend --no-pager
+sudo ss -ltnp | grep -E ':(11111|22222)'
+curl -sS http://127.0.0.1:8000/api/v1/futu/health
+curl -sS http://119.91.47.141/api/v1/futu/health
+```
 
-- 云服务器先用于基金、数据库、App 远程访问和后端联调。
-- 股票实时行情相关能力显示 Futu 不可用或使用缓存。
+## 4. Futu 维护方案
 
-推荐方案：
+当前采用方案：
 
 1. 保持 Flutter 只连接 FastAPI，不直接连接 FutuOpenD。
 2. 在 `.env` 中配置：
@@ -80,16 +87,13 @@ FUTU_PORT=11111
 FUTU_CONNECT_TIMEOUT_SECONDS=2
 ```
 
-3. 决定 FutuOpenD 放在哪里：
-   - 放云服务器本机：需要确认 FutuOpenD 对当前系统的支持、登录方式和长期运行稳定性。
-   - 放家里 Windows 电脑：用 Tailscale/WireGuard/SSH 隧道让云服务器访问它。
-   - 独立行情节点：后续把 Futu 数据采集从 API 服务拆出去。
+3. FutuOpenD 放云服务器本机，并由 `futu-opend` systemd 服务托管。
 4. 不要把 `11111` 端口直接暴露到公网。
 5. Nginx、云防火墙和 UFW 只开放必要端口：当前建议 `22`、`80`，后续上 HTTPS 后开放 `443`。
 
 ### 4.1 云服务器本机 FutuOpenD 安装步骤
 
-当前优先方案是先尝试在云服务器本机运行命令行 FutuOpenD，并只监听本机地址：
+如需重装或迁移，可重新使用安装脚本。FutuOpenD 必须只监听本机地址：
 
 ```text
 127.0.0.1:11111
@@ -197,28 +201,29 @@ curl -sS http://119.91.47.141/health
 3. PostgreSQL 备份 timer 是否安装并生成备份。
 4. UFW 和腾讯云防火墙是否只开放必要端口。
 5. 服务器 `.env` 是否只存在服务器本地，且没有进入 Git。
-6. 数据库密码是否需要轮换；此前调试中密码曾在聊天中出现，生产使用前建议重置。
+6. `futu-opend` 是否 active，且 `11111`、`22222` 是否只监听 `127.0.0.1`。
+7. 数据库密码是否需要轮换；此前调试中密码曾在聊天中出现，生产使用前建议重置。
 
 检查命令：
 
 ```bash
 systemctl status stock-web-backend --no-pager
+systemctl status futu-opend --no-pager
 systemctl status nginx --no-pager
 systemctl status postgresql --no-pager
 systemctl list-timers | grep stock-web
 ls -lh /home/ubuntu/stock_web_backups
 sudo ufw status verbose
+sudo ss -ltnp | grep -E ':(80|8000|11111|22222|5432)'
 ```
 
 ## 7. 下一步开发顺序
 
-1. 先确认服务器基础链路：`health`、PostgreSQL、Nginx、systemd、备份、UFW。
-2. 处理 FutuOpenD 远程方案：本机安装、隧道访问或独立行情节点三选一。
-3. 增加后端访问保护：至少先加简单 token 或登录态，避免公网 API 被随便调用。
-4. 购买或绑定域名后配置 HTTPS；没有 HTTPS 前不要把敏感功能开放给陌生网络。
-5. 真机验证云端 App：基金主页、基金详情、基金交易记录、基金提醒 scheduler、股票持仓缓存展示。
-6. 股票实时行情恢复后，再验证股票搜索、K 线刷新、资金流向、单股策略监控和信号扫描。
-7. 继续完善基金历史记录迁移：按养基宝规则核对历史买入/卖出日期、三点前后确认日、费率、份额和成本净值重建。
+1. 给公网 API 增加访问保护：至少先加简单 token 或登录态，避免公网 API 被随便调用。
+2. 购买或绑定域名后配置 HTTPS；没有 HTTPS 前不要把敏感功能开放给陌生网络。
+3. 持续真机验证云端 App：基金主页、基金详情、基金交易记录、基金提醒 scheduler、股票持仓缓存展示。
+4. 股票实时行情已恢复，继续回归股票搜索、K 线刷新、资金流向、单股策略监控和信号扫描。
+5. 继续完善基金历史记录迁移：按养基宝规则核对历史买入/卖出日期、三点前后确认日、费率、份额和成本净值重建。
 
 ## 8. 交接提醒
 

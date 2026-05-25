@@ -21,12 +21,12 @@ docs/APP服务器部署与Futu交接说明.md
 - 已新增 `scripts/deploy_backend.sh`，用于服务器 `git pull` 后重启后端并检查状态。
 - 已新增 PostgreSQL 备份脚本和 timer 安装脚本。
 - Futu 连接参数已从硬编码改为环境变量：`FUTU_HOST`、`FUTU_PORT`、`FUTU_CONNECT_TIMEOUT_SECONDS`。
-- 当前 Futu 不可用的原因是云服务器没有运行可达的 FutuOpenD，不代表后端整体离线。
+- 已在云服务器本机部署并登录命令行 FutuOpenD，systemd 服务为 `futu-opend`，只监听 `127.0.0.1:11111` 和 `127.0.0.1:22222`。
 
 当前下一步：
 
 1. 先确认服务器 systemd、Nginx、PostgreSQL、备份 timer、UFW 和腾讯云防火墙。
-2. 决定 FutuOpenD 方案：云服务器本机、家里电脑安全隧道、或独立行情节点。
+2. 持续确认 FutuOpenD 服务状态和本机监听安全边界，公网 `/api/v1/futu/health` 应返回 `status=ok`。
 3. 公网 API 加访问保护，再上域名和 HTTPS。
 4. 真机继续核对基金历史交易迁移、养基宝规则、三点前后确认日、费率、份额/金额换算。
 
