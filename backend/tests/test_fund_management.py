@@ -5,6 +5,7 @@ from app.repositories.funds import (
     create_fund_trade_for_position,
     get_fund_position,
     list_fund_trades,
+    sync_fund_position_holding,
     upsert_fund_navs,
 )
 from app.repositories.fund_alert_scheduler import (
@@ -16,6 +17,7 @@ from app.schemas import (
     FundAlertSchedulerUpdate,
     FundNavPoint,
     FundPositionCreate,
+    FundPositionHoldingSync,
     FundQuote,
     FundTradeCreate,
 )
@@ -79,6 +81,47 @@ def test_fund_position_buy_sell_and_summary() -> None:
     assert round(summaries[0].market_value, 2) == 1120
     assert summaries[0].latest_nav is not None
     assert summaries[0].latest_nav.unit_nav == 1.4
+
+
+def test_fund_position_holding_sync_replaces_bad_import_trade() -> None:
+    position = create_fund_position(
+        FundPositionCreate(
+            fund_code="022365",
+            name="Yongying Tech",
+            fund_type="mixed",
+            shares=10000,
+            cost_nav=22,
+            trade_date=date(2026, 5, 23),
+        ),
+    )
+    create_fund_trade_for_position(
+        position,
+        FundTradeCreate(
+            action="buy",
+            shares=1000,
+            nav=4.8,
+            trade_date=date(2026, 5, 24),
+        ),
+    )
+
+    synced = sync_fund_position_holding(
+        get_fund_position(position.id) or position,
+        FundPositionHoldingSync(
+            shares=14139.33,
+            cost_nav=4.864,
+            trade_date=date(2026, 5, 25),
+            note="sync current holding",
+        ),
+    )
+    trades = list_fund_trades(position_id=position.id, limit=10)
+
+    assert round(synced.shares, 2) == 14139.33
+    assert synced.avg_cost_nav == 4.864
+    assert round(synced.invested_amount, 2) == round(14139.33 * 4.864, 2)
+    assert synced.realized_profit == 0
+    assert len(trades) == 1
+    assert trades[0].nav == 4.864
+    assert trades[0].note == "sync current holding"
 
 
 def test_fund_trades_can_be_listed_by_position() -> None:

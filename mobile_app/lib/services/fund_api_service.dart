@@ -145,6 +145,17 @@ class FundApiService {
     return FundPosition.fromJson(payload as Map<String, dynamic>);
   }
 
+  Future<FundPosition> syncPositionHolding(
+    String positionId,
+    FundHoldingSyncDraft draft,
+  ) async {
+    final payload = await _client.put(
+      '/api/v1/funds/positions/$positionId/holding',
+      draft.toJson(),
+    );
+    return FundPosition.fromJson(payload as Map<String, dynamic>);
+  }
+
   Future<void> createTrade(String positionId, FundTradeDraft draft) async {
     await _client.post(
       '/api/v1/funds/positions/$positionId/trades',

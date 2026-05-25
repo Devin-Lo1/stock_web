@@ -136,6 +136,9 @@ class _FundsScreenState extends State<FundsScreen> {
     );
     if (action == null) return;
     switch (action) {
+      case _FundSyncAction.correct:
+        await _syncCurrentHolding(summary);
+        break;
       case _FundSyncAction.buy:
         await _trade(summary, 'buy', operationLabel: '同步加仓');
         break;
@@ -149,6 +152,26 @@ class _FundsScreenState extends State<FundsScreen> {
       case _FundSyncAction.batch:
         if (mounted) _showSnack('转换和批量同步入口已预留，当前先用加仓/减仓记录迁移。');
         break;
+    }
+  }
+
+  Future<void> _syncCurrentHolding(FundPositionSummary summary) async {
+    final draft = await showModalBottomSheet<FundHoldingSyncDraft>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: cardColor(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+      ),
+      builder: (context) => _FundHoldingSyncSheet(summary: summary),
+    );
+    if (draft == null) return;
+    try {
+      await widget.repository.syncPositionHolding(summary.position.id, draft);
+      await _load(refresh: true, showSpinner: true);
+    } catch (error) {
+      if (mounted) _showSnack('修正持仓失败：$error');
     }
   }
 
@@ -966,7 +989,7 @@ class _SmallSignalBadge extends StatelessWidget {
   }
 }
 
-enum _FundSyncAction { buy, sell, recurring, convert, batch }
+enum _FundSyncAction { correct, buy, sell, recurring, convert, batch }
 
 class _FundSyncActionSheet extends StatelessWidget {
   const _FundSyncActionSheet({required this.summary});
@@ -1015,6 +1038,11 @@ class _FundSyncActionSheet extends StatelessWidget {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             children: [
+              _SyncActionTile(
+                label: '修正当前持仓',
+                color: appAccentColor(context),
+                onTap: () => Navigator.of(context).pop(_FundSyncAction.correct),
+              ),
               _SyncActionTile(
                 label: '同步加仓',
                 color: const Color(0xFFFF4D67),
@@ -1130,6 +1158,201 @@ class _SyncMetricItem {
 
   final String label;
   final String value;
+}
+
+class _FundHoldingSyncSheet extends StatefulWidget {
+  const _FundHoldingSyncSheet({required this.summary});
+
+  final FundPositionSummary summary;
+
+  @override
+  State<_FundHoldingSyncSheet> createState() => _FundHoldingSyncSheetState();
+}
+
+class _FundHoldingSyncSheetState extends State<_FundHoldingSyncSheet> {
+  late final TextEditingController _amountController;
+  late final TextEditingController _sharesController;
+  late final TextEditingController _holdingProfitController;
+  bool _useAmount = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _amountController = TextEditingController(
+      text: widget.summary.marketValue > 0
+          ? widget.summary.marketValue.toStringAsFixed(2)
+          : '',
+    );
+    _sharesController = TextEditingController(
+      text: widget.summary.position.shares > 0
+          ? widget.summary.position.shares.toStringAsFixed(2)
+          : '',
+    );
+    _holdingProfitController = TextEditingController(
+      text: widget.summary.holdingProfit == 0
+          ? ''
+          : widget.summary.holdingProfit.toStringAsFixed(2),
+    );
+    _amountController.addListener(_rebuild);
+    _sharesController.addListener(_rebuild);
+    _holdingProfitController.addListener(_rebuild);
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _sharesController.dispose();
+    _holdingProfitController.dispose();
+    super.dispose();
+  }
+
+  void _rebuild() {
+    if (mounted) setState(() {});
+  }
+
+  double get _latestNav => widget.summary.displayNav;
+
+  DateTime get _tradeDate =>
+      widget.summary.latestNav?.navDate ?? DateTime.now();
+
+  void _submit() {
+    final values = _resolvedValues();
+    if (values == null) return;
+    Navigator.of(context).pop(
+      FundHoldingSyncDraft(
+        shares: values.shares,
+        costNav: values.costNav,
+        tradeDate: _tradeDate,
+        note: [
+          '修正当前持仓',
+          '持有金额 ${values.amount.toStringAsFixed(2)}',
+          '持有收益 ${values.holdingProfit.toStringAsFixed(2)}',
+          '参考净值 ${_latestNav.toStringAsFixed(4)}',
+        ].join('；'),
+      ),
+    );
+  }
+
+  _FundHoldingSyncValues? _resolvedValues() {
+    final nav = _latestNav;
+    if (nav <= 0) return null;
+    final holdingProfit = double.tryParse(_holdingProfitController.text.trim());
+    if (holdingProfit == null) return null;
+    double amount;
+    double shares;
+    if (_useAmount) {
+      amount = double.tryParse(_amountController.text.trim()) ?? 0;
+      if (amount <= 0) return null;
+      shares = amount / nav;
+    } else {
+      shares = double.tryParse(_sharesController.text.trim()) ?? 0;
+      if (shares <= 0) return null;
+      amount = shares * nav;
+    }
+    final costNav = (amount - holdingProfit) / shares;
+    if (costNav <= 0) return null;
+    return _FundHoldingSyncValues(
+      amount: amount,
+      holdingProfit: holdingProfit,
+      shares: shares,
+      costNav: costNav,
+    );
+  }
+
+  String _previewText() {
+    final values = _resolvedValues();
+    if (values == null) return '';
+    return '修正后份额 ${values.shares.toStringAsFixed(2)} · 成本净值 ${values.costNav.toStringAsFixed(4)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final preview = _previewText();
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
+      ),
+      child: ListView(
+        shrinkWrap: true,
+        children: [
+          _SheetTitle(
+            title: '修正当前持仓',
+            onClose: () => Navigator.of(context).pop(),
+          ),
+          const SizedBox(height: 8),
+          _NoticeBox(text: '用于修正从其他平台同步来的当前持仓。保存后会用这一笔修正记录替换旧的导入交易记录。'),
+          const SizedBox(height: 12),
+          _FundTradeSummaryCard(summary: widget.summary),
+          const SizedBox(height: 12),
+          _SyncMetricGrid(
+            items: [
+              _SyncMetricItem('最新净值', _latestNav.toStringAsFixed(4)),
+              _SyncMetricItem('净值日期', _dateOnlyText(_tradeDate)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(
+                value: true,
+                icon: Icon(Icons.payments_rounded),
+                label: Text('金额'),
+              ),
+              ButtonSegment(
+                value: false,
+                icon: Icon(Icons.tag_rounded),
+                label: Text('份额'),
+              ),
+            ],
+            selected: {_useAmount},
+            onSelectionChanged: (value) {
+              setState(() => _useAmount = value.first);
+            },
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _useAmount ? _amountController : _sharesController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              labelText: _useAmount ? '持有金额' : '持有份额',
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _holdingProfitController,
+            keyboardType: const TextInputType.numberWithOptions(
+              decimal: true,
+              signed: true,
+            ),
+            decoration: const InputDecoration(
+              labelText: '持有收益',
+              helperText: '按其他平台显示的当前持有收益填写，亏损填负数。',
+            ),
+          ),
+          if (preview.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              preview,
+              style: TextStyle(
+                color: secondaryTextColor(context),
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: _resolvedValues() == null ? null : _submit,
+            icon: const Icon(Icons.check_rounded),
+            label: const Text('确认修正'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _FundAddSheet extends StatefulWidget {
@@ -2280,6 +2503,20 @@ class _FundCreateValues {
   final double fee;
   final double amount;
   final double? holdingProfit;
+}
+
+class _FundHoldingSyncValues {
+  const _FundHoldingSyncValues({
+    required this.amount,
+    required this.holdingProfit,
+    required this.shares,
+    required this.costNav,
+  });
+
+  final double amount;
+  final double holdingProfit;
+  final double shares;
+  final double costNav;
 }
 
 class _FundTradeValues {

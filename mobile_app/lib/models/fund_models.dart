@@ -153,6 +153,38 @@ class FundAlertSettingsDraft {
   }
 }
 
+class FundHoldingSyncDraft {
+  const FundHoldingSyncDraft({
+    required this.shares,
+    required this.costNav,
+    this.fee = 0,
+    this.tradeDate,
+    this.operationDate,
+    this.operationAfterCutoff = false,
+    this.note = '',
+  });
+
+  final double shares;
+  final double costNav;
+  final double fee;
+  final DateTime? tradeDate;
+  final DateTime? operationDate;
+  final bool operationAfterCutoff;
+  final String note;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'shares': shares,
+      'cost_nav': costNav,
+      'fee': fee,
+      if (tradeDate != null) 'trade_date': _dateString(tradeDate!),
+      if (operationDate != null) 'operation_date': _dateString(operationDate!),
+      'operation_after_cutoff': operationAfterCutoff,
+      if (note.isNotEmpty) 'note': note,
+    };
+  }
+}
+
 class FundAlertSchedulerStatus {
   const FundAlertSchedulerStatus({
     required this.enabled,

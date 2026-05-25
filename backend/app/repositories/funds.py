@@ -7,6 +7,7 @@ from ..schemas import (
     FundNavPoint,
     FundPosition,
     FundPositionCreate,
+    FundPositionHoldingSync,
     FundPositionUpdate,
     FundTrade,
     FundTradeCreate,
@@ -170,6 +171,60 @@ def update_fund_position(
                 updated.alert_threshold_percent,
                 updated.alert_buy_amount,
                 updated.alert_sell_ratio,
+                _datetime_to_text(updated.updated_at),
+                updated.id,
+            ),
+        )
+    return updated
+
+
+def sync_fund_position_holding(
+    position: FundPosition,
+    payload: FundPositionHoldingSync,
+) -> FundPosition:
+    trade = _build_fund_trade(
+        position,
+        FundTradeCreate(
+            action="buy",
+            shares=payload.shares,
+            nav=payload.cost_nav,
+            fee=payload.fee,
+            trade_date=payload.trade_date,
+            operation_date=payload.operation_date,
+            operation_after_cutoff=payload.operation_after_cutoff,
+            note=payload.note,
+        ),
+    )
+    updated = position.model_copy(
+        update={
+            "shares": trade.shares,
+            "avg_cost_nav": (trade.shares * trade.nav + trade.fee) / trade.shares,
+            "invested_amount": trade.shares * trade.nav + trade.fee,
+            "realized_profit": 0,
+            "updated_at": _now(),
+        },
+    )
+    with _connect() as connection:
+        connection.execute(
+            "DELETE FROM fund_trades WHERE fund_position_id = ?",
+            (position.id,),
+        )
+        _insert_fund_trade(connection, trade)
+        connection.execute(
+            """
+            UPDATE fund_positions
+            SET shares = ?,
+                avg_cost_nav = ?,
+                invested_amount = ?,
+                realized_profit = ?,
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                updated.shares,
+                updated.avg_cost_nav,
+                updated.invested_amount,
+                updated.realized_profit,
                 _datetime_to_text(updated.updated_at),
                 updated.id,
             ),

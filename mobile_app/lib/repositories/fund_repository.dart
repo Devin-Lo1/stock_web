@@ -81,6 +81,13 @@ class FundRepository {
     return _apiService.updateAlertSettings(positionId, draft);
   }
 
+  Future<FundPosition> syncPositionHolding(
+    String positionId,
+    FundHoldingSyncDraft draft,
+  ) {
+    return _apiService.syncPositionHolding(positionId, draft);
+  }
+
   Future<void> createTrade(String positionId, FundTradeDraft draft) {
     return _apiService.createTrade(positionId, draft);
   }

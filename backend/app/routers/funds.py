@@ -12,6 +12,7 @@ from ..repositories.funds import (
     list_fund_navs,
     list_fund_positions,
     list_fund_trades,
+    sync_fund_position_holding,
     update_fund_position,
     upsert_fund_navs,
 )
@@ -23,6 +24,7 @@ from ..schemas import (
     FundAlertSchedulerUpdate,
     FundPosition,
     FundPositionCreate,
+    FundPositionHoldingSync,
     FundPositionSummary,
     FundPositionUpdate,
     FundQuote,
@@ -169,6 +171,25 @@ def api_update_fund_position(
     if position is None:
         raise not_found_error("基金持仓不存在", position_id=position_id)
     return update_fund_position(position, payload)
+
+
+@router.put("/positions/{position_id}/holding", response_model=FundPosition)
+def api_sync_fund_position_holding(
+    position_id: str,
+    payload: FundPositionHoldingSync,
+) -> FundPosition:
+    position = get_fund_position(position_id)
+    if position is None:
+        raise not_found_error("基金持仓不存在", position_id=position_id)
+    try:
+        return sync_fund_position_holding(position, payload)
+    except FundTradeError as error:
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "FUND_HOLDING_SYNC_INVALID",
+            str(error),
+            {"position_id": position_id},
+        ) from error
 
 
 @router.delete("/positions/{position_id}", status_code=status.HTTP_204_NO_CONTENT)

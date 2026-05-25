@@ -187,6 +187,45 @@ void main() {
     expect(trades.single.nav, 1.2);
   });
 
+  test('syncPositionHolding replaces imported holding snapshot', () async {
+    late String method;
+    late Uri requestedUri;
+    late Map<String, dynamic> requestBody;
+    final service = FundApiService(
+      ApiClient(
+        baseUrl: 'http://test.local',
+        httpClient: MockClient((request) async {
+          method = request.method;
+          requestedUri = request.url;
+          requestBody = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(
+            '{"id":"position-1","fund_code":"000001","name":"Fund A",'
+            '"fund_type":"mixed","shares":100,"avg_cost_nav":1.2,'
+            '"invested_amount":120,"realized_profit":0,"currency":"CNY"}',
+            200,
+          );
+        }),
+      ),
+    );
+
+    await service.syncPositionHolding(
+      'position-1',
+      FundHoldingSyncDraft(
+        shares: 100,
+        costNav: 1.2,
+        tradeDate: DateTime(2026, 5, 25),
+        note: 'correct import',
+      ),
+    );
+
+    expect(method, 'PUT');
+    expect(requestedUri.path, '/api/v1/funds/positions/position-1/holding');
+    expect(requestBody['shares'], 100);
+    expect(requestBody['cost_nav'], 1.2);
+    expect(requestBody['trade_date'], '2026-05-25');
+    expect(requestBody['note'], 'correct import');
+  });
+
   test('fetchHs300Benchmark reads benchmark points', () async {
     late Uri requestedUri;
     final service = FundApiService(

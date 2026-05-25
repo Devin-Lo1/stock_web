@@ -81,6 +81,16 @@ class FundPositionUpdate(BaseModel):
     alert_sell_ratio: float | None = Field(default=None, gt=0, le=1)
 
 
+class FundPositionHoldingSync(BaseModel):
+    shares: float = Field(gt=0)
+    cost_nav: float = Field(gt=0)
+    fee: float = Field(default=0, ge=0)
+    trade_date: date | None = None
+    operation_date: date | None = None
+    operation_after_cutoff: bool = False
+    note: str = Field(default="", max_length=500)
+
+
 class FundPosition(BaseModel):
     id: str
     fund_code: str
