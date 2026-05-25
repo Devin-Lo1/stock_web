@@ -7,6 +7,7 @@ CONFIG_FILE="${CONFIG_FILE:-$CONFIG_DIR/FutuOpenD.xml}"
 SERVICE_USER="${SERVICE_USER:-ubuntu}"
 API_IP="${API_IP:-127.0.0.1}"
 API_PORT="${API_PORT:-11111}"
+TELNET_PORT="${TELNET_PORT:-22222}"
 BACKEND_ENV="${BACKEND_ENV:-/home/ubuntu/stock_web/backend/.env}"
 START_SERVICE="${START_SERVICE:-false}"
 
@@ -136,6 +137,7 @@ exec "$INSTALL_DIR/$binary_name" \\
   -api_ip="$API_IP" \\
   -api_port="$API_PORT" \\
   -telnet_ip="127.0.0.1" \\
+  -telnet_port="$TELNET_PORT" \\
   -websocket_ip="127.0.0.1" \\
   -lang="chs" \\
   -console=1 \\
@@ -188,7 +190,7 @@ Next steps on the server:
   3. Start service:
        sudo systemctl enable --now futu-opend
   4. Verify local-only listening:
-       sudo ss -ltnp | grep ':$API_PORT'
+       sudo ss -ltnp | grep -E ':($API_PORT|$TELNET_PORT)'
   5. Restart backend:
        sudo systemctl restart stock-web-backend
        curl -sS http://127.0.0.1:8000/api/v1/futu/health

@@ -121,6 +121,7 @@ FUTU_OPEND_ARCHIVE=/tmp/FutuOpenD_Ubuntu.tar.gz bash scripts/install_futu_opend_
 - 将 OpenD 文件放到 `/opt/futu-opend`。
 - 将本机配置文件放到 `/etc/futu-opend/FutuOpenD.xml`。
 - 创建 `futu-opend` systemd 服务。
+- 让 OpenD API 口只监听 `127.0.0.1:11111`，运维命令口只监听 `127.0.0.1:22222`。
 - 确保后端 `.env` 中有 `FUTU_HOST=127.0.0.1`、`FUTU_PORT=11111`、`FUTU_CONNECT_TIMEOUT_SECONDS=2`。
 
 随后在服务器本机编辑：
@@ -136,13 +137,13 @@ sudo nano /etc/futu-opend/FutuOpenD.xml
 ```bash
 sudo systemctl enable --now futu-opend
 sudo systemctl status futu-opend --no-pager
-sudo ss -ltnp | grep ':11111'
+sudo ss -ltnp | grep -E ':(11111|22222)'
 sudo systemctl restart stock-web-backend
 curl -sS http://127.0.0.1:8000/api/v1/futu/health
 curl -sS http://119.91.47.141/api/v1/futu/health
 ```
 
-`ss` 结果必须确认 FutuOpenD 只监听 `127.0.0.1:11111`，不能出现 `0.0.0.0:11111` 或公网网卡地址监听。若出现公网监听，立即停止服务并修正配置：
+`ss` 结果必须确认 FutuOpenD 只监听 `127.0.0.1:11111` 和 `127.0.0.1:22222`，不能出现 `0.0.0.0:11111`、`0.0.0.0:22222` 或公网网卡地址监听。若出现公网监听，立即停止服务并修正配置：
 
 ```bash
 sudo systemctl stop futu-opend
