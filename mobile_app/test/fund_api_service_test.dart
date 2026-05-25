@@ -214,6 +214,8 @@ void main() {
         shares: 100,
         costNav: 1.2,
         tradeDate: DateTime(2026, 5, 25),
+        operationDate: DateTime(2026, 5, 22),
+        operationAfterCutoff: true,
         note: 'correct import',
       ),
     );
@@ -223,6 +225,8 @@ void main() {
     expect(requestBody['shares'], 100);
     expect(requestBody['cost_nav'], 1.2);
     expect(requestBody['trade_date'], '2026-05-25');
+    expect(requestBody['operation_date'], '2026-05-22');
+    expect(requestBody['operation_after_cutoff'], isTrue);
     expect(requestBody['note'], 'correct import');
   });
 

@@ -258,6 +258,63 @@ def test_fund_position_rebuilds_from_out_of_order_trades() -> None:
     assert round(rebuilt.realized_profit, 2) == 50
 
 
+def test_fund_cashflow_at_current_nav_does_not_create_profit() -> None:
+    position = create_fund_position(
+        FundPositionCreate(
+            fund_code="000005",
+            name="Cashflow Fund",
+            fund_type="mixed",
+            shares=100,
+            cost_nav=1.0,
+            trade_date=date(2026, 5, 20),
+        ),
+    )
+    latest = FundNavPoint(
+        fund_code="000005",
+        nav_date=date(2026, 5, 25),
+        unit_nav=1.2,
+        daily_growth_rate=0,
+        updated_at=_now(),
+    )
+    before = _build_fund_summary(position, latest)
+
+    create_fund_trade_for_position(
+        position,
+        FundTradeCreate(
+            action="buy",
+            shares=50,
+            nav=1.2,
+            trade_date=date(2026, 5, 25),
+        ),
+    )
+    after_buy = get_fund_position(position.id)
+    assert after_buy is not None
+    buy_summary = _build_fund_summary(after_buy, latest)
+
+    assert round(before.total_profit, 2) == 20
+    assert round(buy_summary.total_profit, 2) == round(before.total_profit, 2)
+    assert round(buy_summary.holding_profit, 2) == round(before.holding_profit, 2)
+
+    create_fund_trade_for_position(
+        after_buy,
+        FundTradeCreate(
+            action="sell",
+            shares=50,
+            nav=1.2,
+            trade_date=date(2026, 5, 25),
+        ),
+    )
+    after_sell = get_fund_position(position.id)
+    assert after_sell is not None
+    sell_summary = _build_fund_summary(after_sell, latest)
+
+    assert round(sell_summary.total_profit, 2) == round(before.total_profit, 2)
+    assert round(
+        sell_summary.holding_profit + sell_summary.position.realized_profit,
+        2,
+    ) == round(before.total_profit, 2)
+
+
 def test_fund_summary_uses_estimate_until_official_nav_updates() -> None:
     position = create_fund_position(
         FundPositionCreate(

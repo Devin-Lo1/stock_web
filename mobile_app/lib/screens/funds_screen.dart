@@ -1167,11 +1167,21 @@ class _FundHoldingSyncSheetState extends State<_FundHoldingSyncSheet> {
   late final TextEditingController _amountController;
   late final TextEditingController _sharesController;
   late final TextEditingController _holdingProfitController;
+  late _FundTradeTimeSelection _tradeTime;
   bool _useAmount = true;
 
   @override
   void initState() {
     super.initState();
+    final latestNavDate = widget.summary.latestNav?.navDate ?? DateTime.now();
+    _tradeTime = _FundTradeTimeSelection(
+      date: DateTime(
+        latestNavDate.year,
+        latestNavDate.month,
+        latestNavDate.day,
+      ),
+      afterCutoff: false,
+    );
     _amountController = TextEditingController(
       text: widget.summary.marketValue > 0
           ? widget.summary.marketValue.toStringAsFixed(2)
@@ -1206,7 +1216,7 @@ class _FundHoldingSyncSheetState extends State<_FundHoldingSyncSheet> {
 
   double get _latestNav => widget.summary.displayNav;
 
-  DateTime get _tradeDate =>
+  DateTime get _latestNavDate =>
       widget.summary.latestNav?.navDate ?? DateTime.now();
 
   void _submit() {
@@ -1216,15 +1226,28 @@ class _FundHoldingSyncSheetState extends State<_FundHoldingSyncSheet> {
       FundHoldingSyncDraft(
         shares: values.shares,
         costNav: values.costNav,
-        tradeDate: _tradeDate,
+        tradeDate: _tradeTime.confirmDate,
+        operationDate: _tradeTime.date,
+        operationAfterCutoff: _tradeTime.afterCutoff,
         note: [
           '修正当前持仓',
+          '上次操作时间 ${_dateLabel(_tradeTime.date)} ${_tradeTime.cutoffLabel}',
+          '预计确认日 ${_dateOnlyText(_tradeTime.confirmDate)}',
           '持有金额 ${values.amount.toStringAsFixed(2)}',
           '持有收益 ${values.holdingProfit.toStringAsFixed(2)}',
           '参考净值 ${_latestNav.toStringAsFixed(4)}',
         ].join('；'),
       ),
     );
+  }
+
+  Future<void> _editTradeTime() async {
+    final next = await _showFundTradeTimePicker(
+      context: context,
+      title: '上次操作时间',
+      initial: _tradeTime,
+    );
+    if (mounted && next != null) setState(() => _tradeTime = next);
   }
 
   _FundHoldingSyncValues? _resolvedValues() {
@@ -1284,7 +1307,7 @@ class _FundHoldingSyncSheetState extends State<_FundHoldingSyncSheet> {
           _SyncMetricGrid(
             items: [
               _SyncMetricItem('最新净值', _latestNav.toStringAsFixed(4)),
-              _SyncMetricItem('净值日期', _dateOnlyText(_tradeDate)),
+              _SyncMetricItem('净值日期', _dateOnlyText(_latestNavDate)),
             ],
           ),
           const SizedBox(height: 12),
@@ -1326,10 +1349,16 @@ class _FundHoldingSyncSheetState extends State<_FundHoldingSyncSheet> {
               helperText: '按其他平台显示的当前持有收益填写，亏损填负数。',
             ),
           ),
+          const SizedBox(height: 10),
+          _TradeTimeTile(
+            label: '上次操作时间',
+            selection: _tradeTime,
+            onTap: _editTradeTime,
+          ),
           if (preview.isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(
-              preview,
+              '$preview · 确认日 ${_dateOnlyText(_tradeTime.confirmDate)}',
               style: TextStyle(
                 color: secondaryTextColor(context),
                 fontSize: 12,
