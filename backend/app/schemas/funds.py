@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from .notifications import SignalEvent
 
 FundTradeAction = Literal["buy", "sell"]
+FundTradeRecordAction = Literal["buy", "sell", "correct", "recurring", "convert"]
 FundValuationMode = Literal["official", "estimated", "none"]
 FundGridAction = Literal["buy", "sell"]
 
@@ -139,6 +140,39 @@ class FundTrade(BaseModel):
     updated_at: datetime
 
 
+class FundTradeRecordCreate(BaseModel):
+    action: FundTradeRecordAction
+    shares: float = Field(default=0, ge=0)
+    nav: float = Field(default=0, ge=0)
+    amount: float = Field(default=0, ge=0)
+    fee: float = Field(default=0, ge=0)
+    auto_nav: bool = False
+    trade_date: date | None = None
+    operation_date: date | None = None
+    operation_after_cutoff: bool = False
+    note: str = Field(default="", max_length=500)
+
+
+class FundTradeRecord(BaseModel):
+    id: str
+    fund_position_id: str
+    fund_code: str
+    name: str
+    action: FundTradeRecordAction
+    shares: float
+    nav: float
+    amount: float = 0
+    fee: float = 0
+    trade_date: date
+    operation_date: date | None = None
+    operation_after_cutoff: bool = False
+    note: str = ""
+    source_trade_id: str | None = None
+    is_system: bool = False
+    created_at: datetime
+    updated_at: datetime
+
+
 class FundGridRecommendation(BaseModel):
     position_id: str
     fund_code: str
@@ -152,6 +186,15 @@ class FundGridRecommendation(BaseModel):
     threshold_percent: float = 5
     recommended_amount: float = 0
     recommended_shares: float = 0
+    valuation_mode: FundValuationMode = "none"
+    valuation_time: datetime | None = None
+
+
+class FundStrategyReference(BaseModel):
+    nav: float
+    trade_date: date | None = None
+    source: str = "last_trade"
+    change_rate: float = 0
     valuation_mode: FundValuationMode = "none"
     valuation_time: datetime | None = None
 
@@ -193,6 +236,7 @@ class FundPositionSummary(BaseModel):
     latest_nav: FundNavPoint | None = None
     quote: FundQuote | None = None
     grid_recommendation: FundGridRecommendation | None = None
+    strategy_reference: FundStrategyReference | None = None
     valuation_mode: FundValuationMode = "none"
     display_nav: float = 0
     display_change_rate: float = 0

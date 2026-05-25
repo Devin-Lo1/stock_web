@@ -44,6 +44,13 @@ class FundRepository {
     return _apiService.fetchTrades(positionId, limit: limit);
   }
 
+  Future<List<FundTradeRecord>> loadTradeRecords(
+    String positionId, {
+    int limit = 100,
+  }) {
+    return _apiService.fetchTradeRecords(positionId, limit: limit);
+  }
+
   Future<FundPosition> createPosition({
     required FundSearchResult fund,
     required double shares,
@@ -90,5 +97,16 @@ class FundRepository {
 
   Future<void> createTrade(String positionId, FundTradeDraft draft) {
     return _apiService.createTrade(positionId, draft);
+  }
+
+  Future<void> createTradeRecord(
+    String positionId,
+    FundTradeRecordDraft draft,
+  ) {
+    return _apiService.createTradeRecord(positionId, draft);
+  }
+
+  Future<void> deleteTradeRecord(String positionId, String recordId) {
+    return _apiService.deleteTradeRecord(positionId, recordId);
   }
 }

@@ -47,23 +47,26 @@ class FundDetailScreen extends StatefulWidget {
 
   final FundPositionSummary summary;
   final FundRepository repository;
-  final VoidCallback onAdjust;
-  final VoidCallback onEditAlert;
-  final VoidCallback onDelete;
+  final Future<void> Function(FundPositionSummary summary) onAdjust;
+  final Future<void> Function(FundPositionSummary summary) onEditAlert;
+  final Future<void> Function(FundPositionSummary summary) onDelete;
 
   @override
   State<FundDetailScreen> createState() => _FundDetailScreenState();
 }
 
 class _FundDetailScreenState extends State<FundDetailScreen> {
+  late FundPositionSummary _summary;
   List<FundNavPoint> _navs = const [];
   List<FundBenchmarkPoint> _benchmarks = const [];
   List<FundTrade> _trades = const [];
+  List<FundTradeRecord> _records = const [];
   bool _isLoadingNavs = true;
 
   @override
   void initState() {
     super.initState();
+    _summary = widget.summary;
     unawaited(_loadNavs());
   }
 
@@ -71,23 +74,29 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
     setState(() => _isLoadingNavs = true);
     try {
       final navsFuture = widget.repository.loadNavs(
-        widget.summary.position.fundCode,
+        _summary.position.fundCode,
         limit: _fundTrendNavLimit,
         refresh: refresh,
       );
       final benchmarksFuture = _loadBenchmarks();
       final tradesFuture = widget.repository.loadTrades(
-        widget.summary.position.id,
+        _summary.position.id,
+        limit: 200,
+      );
+      final recordsFuture = widget.repository.loadTradeRecords(
+        _summary.position.id,
         limit: 200,
       );
       final navs = await navsFuture;
       final benchmarks = await benchmarksFuture;
       final trades = await tradesFuture;
+      final records = await recordsFuture;
       if (mounted) {
         setState(() {
           _navs = navs;
           _benchmarks = benchmarks;
           _trades = trades;
+          _records = records;
         });
       }
     } finally {
@@ -105,9 +114,110 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
     }
   }
 
+  Future<void> _reloadSummary({bool refresh = false}) async {
+    final summaries = await widget.repository.loadSummaries(refresh: refresh);
+    for (final summary in summaries) {
+      if (summary.position.id == _summary.position.id) {
+        if (mounted) setState(() => _summary = summary);
+        return;
+      }
+    }
+  }
+
+  Future<void> _reloadRecords() async {
+    final records = await widget.repository.loadTradeRecords(
+      _summary.position.id,
+      limit: 200,
+    );
+    if (mounted) setState(() => _records = records);
+  }
+
+  Future<void> _handleAdjust() async {
+    await widget.onAdjust(_summary);
+    await _reloadSummary();
+    await _loadNavs();
+  }
+
+  Future<void> _handleEditAlert() async {
+    await widget.onEditAlert(_summary);
+    await _reloadSummary();
+  }
+
+  Future<void> _handleDelete() async {
+    await widget.onDelete(_summary);
+  }
+
+  Future<void> _handleAddRecord() async {
+    final draft = await showModalBottomSheet<FundTradeRecordDraft>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: cardColor(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+      ),
+      builder: (context) => _FundTradeRecordSheet(summary: _summary),
+    );
+    if (draft == null) return;
+    try {
+      await widget.repository.createTradeRecord(_summary.position.id, draft);
+      await _reloadRecords();
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('交易记录已添加')));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('交易记录添加失败：$error')));
+      }
+    }
+  }
+
+  Future<void> _handleDeleteRecord(FundTradeRecord record) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除交易记录'),
+        content: const Text('只删除这条展示记录和图上买卖点，不会重算持仓、收益或策略参考。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('确定删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await widget.repository.deleteTradeRecord(
+        _summary.position.id,
+        record.id,
+      );
+      await _reloadRecords();
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('交易记录已删除')));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('交易记录删除失败：$error')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final summary = widget.summary;
+    final summary = _summary;
     final position = summary.position;
     final profitColor = _profitColor(summary.displayChangeRate);
     return Scaffold(
@@ -220,19 +330,24 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                       navs: _navs,
                       benchmarks: _benchmarks,
                       trades: _trades,
+                      records: _records,
                     ),
                     _ProfitTab(
                       summary: summary,
                       navs: _navs,
                       trades: _trades,
                       isLoading: _isLoadingNavs,
-                      onAdjust: widget.onAdjust,
+                      onAdjust: () => unawaited(_handleAdjust()),
                     ),
                     _AlertTab(
                       summary: summary,
-                      onAdjust: widget.onAdjust,
-                      onEditAlert: widget.onEditAlert,
-                      onDelete: widget.onDelete,
+                      records: _records,
+                      onAdjust: () => unawaited(_handleAdjust()),
+                      onEditAlert: () => unawaited(_handleEditAlert()),
+                      onAddRecord: () => unawaited(_handleAddRecord()),
+                      onDeleteRecord: (record) =>
+                          unawaited(_handleDeleteRecord(record)),
+                      onDelete: () => unawaited(_handleDelete()),
                     ),
                   ],
                 ),
@@ -252,6 +367,7 @@ class _TrendTab extends StatefulWidget {
     required this.navs,
     required this.benchmarks,
     required this.trades,
+    required this.records,
   });
 
   final bool isLoading;
@@ -259,6 +375,7 @@ class _TrendTab extends StatefulWidget {
   final List<FundNavPoint> navs;
   final List<FundBenchmarkPoint> benchmarks;
   final List<FundTrade> trades;
+  final List<FundTradeRecord> records;
 
   @override
   State<_TrendTab> createState() => _TrendTabState();
@@ -328,7 +445,7 @@ class _TrendTabState extends State<_TrendTab> {
                 : _FundNavCurve(
                     points: visiblePoints,
                     benchmarks: benchmarkPoints,
-                    trades: widget.trades,
+                    records: widget.records,
                     axisStart: window.axisStart,
                     axisEnd: window.axisEnd,
                     costNav: chartCostNav,
@@ -816,20 +933,27 @@ class _ProfitRangeSelector extends StatelessWidget {
 class _AlertTab extends StatelessWidget {
   const _AlertTab({
     required this.summary,
+    required this.records,
     required this.onAdjust,
     required this.onEditAlert,
+    required this.onAddRecord,
+    required this.onDeleteRecord,
     required this.onDelete,
   });
 
   final FundPositionSummary summary;
+  final List<FundTradeRecord> records;
   final VoidCallback onAdjust;
   final VoidCallback onEditAlert;
+  final VoidCallback onAddRecord;
+  final ValueChanged<FundTradeRecord> onDeleteRecord;
   final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
     final position = summary.position;
     final recommendation = summary.gridRecommendation;
+    final reference = summary.strategyReference;
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
       children: [
@@ -849,9 +973,28 @@ class _AlertTab extends StatelessWidget {
               '触发阈值',
               '${position.alertThresholdPercent.toStringAsFixed(1)}%',
             ),
-            const _MetricItem('提醒口径', '较上次操作'),
+            _MetricItem(
+              '参考净值',
+              reference == null ? '--' : reference.nav.toStringAsFixed(4),
+            ),
+            _MetricItem(
+              '参考日期',
+              reference?.tradeDate == null
+                  ? '成本均值'
+                  : _fullDate(reference!.tradeDate!),
+            ),
+            _MetricItem(
+              '偏离幅度',
+              reference == null ? '--' : _percent(reference.changeRate),
+            ),
             const _MetricItem('操作数量', '自行决定'),
           ],
+        ),
+        const SizedBox(height: 12),
+        _FundTradeRecordsPanel(
+          records: records,
+          onAddRecord: onAddRecord,
+          onDeleteRecord: onDeleteRecord,
         ),
         const SizedBox(height: 12),
         FilledButton.icon(
@@ -872,6 +1015,409 @@ class _AlertTab extends StatelessWidget {
           label: const Text('删除基金持仓'),
         ),
       ],
+    );
+  }
+}
+
+class _FundTradeRecordsPanel extends StatelessWidget {
+  const _FundTradeRecordsPanel({
+    required this.records,
+    required this.onAddRecord,
+    required this.onDeleteRecord,
+  });
+
+  final List<FundTradeRecord> records;
+  final VoidCallback onAddRecord;
+  final ValueChanged<FundTradeRecord> onDeleteRecord;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleRecords = records.take(30).toList();
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      decoration: BoxDecoration(
+        color: cardColor(context),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '交易记录',
+                  style: TextStyle(
+                    color: primaryTextColor(context),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: onAddRecord,
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('添加'),
+              ),
+            ],
+          ),
+          Text(
+            '用于展示历史操作和图上买卖点，不参与持仓、收益或策略参考计算。',
+            style: TextStyle(
+              color: secondaryTextColor(context),
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (visibleRecords.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Text(
+                '暂无交易记录',
+                style: TextStyle(
+                  color: secondaryTextColor(context),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            )
+          else
+            for (var i = 0; i < visibleRecords.length; i++) ...[
+              if (i > 0) Divider(color: borderColor(context), height: 1),
+              _FundTradeRecordRow(
+                record: visibleRecords[i],
+                onDelete: () => onDeleteRecord(visibleRecords[i]),
+              ),
+            ],
+        ],
+      ),
+    );
+  }
+}
+
+class _FundTradeRecordRow extends StatelessWidget {
+  const _FundTradeRecordRow({required this.record, required this.onDelete});
+
+  final FundTradeRecord record;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = record.isSell
+        ? const Color(0xFF20C997)
+        : const Color(0xFFFF4D67);
+    final amount = record.amount > 0
+        ? _money(record.amount, signed: false)
+        : '${record.shares.toStringAsFixed(2)}份';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${_recordActionLabel(record)} · ${_fullDate(record.tradeDate)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: primaryTextColor(context),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '净值 ${record.nav.toStringAsFixed(4)} · 份额 ${record.shares.toStringAsFixed(2)} · $amount',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: secondaryTextColor(context),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (record.note.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    record.note,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: secondaryTextColor(context),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: '删除记录',
+            onPressed: onDelete,
+            icon: const Icon(Icons.delete_outline_rounded),
+            color: mutedIconColor(context),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FundTradeRecordSheet extends StatefulWidget {
+  const _FundTradeRecordSheet({required this.summary});
+
+  final FundPositionSummary summary;
+
+  @override
+  State<_FundTradeRecordSheet> createState() => _FundTradeRecordSheetState();
+}
+
+class _FundTradeRecordSheetState extends State<_FundTradeRecordSheet> {
+  late final TextEditingController _navController;
+  late final TextEditingController _sharesController;
+  late final TextEditingController _amountController;
+  late final TextEditingController _feeController;
+  late final TextEditingController _noteController;
+  late DateTime _tradeDate;
+  String _action = 'buy';
+
+  @override
+  void initState() {
+    super.initState();
+    final summary = widget.summary;
+    _tradeDate = summary.latestNav?.navDate ?? DateTime.now();
+    _navController = TextEditingController(
+      text: summary.displayNav > 0 ? summary.displayNav.toStringAsFixed(4) : '',
+    );
+    _sharesController = TextEditingController();
+    _amountController = TextEditingController();
+    _feeController = TextEditingController(text: '0');
+    _noteController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _navController.dispose();
+    _sharesController.dispose();
+    _amountController.dispose();
+    _feeController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  double get _nav => double.tryParse(_navController.text.trim()) ?? 0;
+  double get _shares => double.tryParse(_sharesController.text.trim()) ?? 0;
+  double get _amount => double.tryParse(_amountController.text.trim()) ?? 0;
+  double get _fee => double.tryParse(_feeController.text.trim()) ?? 0;
+
+  bool get _canSubmit => _nav > 0 && (_shares > 0 || _amount > 0);
+
+  Future<void> _pickDate() async {
+    final next = await showDatePicker(
+      context: context,
+      initialDate: _tradeDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now().add(const Duration(days: 366)),
+    );
+    if (next != null && mounted) {
+      setState(() => _tradeDate = next);
+    }
+  }
+
+  void _submit() {
+    if (!_canSubmit) return;
+    Navigator.of(context).pop(
+      FundTradeRecordDraft(
+        action: _action,
+        shares: _shares,
+        nav: _nav,
+        amount: _amount,
+        fee: _fee,
+        tradeDate: _tradeDate,
+        note: _noteController.text.trim(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        16,
+        16,
+        16 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '添加交易记录',
+                    style: TextStyle(
+                      color: primaryTextColor(context),
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: '关闭',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '仅用于展示历史操作和图上买卖点，不会修改持仓、收益或策略参考。',
+              style: TextStyle(
+                color: secondaryTextColor(context),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              children: [
+                _RecordActionChip(
+                  label: '加仓',
+                  selected: _action == 'buy',
+                  onSelected: () => setState(() => _action = 'buy'),
+                ),
+                _RecordActionChip(
+                  label: '减仓',
+                  selected: _action == 'sell',
+                  onSelected: () => setState(() => _action = 'sell'),
+                ),
+                _RecordActionChip(
+                  label: '修正',
+                  selected: _action == 'correct',
+                  onSelected: () => setState(() => _action = 'correct'),
+                ),
+                _RecordActionChip(
+                  label: '定投',
+                  selected: _action == 'recurring',
+                  onSelected: () => setState(() => _action = 'recurring'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            OutlinedButton.icon(
+              onPressed: _pickDate,
+              icon: const Icon(Icons.event_rounded),
+              label: Text(_fullDate(_tradeDate)),
+            ),
+            const SizedBox(height: 12),
+            _RecordNumberField(
+              controller: _navController,
+              label: '确认净值',
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: 10),
+            _RecordNumberField(
+              controller: _sharesController,
+              label: '份额',
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: 10),
+            _RecordNumberField(
+              controller: _amountController,
+              label: '金额（可选，空则按份额记录）',
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: 10),
+            _RecordNumberField(
+              controller: _feeController,
+              label: '手续费',
+              onChanged: () => setState(() {}),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _noteController,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: '备注',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _canSubmit ? _submit : null,
+                icon: const Icon(Icons.check_rounded),
+                label: const Text('保存记录'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RecordActionChip extends StatelessWidget {
+  const _RecordActionChip({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onSelected(),
+      labelStyle: TextStyle(
+        color: selected ? appAccentColor(context) : secondaryTextColor(context),
+        fontWeight: FontWeight.w900,
+      ),
+    );
+  }
+}
+
+class _RecordNumberField extends StatelessWidget {
+  const _RecordNumberField({
+    required this.controller,
+    required this.label,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      onChanged: (_) => onChanged(),
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+      ),
     );
   }
 }
@@ -1057,7 +1603,7 @@ class _FundNavCurve extends StatefulWidget {
   const _FundNavCurve({
     required this.points,
     required this.benchmarks,
-    required this.trades,
+    required this.records,
     required this.axisStart,
     required this.axisEnd,
     required this.costNav,
@@ -1065,7 +1611,7 @@ class _FundNavCurve extends StatefulWidget {
 
   final List<FundNavPoint> points;
   final List<FundBenchmarkPoint> benchmarks;
-  final List<FundTrade> trades;
+  final List<FundTradeRecord> records;
   final DateTime axisStart;
   final DateTime axisEnd;
   final double costNav;
@@ -1101,7 +1647,7 @@ class _FundNavCurveState extends State<_FundNavCurve> {
             painter: _FundNavCurvePainter(
               points: widget.points,
               benchmarks: widget.benchmarks,
-              trades: widget.trades,
+              records: widget.records,
               selectedIndex: _selectedIndex,
               axisStart: widget.axisStart,
               axisEnd: widget.axisEnd,
@@ -1173,7 +1719,7 @@ class _FundNavCurvePainter extends CustomPainter {
   const _FundNavCurvePainter({
     required this.points,
     required this.benchmarks,
-    required this.trades,
+    required this.records,
     required this.selectedIndex,
     required this.axisStart,
     required this.axisEnd,
@@ -1188,7 +1734,7 @@ class _FundNavCurvePainter extends CustomPainter {
 
   final List<FundNavPoint> points;
   final List<FundBenchmarkPoint> benchmarks;
-  final List<FundTrade> trades;
+  final List<FundTradeRecord> records;
   final int? selectedIndex;
   final DateTime axisStart;
   final DateTime axisEnd;
@@ -1375,18 +1921,18 @@ class _FundNavCurvePainter extends CustomPainter {
     double minValue,
     double range,
   ) {
-    if (trades.isEmpty || points.length < 2) return;
+    if (records.isEmpty || points.length < 2) return;
     final markerPaint = Paint()..style = PaintingStyle.fill;
     final borderPaint = Paint()
       ..color = const Color(0xFFFFFFFF)
       ..strokeWidth = 1.1
       ..style = PaintingStyle.stroke;
-    for (final trade in trades) {
-      final index = _nearestPointIndex(trade.tradeDate);
+    for (final record in records) {
+      final index = _nearestPointIndex(record.tradeDate);
       if (index == null) continue;
       final x = _xForDate(chart, points[index].navDate);
       final y = _yFor(values[index], chart, minValue, range);
-      final color = trade.isBuy
+      final color = record.isBuy
           ? const Color(0xFFFF4D67)
           : const Color(0xFF20C997);
       markerPaint.color = color;
@@ -1426,7 +1972,7 @@ class _FundNavCurvePainter extends CustomPainter {
   bool shouldRepaint(covariant _FundNavCurvePainter oldDelegate) {
     return oldDelegate.points != points ||
         oldDelegate.benchmarks != benchmarks ||
-        oldDelegate.trades != trades ||
+        oldDelegate.records != records ||
         oldDelegate.selectedIndex != selectedIndex ||
         oldDelegate.axisStart != axisStart ||
         oldDelegate.axisEnd != axisEnd ||
@@ -1712,6 +2258,22 @@ String _percent(double value) {
 
 String _recommendationLabel(FundGridRecommendation recommendation) {
   return recommendation.isBuy ? '下跌提醒' : '上涨提醒';
+}
+
+String _recordActionLabel(FundTradeRecord record) {
+  switch (record.action) {
+    case 'buy':
+      return '加仓';
+    case 'sell':
+      return '减仓';
+    case 'correct':
+      return '修正';
+    case 'recurring':
+      return '定投';
+    case 'convert':
+      return '转换';
+  }
+  return '记录';
 }
 
 String _shortDate(DateTime value) {

@@ -290,11 +290,11 @@ class _FundsScreenState extends State<FundsScreen> {
         builder: (detailContext) => FundDetailScreen(
           summary: summary,
           repository: widget.repository,
-          onAdjust: () => _adjustFund(summary),
-          onEditAlert: () => _editAlert(summary),
-          onDelete: () {
+          onAdjust: _adjustFund,
+          onEditAlert: _editAlert,
+          onDelete: (currentSummary) async {
             Navigator.of(detailContext).pop();
-            unawaited(_delete(summary));
+            await _delete(currentSummary);
           },
         ),
       ),
@@ -791,6 +791,7 @@ class _FundTableRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final position = summary.position;
     final recommendation = summary.gridRecommendation;
+    final reference = summary.strategyReference;
     return InkWell(
       onTap: onTap,
       child: Container(
@@ -825,6 +826,19 @@ class _FundTableRow extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
+                  if (reference != null) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      '下次参考 ${reference.nav.toStringAsFixed(4)} · ${reference.tradeDate == null ? '成本均值' : _dateOnlyText(reference.tradeDate!)} · ${_percent(reference.changeRate)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: secondaryTextColor(context),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                   if (recommendation != null) ...[
                     const SizedBox(height: 5),
                     GestureDetector(

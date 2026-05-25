@@ -274,6 +274,7 @@ class FundPositionSummary {
     required this.position,
     required this.latestNav,
     required this.gridRecommendation,
+    required this.strategyReference,
     required this.valuationMode,
     required this.displayNav,
     required this.displayChangeRate,
@@ -290,6 +291,7 @@ class FundPositionSummary {
   final FundPosition position;
   final FundNavPoint? latestNav;
   final FundGridRecommendation? gridRecommendation;
+  final FundStrategyReference? strategyReference;
   final String valuationMode;
   final double displayNav;
   final double displayChangeRate;
@@ -307,6 +309,7 @@ class FundPositionSummary {
   factory FundPositionSummary.fromJson(Map<String, dynamic> json) {
     final latest = json['latest_nav'];
     final recommendation = json['grid_recommendation'];
+    final strategyReference = json['strategy_reference'];
     return FundPositionSummary(
       position: FundPosition.fromJson(
         (json['position'] as Map<String, dynamic>?) ?? const {},
@@ -316,6 +319,9 @@ class FundPositionSummary {
           : null,
       gridRecommendation: recommendation is Map<String, dynamic>
           ? FundGridRecommendation.fromJson(recommendation)
+          : null,
+      strategyReference: strategyReference is Map<String, dynamic>
+          ? FundStrategyReference.fromJson(strategyReference)
           : null,
       valuationMode: json['valuation_mode'] as String? ?? 'none',
       displayNav: _double(json['display_nav']),
@@ -328,6 +334,35 @@ class FundPositionSummary {
       holdingProfitRate: _double(json['holding_profit_rate']),
       totalProfit: _double(json['total_profit']),
       totalProfitRate: _double(json['total_profit_rate']),
+    );
+  }
+}
+
+class FundStrategyReference {
+  const FundStrategyReference({
+    required this.nav,
+    required this.tradeDate,
+    required this.source,
+    required this.changeRate,
+    required this.valuationMode,
+    required this.valuationTime,
+  });
+
+  final double nav;
+  final DateTime? tradeDate;
+  final String source;
+  final double changeRate;
+  final String valuationMode;
+  final DateTime? valuationTime;
+
+  factory FundStrategyReference.fromJson(Map<String, dynamic> json) {
+    return FundStrategyReference(
+      nav: _double(json['nav']),
+      tradeDate: DateTime.tryParse(json['trade_date'] as String? ?? ''),
+      source: json['source'] as String? ?? '',
+      changeRate: _double(json['change_rate']),
+      valuationMode: json['valuation_mode'] as String? ?? 'none',
+      valuationTime: DateTime.tryParse(json['valuation_time'] as String? ?? ''),
     );
   }
 }
@@ -428,6 +463,47 @@ class FundTradeDraft {
   }
 }
 
+class FundTradeRecordDraft {
+  const FundTradeRecordDraft({
+    required this.action,
+    required this.shares,
+    required this.nav,
+    this.amount = 0,
+    this.fee = 0,
+    this.autoNav = false,
+    this.tradeDate,
+    this.operationDate,
+    this.operationAfterCutoff = false,
+    this.note = '',
+  });
+
+  final String action;
+  final double shares;
+  final double nav;
+  final double amount;
+  final double fee;
+  final bool autoNav;
+  final DateTime? tradeDate;
+  final DateTime? operationDate;
+  final bool operationAfterCutoff;
+  final String note;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'action': action,
+      'shares': shares,
+      'nav': nav,
+      'amount': amount,
+      'fee': fee,
+      'auto_nav': autoNav,
+      if (tradeDate != null) 'trade_date': _dateString(tradeDate!),
+      if (operationDate != null) 'operation_date': _dateString(operationDate!),
+      'operation_after_cutoff': operationAfterCutoff,
+      'note': note,
+    };
+  }
+}
+
 String _dateString(DateTime value) {
   final local = DateTime(value.year, value.month, value.day);
   final month = local.month.toString().padLeft(2, '0');
@@ -482,6 +558,68 @@ class FundTrade {
       operationDate: DateTime.tryParse(json['operation_date'] as String? ?? ''),
       operationAfterCutoff: json['operation_after_cutoff'] as bool? ?? false,
       note: json['note'] as String? ?? '',
+    );
+  }
+}
+
+class FundTradeRecord {
+  const FundTradeRecord({
+    required this.id,
+    required this.positionId,
+    required this.fundCode,
+    required this.name,
+    required this.action,
+    required this.shares,
+    required this.nav,
+    required this.amount,
+    required this.fee,
+    required this.tradeDate,
+    required this.operationDate,
+    required this.operationAfterCutoff,
+    required this.note,
+    required this.sourceTradeId,
+    required this.isSystem,
+  });
+
+  final String id;
+  final String positionId;
+  final String fundCode;
+  final String name;
+  final String action;
+  final double shares;
+  final double nav;
+  final double amount;
+  final double fee;
+  final DateTime tradeDate;
+  final DateTime? operationDate;
+  final bool operationAfterCutoff;
+  final String note;
+  final String? sourceTradeId;
+  final bool isSystem;
+
+  bool get isBuy =>
+      action == 'buy' || action == 'correct' || action == 'recurring';
+  bool get isSell => action == 'sell';
+
+  factory FundTradeRecord.fromJson(Map<String, dynamic> json) {
+    return FundTradeRecord(
+      id: json['id'] as String? ?? '',
+      positionId: json['fund_position_id'] as String? ?? '',
+      fundCode: json['fund_code'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      action: json['action'] as String? ?? '',
+      shares: _double(json['shares']),
+      nav: _double(json['nav']),
+      amount: _double(json['amount']),
+      fee: _double(json['fee']),
+      tradeDate:
+          DateTime.tryParse(json['trade_date'] as String? ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      operationDate: DateTime.tryParse(json['operation_date'] as String? ?? ''),
+      operationAfterCutoff: json['operation_after_cutoff'] as bool? ?? false,
+      note: json['note'] as String? ?? '',
+      sourceTradeId: json['source_trade_id'] as String?,
+      isSystem: json['is_system'] as bool? ?? false,
     );
   }
 }

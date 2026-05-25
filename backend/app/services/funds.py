@@ -14,6 +14,7 @@ from ..schemas import (
     FundPosition,
     FundPositionSummary,
     FundQuote,
+    FundStrategyReference,
     FundTrade,
 )
 from .fund_provider import EastmoneyFundProvider, FundProviderError
@@ -77,18 +78,24 @@ def _build_fund_summary(
     holding_profit = market_value - position.invested_amount
     total_profit = holding_profit + position.realized_profit
     base = position.invested_amount if position.invested_amount else 0
-    recommendation = _build_grid_recommendation(
+    strategy_reference = _build_strategy_reference(
         position=position,
         current_nav=display_nav,
         valuation_mode=valuation_mode,
         valuation_time=display_time,
         last_trade=last_trade,
     )
+    recommendation = _build_grid_recommendation(
+        position=position,
+        current_nav=display_nav,
+        strategy_reference=strategy_reference,
+    )
     return FundPositionSummary(
         position=position,
         latest_nav=latest,
         quote=quote,
         grid_recommendation=recommendation,
+        strategy_reference=strategy_reference,
         valuation_mode=valuation_mode,
         display_nav=display_nav,
         display_change_rate=display_change_rate,
@@ -136,18 +143,16 @@ def _build_grid_recommendation(
     *,
     position: FundPosition,
     current_nav: float,
-    valuation_mode: str,
-    valuation_time: datetime | None,
-    last_trade: FundTrade | None,
+    strategy_reference: FundStrategyReference | None,
 ) -> FundGridRecommendation | None:
     if not position.alert_enabled:
         return None
     if position.shares <= 0 or current_nav <= 0:
         return None
-    baseline_nav = last_trade.nav if last_trade is not None else position.avg_cost_nav
-    if baseline_nav <= 0:
+    if strategy_reference is None or strategy_reference.nav <= 0:
         return None
-    change_rate = (current_nav - baseline_nav) / baseline_nav * 100
+    baseline_nav = strategy_reference.nav
+    change_rate = strategy_reference.change_rate
     reason = (
         f"较上次操作净值 {baseline_nav:.4f} "
         f"{'上涨' if change_rate >= 0 else '下跌'} {abs(change_rate):.2f}%"
@@ -165,8 +170,8 @@ def _build_grid_recommendation(
             current_nav=current_nav,
             change_rate=change_rate,
             threshold_percent=threshold,
-            valuation_mode=valuation_mode,
-            valuation_time=valuation_time,
+            valuation_mode=strategy_reference.valuation_mode,
+            valuation_time=strategy_reference.valuation_time,
         )
     if change_rate <= -threshold:
         return FundGridRecommendation(
@@ -180,10 +185,33 @@ def _build_grid_recommendation(
             current_nav=current_nav,
             change_rate=change_rate,
             threshold_percent=threshold,
-            valuation_mode=valuation_mode,
-            valuation_time=valuation_time,
+            valuation_mode=strategy_reference.valuation_mode,
+            valuation_time=strategy_reference.valuation_time,
         )
     return None
+
+
+def _build_strategy_reference(
+    *,
+    position: FundPosition,
+    current_nav: float,
+    valuation_mode: str,
+    valuation_time: datetime | None,
+    last_trade: FundTrade | None,
+) -> FundStrategyReference | None:
+    if position.shares <= 0 or current_nav <= 0:
+        return None
+    baseline_nav = last_trade.nav if last_trade is not None else position.avg_cost_nav
+    if baseline_nav <= 0:
+        return None
+    return FundStrategyReference(
+        nav=baseline_nav,
+        trade_date=last_trade.trade_date if last_trade is not None else None,
+        source="last_trade" if last_trade is not None else "position_cost",
+        change_rate=(current_nav - baseline_nav) / baseline_nav * 100,
+        valuation_mode=valuation_mode,
+        valuation_time=valuation_time,
+    )
 
 
 def _refresh_positions_concurrently(

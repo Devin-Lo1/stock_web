@@ -32,6 +32,7 @@ TABLES = (
     "position_trades",
     "positions",
     "fund_navs",
+    "fund_trade_records",
     "fund_trades",
     "fund_positions",
     "fund_alert_scheduler",

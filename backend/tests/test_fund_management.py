@@ -2,8 +2,11 @@ from datetime import date, datetime, timezone
 
 from app.repositories.funds import (
     create_fund_position,
+    create_fund_trade_record_for_position,
     create_fund_trade_for_position,
+    delete_fund_trade_record,
     get_fund_position,
+    list_fund_trade_records,
     list_fund_trades,
     sync_fund_position_holding,
     upsert_fund_navs,
@@ -20,6 +23,7 @@ from app.schemas import (
     FundPositionHoldingSync,
     FundQuote,
     FundTradeCreate,
+    FundTradeRecordCreate,
 )
 from app.services.fund_alert_scanner import scan_fund_alerts
 from app.services import fund_provider
@@ -114,6 +118,7 @@ def test_fund_position_holding_sync_replaces_bad_import_trade() -> None:
         ),
     )
     trades = list_fund_trades(position_id=position.id, limit=10)
+    records = list_fund_trade_records(position_id=position.id, limit=10)
 
     assert round(synced.shares, 2) == 14139.33
     assert synced.avg_cost_nav == 4.864
@@ -122,6 +127,9 @@ def test_fund_position_holding_sync_replaces_bad_import_trade() -> None:
     assert len(trades) == 1
     assert trades[0].nav == 4.864
     assert trades[0].note == "sync current holding"
+    assert len(records) == 3
+    assert records[0].action == "correct"
+    assert records[0].note == "sync current holding"
 
 
 def test_fund_trades_can_be_listed_by_position() -> None:
@@ -140,6 +148,44 @@ def test_fund_trades_can_be_listed_by_position() -> None:
     assert len(trades) == 1
     assert trades[0].action == "buy"
     assert trades[0].fund_code == "012414"
+
+
+def test_fund_trade_records_are_display_only() -> None:
+    position = create_fund_position(
+        FundPositionCreate(
+            fund_code="012415",
+            name="Display Record Fund",
+            fund_type="mixed",
+            shares=100,
+            cost_nav=1.2,
+            trade_date=date(2026, 5, 20),
+        ),
+    )
+    before = get_fund_position(position.id)
+    assert before is not None
+
+    record = create_fund_trade_record_for_position(
+        position,
+        FundTradeRecordCreate(
+            action="buy",
+            shares=50,
+            nav=1.5,
+            trade_date=date(2026, 5, 22),
+            note="display only",
+        ),
+    )
+    after_create = get_fund_position(position.id)
+    assert after_create is not None
+    assert after_create.shares == before.shares
+    assert after_create.avg_cost_nav == before.avg_cost_nav
+    assert after_create.invested_amount == before.invested_amount
+
+    assert delete_fund_trade_record(position.id, record.id) is True
+    after_delete = get_fund_position(position.id)
+    records = list_fund_trade_records(position_id=position.id, limit=10)
+    assert after_delete is not None
+    assert after_delete.shares == before.shares
+    assert len(records) == 1
 
 
 def test_fund_opening_trade_uses_nav_trading_day_after_cutoff() -> None:
@@ -364,6 +410,7 @@ def test_fund_summary_recommends_grid_action_from_last_trade_nav() -> None:
             fund_type="mixed",
             shares=1000,
             cost_nav=1.0,
+            trade_date=date(2026, 5, 20),
         ),
     )
     latest = FundNavPoint(
@@ -385,6 +432,10 @@ def test_fund_summary_recommends_grid_action_from_last_trade_nav() -> None:
     assert summary.grid_recommendation.action == "sell"
     assert summary.grid_recommendation.action_label == "上涨提醒"
     assert summary.grid_recommendation.recommended_shares == 0
+    assert summary.strategy_reference is not None
+    assert summary.strategy_reference.nav == 1.0
+    assert summary.strategy_reference.trade_date == date(2026, 5, 20)
+    assert round(summary.strategy_reference.change_rate, 2) == 6
 
     buy_summary = _build_fund_summary(
         position,

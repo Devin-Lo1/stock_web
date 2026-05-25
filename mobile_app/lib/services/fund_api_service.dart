@@ -101,6 +101,21 @@ class FundApiService {
         .toList();
   }
 
+  Future<List<FundTradeRecord>> fetchTradeRecords(
+    String positionId, {
+    int limit = 100,
+  }) async {
+    final payload = await _client.get(
+      '/api/v1/funds/positions/$positionId/trade-records',
+      query: {'limit': '$limit'},
+    );
+    if (payload is! List) return const [];
+    return payload
+        .whereType<Map<String, dynamic>>()
+        .map(FundTradeRecord.fromJson)
+        .toList();
+  }
+
   Future<FundPosition> createPosition({
     required FundSearchResult fund,
     required double shares,
@@ -160,6 +175,22 @@ class FundApiService {
     await _client.post(
       '/api/v1/funds/positions/$positionId/trades',
       draft.toJson(),
+    );
+  }
+
+  Future<void> createTradeRecord(
+    String positionId,
+    FundTradeRecordDraft draft,
+  ) async {
+    await _client.post(
+      '/api/v1/funds/positions/$positionId/trade-records',
+      draft.toJson(),
+    );
+  }
+
+  Future<void> deleteTradeRecord(String positionId, String recordId) {
+    return _client.delete(
+      '/api/v1/funds/positions/$positionId/trade-records/$recordId',
     );
   }
 }

@@ -55,6 +55,10 @@ void main() {
             '"threshold_percent":5,"recommended_amount":330,'
             '"recommended_shares":250,"valuation_mode":"estimated",'
             '"valuation_time":"2026-05-22T15:00:00Z"},'
+            '"strategy_reference":{"nav":1.2,"trade_date":"2026-05-20",'
+            '"source":"last_trade","change_rate":10,'
+            '"valuation_mode":"estimated",'
+            '"valuation_time":"2026-05-22T15:00:00Z"},'
             '"market_value":1320,"holding_profit":120,'
             '"holding_profit_rate":8.33,"total_profit":100,'
             '"total_profit_rate":8.33}]',
@@ -72,6 +76,8 @@ void main() {
     expect(summaries.single.displayNav, 1.32);
     expect(summaries.single.dayProfit, 20);
     expect(summaries.single.gridRecommendation?.actionLabel, 'Sell 1/4');
+    expect(summaries.single.strategyReference?.nav, 1.2);
+    expect(summaries.single.strategyReference?.tradeDate?.day, 20);
     expect(summaries.single.marketValue, 1320);
   });
 
@@ -185,6 +191,97 @@ void main() {
     expect(requestedUri.queryParameters['limit'], '50');
     expect(trades.single.isBuy, isTrue);
     expect(trades.single.nav, 1.2);
+  });
+
+  test('fetchTradeRecords reads display-only records', () async {
+    late Uri requestedUri;
+    final service = FundApiService(
+      ApiClient(
+        baseUrl: 'http://test.local',
+        httpClient: MockClient((request) async {
+          requestedUri = request.url;
+          return http.Response(
+            '[{"id":"record-1","fund_position_id":"position-1",'
+            '"fund_code":"000001","name":"Fund A","action":"correct",'
+            '"shares":100,"nav":1.2,"amount":120,"fee":0,'
+            '"trade_date":"2026-05-22","note":"sync",'
+            '"source_trade_id":"trade-1","is_system":true}]',
+            200,
+          );
+        }),
+      ),
+    );
+
+    final records = await service.fetchTradeRecords('position-1', limit: 50);
+
+    expect(
+      requestedUri.path,
+      '/api/v1/funds/positions/position-1/trade-records',
+    );
+    expect(requestedUri.queryParameters['limit'], '50');
+    expect(records.single.action, 'correct');
+    expect(records.single.amount, 120);
+    expect(records.single.isSystem, isTrue);
+  });
+
+  test('createTradeRecord posts display-only payload', () async {
+    late String method;
+    late Uri requestedUri;
+    late Map<String, dynamic> requestBody;
+    final service = FundApiService(
+      ApiClient(
+        baseUrl: 'http://test.local',
+        httpClient: MockClient((request) async {
+          method = request.method;
+          requestedUri = request.url;
+          requestBody = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response('{}', 201);
+        }),
+      ),
+    );
+
+    await service.createTradeRecord(
+      'position-1',
+      FundTradeRecordDraft(
+        action: 'buy',
+        shares: 100,
+        nav: 1.2,
+        tradeDate: DateTime(2026, 5, 22),
+        note: 'display',
+      ),
+    );
+
+    expect(method, 'POST');
+    expect(
+      requestedUri.path,
+      '/api/v1/funds/positions/position-1/trade-records',
+    );
+    expect(requestBody['shares'], 100);
+    expect(requestBody['nav'], 1.2);
+    expect(requestBody['note'], 'display');
+  });
+
+  test('deleteTradeRecord calls display-only delete endpoint', () async {
+    late String method;
+    late Uri requestedUri;
+    final service = FundApiService(
+      ApiClient(
+        baseUrl: 'http://test.local',
+        httpClient: MockClient((request) async {
+          method = request.method;
+          requestedUri = request.url;
+          return http.Response('', 204);
+        }),
+      ),
+    );
+
+    await service.deleteTradeRecord('position-1', 'record-1');
+
+    expect(method, 'DELETE');
+    expect(
+      requestedUri.path,
+      '/api/v1/funds/positions/position-1/trade-records/record-1',
+    );
   });
 
   test('syncPositionHolding replaces imported holding snapshot', () async {

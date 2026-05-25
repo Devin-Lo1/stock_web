@@ -7,10 +7,13 @@ from ..repositories.funds import (
     FundTradeError,
     create_fund_position,
     create_fund_trade_for_position,
+    create_fund_trade_record_for_position,
     delete_fund_position,
+    delete_fund_trade_record,
     get_fund_position,
     list_fund_navs,
     list_fund_positions,
+    list_fund_trade_records,
     list_fund_trades,
     sync_fund_position_holding,
     update_fund_position,
@@ -31,6 +34,8 @@ from ..schemas import (
     FundSearchResult,
     FundTrade,
     FundTradeCreate,
+    FundTradeRecord,
+    FundTradeRecordCreate,
 )
 from ..services.fund_provider import EastmoneyFundProvider, FundProviderError
 from ..services.funds import list_fund_position_summaries, refresh_fund_navs
@@ -204,6 +209,46 @@ def api_list_fund_position_trades(
     limit: int = Query(default=100, ge=1, le=500),
 ) -> list[FundTrade]:
     return list_fund_trades(position_id=position_id, limit=limit)
+
+
+@router.get("/positions/{position_id}/trade-records", response_model=list[FundTradeRecord])
+def api_list_fund_position_trade_records(
+    position_id: str,
+    limit: int = Query(default=100, ge=1, le=500),
+) -> list[FundTradeRecord]:
+    return list_fund_trade_records(position_id=position_id, limit=limit)
+
+
+@router.post(
+    "/positions/{position_id}/trade-records",
+    response_model=FundTradeRecord,
+    status_code=status.HTTP_201_CREATED,
+)
+def api_create_fund_trade_record(
+    position_id: str,
+    payload: FundTradeRecordCreate,
+) -> FundTradeRecord:
+    position = get_fund_position(position_id)
+    if position is None:
+        raise not_found_error("fund position not found", position_id=position_id)
+    try:
+        return create_fund_trade_record_for_position(position, payload)
+    except FundTradeError as error:
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "FUND_TRADE_RECORD_INVALID",
+            str(error),
+            {"position_id": position_id},
+        ) from error
+
+
+@router.delete(
+    "/positions/{position_id}/trade-records/{record_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def api_delete_fund_trade_record(position_id: str, record_id: str) -> None:
+    if not delete_fund_trade_record(position_id, record_id):
+        raise not_found_error("fund trade record not found", record_id=record_id)
 
 
 @router.post(

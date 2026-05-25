@@ -11,6 +11,8 @@ from ..schemas import (
     FundPositionUpdate,
     FundTrade,
     FundTradeCreate,
+    FundTradeRecord,
+    FundTradeRecordCreate,
 )
 
 
@@ -114,6 +116,10 @@ def create_fund_position(payload: FundPositionCreate) -> FundPosition:
         _insert_fund_position(connection, position)
         if opening_trade is not None:
             _insert_fund_trade(connection, opening_trade)
+            _insert_fund_trade_record(
+                connection,
+                _fund_trade_to_record(opening_trade, is_system=True),
+            )
     return position
 
 
@@ -210,6 +216,10 @@ def sync_fund_position_holding(
             (position.id,),
         )
         _insert_fund_trade(connection, trade)
+        _insert_fund_trade_record(
+            connection,
+            _fund_trade_to_record(trade, action="correct", is_system=True),
+        )
         connection.execute(
             """
             UPDATE fund_positions
@@ -239,6 +249,10 @@ def create_fund_trade_for_position(
     trade = _build_fund_trade(position, payload)
     with _connect() as connection:
         _insert_fund_trade(connection, trade)
+        _insert_fund_trade_record(
+            connection,
+            _fund_trade_to_record(trade, is_system=True),
+        )
         updated = _recalculate_position_from_trades(connection, position)
         connection.execute(
             """
@@ -260,6 +274,61 @@ def create_fund_trade_for_position(
             ),
         )
     return trade
+
+
+def list_fund_trade_records(
+    *,
+    position_id: str | None = None,
+    fund_code: str | None = None,
+    limit: int = 100,
+) -> list[FundTradeRecord]:
+    clauses: list[str] = []
+    params: list[object] = []
+    if position_id:
+        clauses.append("fund_position_id = ?")
+        params.append(position_id)
+    if fund_code:
+        clauses.append("fund_code = ?")
+        params.append(fund_code)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    params.append(limit)
+    with _connect() as connection:
+        rows = connection.execute(
+            f"""
+            SELECT id, fund_position_id, fund_code, name, action, shares, nav,
+                   amount, fee, trade_date, operation_date,
+                   operation_after_cutoff, note, source_trade_id, is_system,
+                   created_at, updated_at
+            FROM fund_trade_records
+            {where}
+            ORDER BY trade_date DESC, created_at DESC
+            LIMIT ?
+            """,
+            tuple(params),
+        ).fetchall()
+    return [_row_to_fund_trade_record(row) for row in rows]
+
+
+def create_fund_trade_record_for_position(
+    position: FundPosition,
+    payload: FundTradeRecordCreate,
+) -> FundTradeRecord:
+    record = _build_fund_trade_record(position, payload)
+    with _connect() as connection:
+        _insert_fund_trade_record(connection, record)
+    return record
+
+
+def delete_fund_trade_record(position_id: str, record_id: str) -> bool:
+    with _connect() as connection:
+        cursor = connection.execute(
+            """
+            DELETE FROM fund_trade_records
+            WHERE id = ? AND fund_position_id = ?
+            """,
+            (record_id, position_id),
+        )
+    return cursor.rowcount > 0
 
 
 def list_fund_trades(
@@ -399,6 +468,38 @@ def _insert_fund_trade(connection, trade: FundTrade) -> None:
     )
 
 
+def _insert_fund_trade_record(connection, record: FundTradeRecord) -> None:
+    connection.execute(
+        """
+        INSERT INTO fund_trade_records (
+            id, fund_position_id, fund_code, name, action, shares, nav, amount,
+            fee, trade_date, operation_date, operation_after_cutoff, note,
+            source_trade_id, is_system, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            record.id,
+            record.fund_position_id,
+            record.fund_code,
+            record.name,
+            record.action,
+            record.shares,
+            record.nav,
+            record.amount,
+            record.fee,
+            record.trade_date.isoformat(),
+            record.operation_date.isoformat() if record.operation_date else None,
+            1 if record.operation_after_cutoff else 0,
+            record.note,
+            record.source_trade_id,
+            1 if record.is_system else 0,
+            _datetime_to_text(record.created_at),
+            _datetime_to_text(record.updated_at),
+        ),
+    )
+
+
 def _build_fund_trade(position: FundPosition, payload: FundTradeCreate) -> FundTrade:
     now = _now()
     trade_date = _resolve_operation_trade_date(
@@ -438,6 +539,105 @@ def _build_fund_trade(position: FundPosition, payload: FundTradeCreate) -> FundT
         created_at=now,
         updated_at=now,
     )
+
+
+def _build_fund_trade_record(
+    position: FundPosition,
+    payload: FundTradeRecordCreate,
+) -> FundTradeRecord:
+    now = _now()
+    trade_date = _resolve_operation_trade_date(
+        fund_code=position.fund_code,
+        operation_date=payload.operation_date,
+        operation_after_cutoff=payload.operation_after_cutoff,
+        fallback_trade_date=payload.trade_date,
+    )
+    nav = _resolve_nav_value(
+        fund_code=position.fund_code,
+        trade_date=trade_date,
+        provided_nav=payload.nav,
+        auto_nav=payload.auto_nav,
+    )
+    trade_action = "sell" if payload.action == "sell" else "buy"
+    shares = _resolve_trade_shares(
+        action=trade_action,
+        provided_shares=payload.shares,
+        amount=payload.amount,
+        nav=nav,
+        fee=payload.fee,
+    )
+    if shares <= 0:
+        raise FundTradeError("fund trade record shares must be greater than zero")
+    amount = payload.amount if payload.amount > 0 else _trade_record_amount(
+        action=payload.action,
+        shares=shares,
+        nav=nav,
+        fee=payload.fee,
+    )
+    return FundTradeRecord(
+        id=str(uuid4()),
+        fund_position_id=position.id,
+        fund_code=position.fund_code,
+        name=position.name,
+        action=payload.action,
+        shares=shares,
+        nav=nav,
+        amount=amount,
+        fee=payload.fee,
+        trade_date=trade_date,
+        operation_date=payload.operation_date,
+        operation_after_cutoff=payload.operation_after_cutoff,
+        note=payload.note,
+        source_trade_id=None,
+        is_system=False,
+        created_at=now,
+        updated_at=now,
+    )
+
+
+def _fund_trade_to_record(
+    trade: FundTrade,
+    *,
+    action: str | None = None,
+    is_system: bool,
+) -> FundTradeRecord:
+    return FundTradeRecord(
+        id=str(uuid4()),
+        fund_position_id=trade.fund_position_id,
+        fund_code=trade.fund_code,
+        name=trade.name,
+        action=action or trade.action,
+        shares=trade.shares,
+        nav=trade.nav,
+        amount=_trade_record_amount(
+            action=action or trade.action,
+            shares=trade.shares,
+            nav=trade.nav,
+            fee=trade.fee,
+        ),
+        fee=trade.fee,
+        trade_date=trade.trade_date,
+        operation_date=trade.operation_date,
+        operation_after_cutoff=trade.operation_after_cutoff,
+        note=trade.note,
+        source_trade_id=trade.id,
+        is_system=is_system,
+        created_at=trade.created_at,
+        updated_at=trade.updated_at,
+    )
+
+
+def _trade_record_amount(
+    *,
+    action: str,
+    shares: float,
+    nav: float,
+    fee: float,
+) -> float:
+    gross = shares * nav
+    if action == "sell":
+        return max(0, gross - fee)
+    return gross + fee
 
 
 def _resolve_operation_trade_date(
@@ -670,6 +870,30 @@ def _row_to_fund_trade(row) -> FundTrade:
         else None,
         operation_after_cutoff=bool(row["operation_after_cutoff"]),
         note=row["note"],
+        created_at=_text_to_datetime(row["created_at"]),
+        updated_at=_text_to_datetime(row["updated_at"]),
+    )
+
+
+def _row_to_fund_trade_record(row) -> FundTradeRecord:
+    return FundTradeRecord(
+        id=row["id"],
+        fund_position_id=row["fund_position_id"],
+        fund_code=row["fund_code"],
+        name=row["name"],
+        action=row["action"],
+        shares=row["shares"],
+        nav=row["nav"],
+        amount=row["amount"],
+        fee=row["fee"],
+        trade_date=date.fromisoformat(row["trade_date"]),
+        operation_date=date.fromisoformat(row["operation_date"])
+        if row["operation_date"]
+        else None,
+        operation_after_cutoff=bool(row["operation_after_cutoff"]),
+        note=row["note"],
+        source_trade_id=row["source_trade_id"],
+        is_system=bool(row["is_system"]),
         created_at=_text_to_datetime(row["created_at"]),
         updated_at=_text_to_datetime(row["updated_at"]),
     )

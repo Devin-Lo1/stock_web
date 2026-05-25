@@ -205,6 +205,35 @@ def init_database(*, seed_defaults: bool = True) -> None:
         )
         connection.execute(
             """
+            CREATE TABLE IF NOT EXISTS fund_trade_records (
+                id TEXT PRIMARY KEY,
+                fund_position_id TEXT NOT NULL,
+                fund_code TEXT NOT NULL,
+                name TEXT NOT NULL,
+                action TEXT NOT NULL,
+                shares REAL NOT NULL,
+                nav REAL NOT NULL,
+                amount REAL NOT NULL DEFAULT 0,
+                fee REAL NOT NULL DEFAULT 0,
+                trade_date TEXT NOT NULL,
+                operation_date TEXT,
+                operation_after_cutoff INTEGER NOT NULL DEFAULT 0,
+                note TEXT NOT NULL,
+                source_trade_id TEXT,
+                is_system INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """,
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_fund_trade_records_position_date
+            ON fund_trade_records (fund_position_id, trade_date DESC)
+            """,
+        )
+        connection.execute(
+            """
             CREATE TABLE IF NOT EXISTS fund_navs (
                 fund_code TEXT NOT NULL,
                 nav_date TEXT NOT NULL,
