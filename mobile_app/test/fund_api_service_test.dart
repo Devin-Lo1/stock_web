@@ -187,6 +187,31 @@ void main() {
     expect(trades.single.nav, 1.2);
   });
 
+  test('fetchHs300Benchmark reads benchmark points', () async {
+    late Uri requestedUri;
+    final service = FundApiService(
+      ApiClient(
+        baseUrl: 'http://test.local',
+        httpClient: MockClient((request) async {
+          requestedUri = request.url;
+          return http.Response(
+            '[{"code":"000300","name":"沪深300","trade_date":"2026-05-22",'
+            '"close":3900.5,"daily_growth_rate":1.2}]',
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }),
+      ),
+    );
+
+    final points = await service.fetchHs300Benchmark(limit: 120);
+
+    expect(requestedUri.path, '/api/v1/funds/benchmarks/hs300/navs');
+    expect(requestedUri.queryParameters['limit'], '120');
+    expect(points.single.name, '沪深300');
+    expect(points.single.close, 3900.5);
+  });
+
   test('fetchAlertSchedulerStatus parses multiple reminder times', () async {
     final service = FundApiService(
       ApiClient(

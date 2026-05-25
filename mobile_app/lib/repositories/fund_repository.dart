@@ -36,6 +36,10 @@ class FundRepository {
     return _apiService.fetchNavs(fundCode, limit: limit, refresh: refresh);
   }
 
+  Future<List<FundBenchmarkPoint>> loadHs300Benchmark({int limit = 370}) {
+    return _apiService.fetchHs300Benchmark(limit: limit);
+  }
+
   Future<List<FundTrade>> loadTrades(String positionId, {int limit = 100}) {
     return _apiService.fetchTrades(positionId, limit: limit);
   }

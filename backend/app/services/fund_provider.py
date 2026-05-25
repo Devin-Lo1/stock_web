@@ -6,7 +6,7 @@ from typing import Any, ClassVar
 import httpx
 
 from ..db.converters import UTC, _now
-from ..schemas import FundNavPoint, FundQuote, FundSearchResult
+from ..schemas import FundBenchmarkPoint, FundNavPoint, FundQuote, FundSearchResult
 
 CN_TZ = timezone(timedelta(hours=8))
 
@@ -20,11 +20,15 @@ class EastmoneyFundProvider:
     _timeout = 8.0
     _search_cache_ttl = timedelta(minutes=10)
     _nav_cache_ttl = timedelta(minutes=10)
+    _benchmark_cache_ttl = timedelta(minutes=10)
     _quote_cache_ttl = timedelta(seconds=30)
     _search_cache: ClassVar[
         dict[tuple[str, int], tuple[datetime, list[FundSearchResult]]]
     ] = {}
     _nav_cache: ClassVar[dict[tuple[str, int], tuple[datetime, list[FundNavPoint]]]] = {}
+    _benchmark_cache: ClassVar[
+        dict[tuple[str, int], tuple[datetime, list[FundBenchmarkPoint]]]
+    ] = {}
     _quote_cache: ClassVar[
         dict[tuple[str, str | None, float], tuple[datetime, FundQuote]]
     ] = {}
@@ -171,6 +175,74 @@ class EastmoneyFundProvider:
             )
         self._nav_cache[cache_key] = (now, [item.model_copy() for item in points])
         return points
+
+    def benchmark_history(
+        self,
+        benchmark_code: str = "hs300",
+        *,
+        limit: int = 370,
+    ) -> list[FundBenchmarkPoint]:
+        normalized = benchmark_code.strip().lower()
+        if normalized not in {"hs300", "000300", "sh.000300"}:
+            raise FundProviderError(f"unsupported fund benchmark: {benchmark_code}")
+        bounded_limit = max(1, min(limit, 1000))
+        cache_key = ("hs300", bounded_limit)
+        now = _now()
+        cached = self._benchmark_cache.get(cache_key)
+        if cached is not None and now - cached[0] < self._benchmark_cache_ttl:
+            return [item.model_copy() for item in cached[1]]
+
+        today = datetime.now(CN_TZ).date()
+        begin = today - timedelta(days=max(45, bounded_limit * 2 + 14))
+        payload = self._get_json(
+            "https://push2his.eastmoney.com/api/qt/stock/kline/get",
+            params={
+                "secid": "1.000300",
+                "fields1": "f1,f2,f3,f4,f5,f6",
+                "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
+                "klt": "101",
+                "fqt": "1",
+                "beg": begin.strftime("%Y%m%d"),
+                "end": "20500101",
+            },
+            headers={"Referer": "https://quote.eastmoney.com/"},
+        )
+        data = payload.get("data") if isinstance(payload, dict) else None
+        rows = data.get("klines") if isinstance(data, dict) else None
+        if not isinstance(rows, list):
+            raise FundProviderError("benchmark history response is empty")
+
+        points: list[FundBenchmarkPoint] = []
+        previous_close = 0.0
+        for row in rows:
+            parts = str(row).split(",")
+            if len(parts) < 3:
+                continue
+            trade_date = _parse_date(parts[0])
+            if trade_date is None:
+                continue
+            close = _float(parts[2])
+            change_rate = _float(parts[8]) if len(parts) > 8 else 0
+            if change_rate == 0 and previous_close > 0:
+                change_rate = (close - previous_close) / previous_close * 100
+            previous_close = close
+            points.append(
+                FundBenchmarkPoint(
+                    code="000300",
+                    name="沪深300",
+                    trade_date=trade_date,
+                    close=close,
+                    daily_growth_rate=change_rate,
+                    source=self.source,
+                )
+            )
+
+        result = points[-bounded_limit:]
+        self._benchmark_cache[cache_key] = (
+            now,
+            [item.model_copy() for item in result],
+        )
+        return result
 
     def _get_json(
         self,

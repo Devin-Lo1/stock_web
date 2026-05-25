@@ -17,6 +17,7 @@ from .positions import (
     PositionUpdate,
 )
 from .funds import (
+    FundBenchmarkPoint,
     FundNavPoint,
     FundGridAction,
     FundGridRecommendation,
@@ -89,6 +90,7 @@ __all__ = [
     "PositionTradeCreate",
     "PositionUpdate",
     "FundNavPoint",
+    "FundBenchmarkPoint",
     "FundGridAction",
     "FundGridRecommendation",
     "FundAlertScanResult",

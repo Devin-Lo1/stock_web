@@ -7,6 +7,22 @@ import '../models/fund_models.dart';
 import '../repositories/fund_repository.dart';
 import '../utils/theme_helpers.dart';
 
+const _fundTrendNavLimit = 370;
+const _initialNavRows = 30;
+const _expandedNavRows = 50;
+
+enum _FundTrendRange {
+  oneMonth('近1月', 31),
+  threeMonths('近3月', 93),
+  sixMonths('近6月', 186),
+  oneYear('近1年', 366);
+
+  const _FundTrendRange(this.label, this.calendarDays);
+
+  final String label;
+  final int calendarDays;
+}
+
 class FundDetailScreen extends StatefulWidget {
   const FundDetailScreen({
     super.key,
@@ -29,6 +45,7 @@ class FundDetailScreen extends StatefulWidget {
 
 class _FundDetailScreenState extends State<FundDetailScreen> {
   List<FundNavPoint> _navs = const [];
+  List<FundBenchmarkPoint> _benchmarks = const [];
   List<FundTrade> _trades = const [];
   bool _isLoadingNavs = true;
 
@@ -43,23 +60,36 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
     try {
       final navsFuture = widget.repository.loadNavs(
         widget.summary.position.fundCode,
-        limit: 50,
+        limit: _fundTrendNavLimit,
         refresh: refresh,
       );
+      final benchmarksFuture = _loadBenchmarks();
       final tradesFuture = widget.repository.loadTrades(
         widget.summary.position.id,
         limit: 200,
       );
       final navs = await navsFuture;
+      final benchmarks = await benchmarksFuture;
       final trades = await tradesFuture;
       if (mounted) {
         setState(() {
           _navs = navs;
+          _benchmarks = benchmarks;
           _trades = trades;
         });
       }
     } finally {
       if (mounted) setState(() => _isLoadingNavs = false);
+    }
+  }
+
+  Future<List<FundBenchmarkPoint>> _loadBenchmarks() async {
+    try {
+      return await widget.repository.loadHs300Benchmark(
+        limit: _fundTrendNavLimit,
+      );
+    } catch (_) {
+      return const [];
     }
   }
 
@@ -163,7 +193,7 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                   unselectedLabelColor: secondaryTextColor(context),
                   indicatorColor: appAccentColor(context),
                   tabs: const [
-                    Tab(text: '净值走势'),
+                    Tab(text: '业绩走势'),
                     Tab(text: '我的收益'),
                     Tab(text: '提醒策略'),
                   ],
@@ -174,7 +204,9 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                   children: [
                     _TrendTab(
                       isLoading: _isLoadingNavs,
+                      summary: summary,
                       navs: _navs,
+                      benchmarks: _benchmarks,
                       trades: _trades,
                     ),
                     _ProfitTab(summary: summary, onAdjust: widget.onAdjust),
@@ -195,50 +227,124 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
   }
 }
 
-class _TrendTab extends StatelessWidget {
+class _TrendTab extends StatefulWidget {
   const _TrendTab({
     required this.isLoading,
+    required this.summary,
     required this.navs,
+    required this.benchmarks,
     required this.trades,
   });
 
   final bool isLoading;
+  final FundPositionSummary summary;
   final List<FundNavPoint> navs;
+  final List<FundBenchmarkPoint> benchmarks;
   final List<FundTrade> trades;
 
   @override
+  State<_TrendTab> createState() => _TrendTabState();
+}
+
+class _TrendTabState extends State<_TrendTab> {
+  _FundTrendRange _selectedRange = _FundTrendRange.threeMonths;
+  bool _showMoreNavRows = false;
+
+  @override
   Widget build(BuildContext context) {
-    final sorted = List<FundNavPoint>.of(navs)
+    final sorted = List<FundNavPoint>.of(widget.navs)
       ..sort((a, b) => a.navDate.compareTo(b.navDate));
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
-      children: [
-        Container(
-          height: 310,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: cardColor(context),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: borderColor(context)),
-          ),
-          child: isLoading
-              ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-              : sorted.length < 2
-              ? Center(
-                  child: Text(
-                    '净值数据不足',
-                    style: TextStyle(
-                      color: secondaryTextColor(context),
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                )
-              : _FundNavCurve(points: sorted, trades: trades),
-        ),
-        const SizedBox(height: 12),
-        ...sorted.reversed.map((point) => _NavRow(point: point)),
-      ],
+    final visiblePoints = _filterRange(sorted, _selectedRange);
+    final benchmarkPoints = _filterBenchmarks(widget.benchmarks, visiblePoints);
+    final rowCount = math.min(
+      _showMoreNavRows ? _expandedNavRows : _initialNavRows,
+      sorted.length,
     );
+    final rows = sorted.reversed.take(rowCount).toList();
+    return NotificationListener<ScrollUpdateNotification>(
+      onNotification: (notification) {
+        if (!_showMoreNavRows && notification.metrics.pixels > 80) {
+          setState(() => _showMoreNavRows = true);
+        }
+        return false;
+      },
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
+        children: [
+          _TrendLegend(
+            points: visiblePoints,
+            benchmarks: benchmarkPoints,
+            costNav: widget.summary.position.avgCostNav,
+          ),
+          const SizedBox(height: 10),
+          Container(
+            height: 320,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: cardColor(context),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: borderColor(context)),
+            ),
+            child: widget.isLoading
+                ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                : visiblePoints.length < 2
+                ? Center(
+                    child: Text(
+                      '净值数据不足',
+                      style: TextStyle(
+                        color: secondaryTextColor(context),
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  )
+                : _FundNavCurve(
+                    points: visiblePoints,
+                    benchmarks: benchmarkPoints,
+                    trades: widget.trades,
+                    costNav: widget.summary.position.avgCostNav,
+                  ),
+          ),
+          const SizedBox(height: 12),
+          _TrendRangeSelector(
+            selectedRange: _selectedRange,
+            onChanged: (range) => setState(() => _selectedRange = range),
+          ),
+          const SizedBox(height: 14),
+          const _NavListHeader(),
+          ...rows.map((point) => _NavRow(point: point)),
+        ],
+      ),
+    );
+  }
+
+  List<FundNavPoint> _filterRange(
+    List<FundNavPoint> points,
+    _FundTrendRange range,
+  ) {
+    if (points.length < 2) return points;
+    final latest = points.last.navDate;
+    final start = latest.subtract(Duration(days: range.calendarDays));
+    final filtered = points
+        .where((point) => !point.navDate.isBefore(start))
+        .toList();
+    return filtered.length >= 2 ? filtered : points;
+  }
+
+  List<FundBenchmarkPoint> _filterBenchmarks(
+    List<FundBenchmarkPoint> benchmarks,
+    List<FundNavPoint> points,
+  ) {
+    if (benchmarks.isEmpty || points.length < 2) return const [];
+    final start = points.first.navDate;
+    final end = points.last.navDate;
+    final sorted = List<FundBenchmarkPoint>.of(benchmarks)
+      ..sort((a, b) => a.tradeDate.compareTo(b.tradeDate));
+    return sorted
+        .where(
+          (point) =>
+              !point.tradeDate.isBefore(start) && !point.tradeDate.isAfter(end),
+        )
+        .toList();
   }
 }
 
@@ -348,11 +454,186 @@ class _AlertTab extends StatelessWidget {
   }
 }
 
-class _FundNavCurve extends StatefulWidget {
-  const _FundNavCurve({required this.points, required this.trades});
+class _TrendLegend extends StatelessWidget {
+  const _TrendLegend({
+    required this.points,
+    required this.benchmarks,
+    required this.costNav,
+  });
 
   final List<FundNavPoint> points;
+  final List<FundBenchmarkPoint> benchmarks;
+  final double costNav;
+
+  @override
+  Widget build(BuildContext context) {
+    final fundReturn = _fundReturn(points);
+    final benchmarkReturn = _benchmarkReturn(benchmarks);
+    return Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      children: [
+        _LegendItem(
+          color: const Color(0xFF4D7CFE),
+          label: '本基金',
+          value: fundReturn == null ? '--' : _percent(fundReturn),
+        ),
+        _LegendItem(
+          color: const Color(0xFFEA8A35),
+          label: '沪深300',
+          value: benchmarkReturn == null ? '--' : _percent(benchmarkReturn),
+        ),
+        _LegendItem(
+          color: secondaryTextColor(context),
+          label: '成本价',
+          value: costNav > 0 ? costNav.toStringAsFixed(4) : '--',
+          dashed: true,
+        ),
+      ],
+    );
+  }
+}
+
+class _LegendItem extends StatelessWidget {
+  const _LegendItem({
+    required this.color,
+    required this.label,
+    required this.value,
+    this.dashed = false,
+  });
+
+  final Color color;
+  final String label;
+  final String value;
+  final bool dashed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CustomPaint(
+          size: const Size(18, 8),
+          painter: _LegendLinePainter(color: color, dashed: dashed),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: TextStyle(
+            color: secondaryTextColor(context),
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          value,
+          style: TextStyle(
+            color: value.startsWith('--') ? secondaryTextColor(context) : color,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LegendLinePainter extends CustomPainter {
+  const _LegendLinePainter({required this.color, required this.dashed});
+
+  final Color color;
+  final bool dashed;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round;
+    if (!dashed) {
+      canvas.drawLine(
+        Offset(0, size.height / 2),
+        Offset(size.width, size.height / 2),
+        paint,
+      );
+      return;
+    }
+    var x = 0.0;
+    while (x < size.width) {
+      canvas.drawLine(
+        Offset(x, size.height / 2),
+        Offset(math.min(x + 5, size.width), size.height / 2),
+        paint,
+      );
+      x += 8;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LegendLinePainter oldDelegate) {
+    return oldDelegate.color != color || oldDelegate.dashed != dashed;
+  }
+}
+
+class _TrendRangeSelector extends StatelessWidget {
+  const _TrendRangeSelector({
+    required this.selectedRange,
+    required this.onChanged,
+  });
+
+  final _FundTrendRange selectedRange;
+  final ValueChanged<_FundTrendRange> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (final range in _FundTrendRange.values)
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(6),
+                onTap: () => onChanged(range),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  padding: const EdgeInsets.symmetric(vertical: 9),
+                  decoration: BoxDecoration(
+                    color: range == selectedRange
+                        ? appAccentColor(context).withValues(alpha: 0.16)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    range.label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: range == selectedRange
+                          ? appAccentColor(context)
+                          : secondaryTextColor(context),
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _FundNavCurve extends StatefulWidget {
+  const _FundNavCurve({
+    required this.points,
+    required this.benchmarks,
+    required this.trades,
+    required this.costNav,
+  });
+
+  final List<FundNavPoint> points;
+  final List<FundBenchmarkPoint> benchmarks;
   final List<FundTrade> trades;
+  final double costNav;
 
   @override
   State<_FundNavCurve> createState() => _FundNavCurveState();
@@ -375,9 +656,10 @@ class _FundNavCurveState extends State<_FundNavCurve> {
           CustomPaint(
             painter: _FundNavCurvePainter(
               points: widget.points,
+              benchmarks: widget.benchmarks,
               trades: widget.trades,
               selectedIndex: _selectedIndex,
-              lineColor: const Color(0xFFFF4D67),
+              costNav: widget.costNav,
               gridColor: borderColor(context),
               labelColor: secondaryTextColor(context),
             ),
@@ -385,8 +667,8 @@ class _FundNavCurveState extends State<_FundNavCurve> {
           ),
           if (selected != null)
             Positioned(
-              left: 12,
-              top: 10,
+              left: 10,
+              top: 8,
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: cardColor(context).withValues(alpha: 0.94),
@@ -399,7 +681,7 @@ class _FundNavCurveState extends State<_FundNavCurve> {
                     vertical: 8,
                   ),
                   child: Text(
-                    '${_fullDate(selected.navDate)}  ${selected.unitNav.toStringAsFixed(4)}  ${_percent(selected.dailyGrowthRate)}',
+                    '${_fullDate(selected.navDate)}  净值 ${selected.unitNav.toStringAsFixed(4)}  本基金 ${_percent(_returnFromFirst(widget.points, selected.unitNav))}',
                     style: TextStyle(
                       color: primaryTextColor(context),
                       fontSize: 12,
@@ -415,7 +697,7 @@ class _FundNavCurveState extends State<_FundNavCurve> {
   }
 
   void _select(double dx) {
-    if (widget.points.length < 2) return;
+    if (widget.points.length < 2 || context.size == null) return;
     final ratio = (dx / context.size!.width).clamp(0.0, 1.0);
     setState(
       () => _selectedIndex = (ratio * (widget.points.length - 1)).round(),
@@ -426,27 +708,47 @@ class _FundNavCurveState extends State<_FundNavCurve> {
 class _FundNavCurvePainter extends CustomPainter {
   const _FundNavCurvePainter({
     required this.points,
+    required this.benchmarks,
     required this.trades,
     required this.selectedIndex,
-    required this.lineColor,
+    required this.costNav,
     required this.gridColor,
     required this.labelColor,
   });
 
+  static const _fundColor = Color(0xFF4D7CFE);
+  static const _benchmarkColor = Color(0xFFEA8A35);
+  static const _costColor = Color(0xFF9CA3AF);
+
   final List<FundNavPoint> points;
+  final List<FundBenchmarkPoint> benchmarks;
   final List<FundTrade> trades;
   final int? selectedIndex;
-  final Color lineColor;
+  final double costNav;
   final Color gridColor;
   final Color labelColor;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final chart = Rect.fromLTWH(8, 22, size.width - 16, size.height - 58);
-    final values = points.map((point) => point.unitNav).toList();
-    final minValue = values.reduce(math.min);
-    final maxValue = values.reduce(math.max);
-    final range = math.max(0.0001, maxValue - minValue);
+    final chart = Rect.fromLTWH(8, 28, size.width - 16, size.height - 66);
+    final fundValues = _fundReturnValues(points);
+    final benchmarkValues = _benchmarkReturnValues(benchmarks);
+    final costValue = costNav > 0 && points.first.unitNav > 0
+        ? (costNav / points.first.unitNav - 1) * 100
+        : null;
+    final allValues = <double>[...fundValues, ...benchmarkValues, 0];
+    if (costValue != null) allValues.add(costValue);
+    var minValue = allValues.reduce(math.min);
+    var maxValue = allValues.reduce(math.max);
+    if ((maxValue - minValue).abs() < 0.01) {
+      maxValue += 1;
+      minValue -= 1;
+    }
+    final padding = math.max(0.8, (maxValue - minValue) * 0.12);
+    minValue -= padding;
+    maxValue += padding;
+    final range = maxValue - minValue;
+
     final gridPaint = Paint()
       ..color = gridColor
       ..strokeWidth = 1;
@@ -454,60 +756,130 @@ class _FundNavCurvePainter extends CustomPainter {
       final y = chart.top + chart.height / 2 * i;
       canvas.drawLine(Offset(chart.left, y), Offset(chart.right, y), gridPaint);
     }
+    _drawDashedLine(canvas, chart, _yFor(0, chart, minValue, range), gridColor);
+    if (costValue != null) {
+      _drawDashedLine(
+        canvas,
+        chart,
+        _yFor(costValue, chart, minValue, range),
+        _costColor.withValues(alpha: 0.72),
+      );
+    }
+
+    final benchmarkPath = _benchmarkPath(chart, minValue, range);
+    if (benchmarkPath != null) {
+      canvas.drawPath(
+        benchmarkPath,
+        Paint()
+          ..color = _benchmarkColor
+          ..strokeWidth = 2
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round,
+      );
+    }
+
+    final fundPath = _fundPath(chart, fundValues, minValue, range);
+    final fillPath = Path.from(fundPath)
+      ..lineTo(chart.right, chart.bottom)
+      ..lineTo(chart.left, chart.bottom)
+      ..close();
+    canvas.drawPath(
+      fillPath,
+      Paint()..color = _fundColor.withValues(alpha: 0.08),
+    );
+    canvas.drawPath(
+      fundPath,
+      Paint()
+        ..color = _fundColor
+        ..strokeWidth = 2.5
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+
+    _drawTradeMarkers(canvas, chart, fundValues, minValue, range);
+    final selected = selectedIndex;
+    if (selected != null && selected >= 0 && selected < points.length) {
+      final x = _xForIndex(chart, selected, points.length);
+      final y = _yFor(fundValues[selected], chart, minValue, range);
+      canvas.drawLine(
+        Offset(x, chart.top),
+        Offset(x, chart.bottom),
+        Paint()
+          ..color = _fundColor.withValues(alpha: 0.35)
+          ..strokeWidth = 1,
+      );
+      canvas.drawCircle(Offset(x, y), 4.5, Paint()..color = _fundColor);
+    }
+
+    _drawText(canvas, _percent(maxValue), Offset(0, chart.top - 22));
+    _drawText(canvas, _percent(minValue), Offset(0, chart.bottom + 4));
+    _drawText(
+      canvas,
+      _shortDate(points.first.navDate),
+      Offset(chart.left, chart.bottom + 28),
+    );
+    _drawText(
+      canvas,
+      _shortDate(points[points.length ~/ 2].navDate),
+      Offset(chart.center.dx - 22, chart.bottom + 28),
+    );
+    _drawText(
+      canvas,
+      _shortDate(points.last.navDate),
+      Offset(chart.right - 44, chart.bottom + 28),
+    );
+  }
+
+  Path _fundPath(
+    Rect chart,
+    List<double> values,
+    double minValue,
+    double range,
+  ) {
     final path = Path();
     for (var i = 0; i < values.length; i++) {
-      final x = chart.left + chart.width * i / (values.length - 1);
-      final y = chart.bottom - (values[i] - minValue) / range * chart.height;
+      final x = _xForIndex(chart, i, values.length);
+      final y = _yFor(values[i], chart, minValue, range);
       if (i == 0) {
         path.moveTo(x, y);
       } else {
         path.lineTo(x, y);
       }
     }
-    final fillPath = Path.from(path)
-      ..lineTo(chart.right, chart.bottom)
-      ..lineTo(chart.left, chart.bottom)
-      ..close();
-    canvas.drawPath(
-      fillPath,
-      Paint()..color = lineColor.withValues(alpha: 0.08),
-    );
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = lineColor
-        ..strokeWidth = 2.4
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round,
-    );
-    _drawTradeMarkers(canvas, chart, values, minValue, range);
-    final selected = selectedIndex;
-    if (selected != null && selected >= 0 && selected < points.length) {
-      final x = chart.left + chart.width * selected / (points.length - 1);
-      final y =
-          chart.bottom - (values[selected] - minValue) / range * chart.height;
-      canvas.drawLine(
-        Offset(x, chart.top),
-        Offset(x, chart.bottom),
-        Paint()
-          ..color = lineColor.withValues(alpha: 0.5)
-          ..strokeWidth = 1,
-      );
-      canvas.drawCircle(Offset(x, y), 4, Paint()..color = lineColor);
+    return path;
+  }
+
+  Path? _benchmarkPath(Rect chart, double minValue, double range) {
+    if (benchmarks.length < 2) return null;
+    final values = _benchmarkReturnValues(benchmarks);
+    final path = Path();
+    for (var i = 0; i < values.length; i++) {
+      final x = _xForDate(chart, benchmarks[i].tradeDate);
+      final y = _yFor(values[i], chart, minValue, range);
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
     }
-    _drawText(canvas, maxValue.toStringAsFixed(4), Offset(0, chart.top - 18));
-    _drawText(canvas, minValue.toStringAsFixed(4), Offset(0, chart.bottom + 4));
-    _drawText(
-      canvas,
-      _shortDate(points.first.navDate),
-      Offset(chart.left, chart.bottom + 26),
-    );
-    _drawText(
-      canvas,
-      _shortDate(points.last.navDate),
-      Offset(chart.right - 44, chart.bottom + 26),
-    );
+    return path;
+  }
+
+  void _drawDashedLine(Canvas canvas, Rect chart, double y, Color color) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.2;
+    var x = chart.left;
+    while (x < chart.right) {
+      canvas.drawLine(
+        Offset(x, y),
+        Offset(math.min(x + 9, chart.right), y),
+        paint,
+      );
+      x += 15;
+    }
   }
 
   void _drawText(Canvas canvas, String text, Offset offset, {Color? color}) {
@@ -521,7 +893,7 @@ class _FundNavCurvePainter extends CustomPainter {
         ),
       ),
       textDirection: TextDirection.ltr,
-    )..layout(maxWidth: 80);
+    )..layout(maxWidth: 86);
     painter.paint(canvas, offset);
   }
 
@@ -541,9 +913,8 @@ class _FundNavCurvePainter extends CustomPainter {
     for (final trade in trades) {
       final index = _nearestPointIndex(trade.tradeDate);
       if (index == null) continue;
-      final x = chart.left + chart.width * index / (points.length - 1);
-      final y =
-          chart.bottom - (values[index] - minValue) / range * chart.height;
+      final x = _xForIndex(chart, index, points.length);
+      final y = _yFor(values[index], chart, minValue, range);
       final color = trade.isBuy
           ? const Color(0xFFFF4D67)
           : const Color(0xFF20C997);
@@ -576,11 +947,34 @@ class _FundNavCurvePainter extends CustomPainter {
     return bestDistance <= 7 ? bestIndex : null;
   }
 
+  double _xForIndex(Rect chart, int index, int count) {
+    if (count <= 1) return chart.left;
+    return chart.left + chart.width * index / (count - 1);
+  }
+
+  double _xForDate(Rect chart, DateTime date) {
+    final totalDays = math.max(
+      1,
+      points.last.navDate.difference(points.first.navDate).inDays,
+    );
+    final days = date
+        .difference(points.first.navDate)
+        .inDays
+        .clamp(0, totalDays);
+    return chart.left + chart.width * days / totalDays;
+  }
+
+  double _yFor(double value, Rect chart, double minValue, double range) {
+    return chart.bottom - (value - minValue) / range * chart.height;
+  }
+
   @override
   bool shouldRepaint(covariant _FundNavCurvePainter oldDelegate) {
     return oldDelegate.points != points ||
+        oldDelegate.benchmarks != benchmarks ||
         oldDelegate.trades != trades ||
-        oldDelegate.selectedIndex != selectedIndex;
+        oldDelegate.selectedIndex != selectedIndex ||
+        oldDelegate.costNav != costNav;
   }
 }
 
@@ -775,6 +1169,33 @@ class _RecommendationPanel extends StatelessWidget {
   }
 }
 
+class _NavListHeader extends StatelessWidget {
+  const _NavListHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final style = TextStyle(
+      color: secondaryTextColor(context),
+      fontWeight: FontWeight.w900,
+      fontSize: 13,
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Row(
+        children: [
+          Expanded(child: Text('日期', style: style)),
+          Expanded(
+            child: Text('净值', textAlign: TextAlign.center, style: style),
+          ),
+          Expanded(
+            child: Text('日涨幅', textAlign: TextAlign.right, style: style),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _NavRow extends StatelessWidget {
   const _NavRow({required this.point});
 
@@ -853,4 +1274,31 @@ Color _profitColor(double value) {
   if (value > 0) return const Color(0xFFFF4D67);
   if (value < 0) return const Color(0xFF20C997);
   return const Color(0xFF94A3B8);
+}
+
+double? _fundReturn(List<FundNavPoint> points) {
+  if (points.length < 2 || points.first.unitNav <= 0) return null;
+  return _returnFromFirst(points, points.last.unitNav);
+}
+
+double? _benchmarkReturn(List<FundBenchmarkPoint> points) {
+  if (points.length < 2 || points.first.close <= 0) return null;
+  return (points.last.close / points.first.close - 1) * 100;
+}
+
+double _returnFromFirst(List<FundNavPoint> points, double value) {
+  if (points.isEmpty || points.first.unitNav <= 0) return 0;
+  return (value / points.first.unitNav - 1) * 100;
+}
+
+List<double> _fundReturnValues(List<FundNavPoint> points) {
+  if (points.isEmpty || points.first.unitNav <= 0) return const [];
+  final first = points.first.unitNav;
+  return [for (final point in points) (point.unitNav / first - 1) * 100];
+}
+
+List<double> _benchmarkReturnValues(List<FundBenchmarkPoint> points) {
+  if (points.isEmpty || points.first.close <= 0) return const [];
+  final first = points.first.close;
+  return [for (final point in points) (point.close / first - 1) * 100];
 }

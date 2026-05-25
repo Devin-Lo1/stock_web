@@ -16,6 +16,7 @@ from ..repositories.funds import (
     upsert_fund_navs,
 )
 from ..schemas import (
+    FundBenchmarkPoint,
     FundNavPoint,
     FundAlertScanResult,
     FundAlertSchedulerStatus,
@@ -90,6 +91,21 @@ def api_search_funds(
             "FUND_PROVIDER_UNAVAILABLE",
             "基金数据源暂不可用",
             {"reason": str(error)},
+        ) from error
+
+
+@router.get("/benchmarks/hs300/navs", response_model=list[FundBenchmarkPoint])
+def api_list_hs300_benchmark_navs(
+    limit: int = Query(default=370, ge=1, le=1000),
+) -> list[FundBenchmarkPoint]:
+    try:
+        return EastmoneyFundProvider().benchmark_history("hs300", limit=limit)
+    except Exception as error:
+        raise api_error(
+            status.HTTP_502_BAD_GATEWAY,
+            "FUND_BENCHMARK_UNAVAILABLE",
+            "基金基准数据暂不可用",
+            {"benchmark": "hs300", "reason": str(error)},
         ) from error
 
 

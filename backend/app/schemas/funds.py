@@ -31,6 +31,15 @@ class FundNavPoint(BaseModel):
     updated_at: datetime
 
 
+class FundBenchmarkPoint(BaseModel):
+    code: str
+    name: str
+    trade_date: date
+    close: float
+    daily_growth_rate: float = 0
+    source: str = "eastmoney"
+
+
 class FundQuote(BaseModel):
     fund_code: str
     name: str

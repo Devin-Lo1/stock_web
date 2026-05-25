@@ -388,3 +388,35 @@ def test_fund_provider_search_ignores_system_proxy_and_caches(monkeypatch) -> No
     assert len(second) == 1
     assert len(calls) == 1
     assert calls[0]["trust_env"] is False
+
+
+def test_fund_provider_reads_hs300_benchmark_history(monkeypatch) -> None:
+    EastmoneyFundProvider._benchmark_cache.clear()
+    calls: list[dict[str, object]] = []
+
+    class FakeResponse:
+        content = (
+            b'{"data":{"klines":["2026-05-20,1,3900,1,1,0,0,0,1.25,0,0",'
+            b'"2026-05-21,1,3939,1,1,0,0,0,1.00,0,0"]}}'
+        )
+
+        def raise_for_status(self) -> None:
+            return None
+
+    def fake_get(*args, **kwargs):
+        calls.append(kwargs)
+        return FakeResponse()
+
+    monkeypatch.setattr(fund_provider.httpx, "get", fake_get)
+
+    provider = EastmoneyFundProvider()
+    points = provider.benchmark_history("hs300", limit=10)
+    cached = provider.benchmark_history("000300", limit=10)
+
+    assert len(points) == 2
+    assert points[-1].name == "沪深300"
+    assert points[-1].close == 3939
+    assert points[-1].daily_growth_rate == 1.0
+    assert len(cached) == 2
+    assert len(calls) == 1
+    assert calls[0]["trust_env"] is False

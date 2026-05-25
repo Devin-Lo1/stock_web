@@ -55,6 +55,34 @@ class FundNavPoint {
   }
 }
 
+class FundBenchmarkPoint {
+  const FundBenchmarkPoint({
+    required this.code,
+    required this.name,
+    required this.tradeDate,
+    required this.close,
+    required this.dailyGrowthRate,
+  });
+
+  final String code;
+  final String name;
+  final DateTime tradeDate;
+  final double close;
+  final double dailyGrowthRate;
+
+  factory FundBenchmarkPoint.fromJson(Map<String, dynamic> json) {
+    return FundBenchmarkPoint(
+      code: json['code'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      tradeDate:
+          DateTime.tryParse(json['trade_date'] as String? ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      close: _double(json['close']),
+      dailyGrowthRate: _double(json['daily_growth_rate']),
+    );
+  }
+}
+
 class FundPosition {
   const FundPosition({
     required this.id,
