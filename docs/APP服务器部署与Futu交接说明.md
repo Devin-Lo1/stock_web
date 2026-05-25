@@ -87,6 +87,75 @@ FUTU_CONNECT_TIMEOUT_SECONDS=2
 4. 不要把 `11111` 端口直接暴露到公网。
 5. Nginx、云防火墙和 UFW 只开放必要端口：当前建议 `22`、`80`，后续上 HTTPS 后开放 `443`。
 
+### 4.1 云服务器本机 FutuOpenD 安装步骤
+
+当前优先方案是先尝试在云服务器本机运行命令行 FutuOpenD，并只监听本机地址：
+
+```text
+127.0.0.1:11111
+```
+
+执行顺序：
+
+```bash
+cd /home/ubuntu/stock_web
+git pull --ff-only
+bash scripts/deploy_backend.sh
+```
+
+从富途官方 OpenAPI 文档下载 Ubuntu 命令行 OpenD 压缩包，上传到服务器，例如：
+
+```bash
+/tmp/FutuOpenD_Ubuntu.tar.gz
+```
+
+安装 systemd 服务：
+
+```bash
+cd /home/ubuntu/stock_web
+FUTU_OPEND_ARCHIVE=/tmp/FutuOpenD_Ubuntu.tar.gz bash scripts/install_futu_opend_ubuntu.sh
+```
+
+安装脚本会：
+
+- 将 OpenD 文件放到 `/opt/futu-opend`。
+- 将本机配置文件放到 `/etc/futu-opend/FutuOpenD.xml`。
+- 创建 `futu-opend` systemd 服务。
+- 确保后端 `.env` 中有 `FUTU_HOST=127.0.0.1`、`FUTU_PORT=11111`、`FUTU_CONNECT_TIMEOUT_SECONDS=2`。
+
+随后在服务器本机编辑：
+
+```bash
+sudo nano /etc/futu-opend/FutuOpenD.xml
+```
+
+只在该服务器本地配置富途登录账号和 `login_pwd_md5` 或 `login_pwd`。不要把该文件提交到 Git，不要把账号密码写入文档或聊天记录。
+
+启动并验证：
+
+```bash
+sudo systemctl enable --now futu-opend
+sudo systemctl status futu-opend --no-pager
+sudo ss -ltnp | grep ':11111'
+sudo systemctl restart stock-web-backend
+curl -sS http://127.0.0.1:8000/api/v1/futu/health
+curl -sS http://119.91.47.141/api/v1/futu/health
+```
+
+`ss` 结果必须确认 FutuOpenD 只监听 `127.0.0.1:11111`，不能出现 `0.0.0.0:11111` 或公网网卡地址监听。若出现公网监听，立即停止服务并修正配置：
+
+```bash
+sudo systemctl stop futu-opend
+sudo nano /etc/futu-opend/FutuOpenD.xml
+```
+
+可额外加 UFW 兜底：
+
+```bash
+sudo ufw deny 11111/tcp
+sudo ufw status verbose
+```
+
 ## 5. 本地到服务器发布流程
 
 本地开发完成后：
@@ -96,7 +165,7 @@ cd C:\Users\58229\Desktop\stock_web
 git status --short
 git add .
 git commit -m "message"
-git push origin main
+git push origin master
 ```
 
 服务器更新：

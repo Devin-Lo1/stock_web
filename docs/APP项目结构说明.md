@@ -35,7 +35,7 @@ stock_web/
 - `mobile_app/`：Flutter Android App。
 - `backend/`：FastAPI 后端。
 - `docs/`：项目文档。
-- `scripts/`：开发、部署和服务器维护脚本。当前包含局域网 APK 构建、后端部署、PostgreSQL 备份和备份 timer 安装脚本。
+- `scripts/`：开发、部署和服务器维护脚本。当前包含局域网 APK 构建、后端部署、PostgreSQL 备份、备份 timer 安装和云服务器 FutuOpenD 安装脚本。
 
 ## 2. Flutter App 结构
 
@@ -307,7 +307,7 @@ GET /api/v1/stocks/search
 
 ```text
 GET    /api/v1/funds/search
-GET    /api/v1/funds/summaries
+GET    /api/v1/funds/positions/summary
 GET    /api/v1/funds/{fund_code}/navs
 POST   /api/v1/funds/positions
 DELETE /api/v1/funds/positions/{position_id}
@@ -1895,7 +1895,7 @@ K 线接口：
 场外基金接口：
 
 - `GET /api/v1/funds/search`
-- `GET /api/v1/funds/summaries`
+- `GET /api/v1/funds/positions/summary`
 - `GET /api/v1/funds/{fund_code}/navs`
 - `POST /api/v1/funds/positions`
 - `DELETE /api/v1/funds/positions/{position_id}`

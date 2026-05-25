@@ -168,7 +168,7 @@ GET    /api/v1/notifications/push-records
 POST   /api/v1/notifications/push-records/{record_id}/retry
 DELETE /api/v1/notifications/push-records/{record_id}
 GET    /api/v1/funds/search
-GET    /api/v1/funds/summaries
+GET    /api/v1/funds/positions/summary
 GET    /api/v1/funds/{fund_code}/navs
 POST   /api/v1/funds/positions
 DELETE /api/v1/funds/positions/{position_id}
