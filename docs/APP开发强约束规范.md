@@ -1,6 +1,6 @@
 # App 开发强约束规范
 
-最后更新：2026-05-24
+最后更新：2026-05-25
 
 本文档是本项目后续开发的强制规范，合并自：
 
@@ -274,6 +274,8 @@ mutedIconColor(context)
 - 每次切换后端连接方式后，必须重新构建或重新运行 App，确认 `API_BASE_URL` 已经生效。
 - 每次重新插拔手机、重启 ADB、重启电脑后，若使用 USB reverse，必须重新检查端口转发。
 - 项目当前默认采用局域网真机调试。重新构建真机 APK 时禁止裸跑 `flutter build apk --debug`，必须运行 `.\scripts\build_mobile_lan_debug.ps1` 或显式传入 `--dart-define=API_BASE_URL=http://电脑当前局域网IP:8000`，否则 App 会回退到 `http://127.0.0.1:8000`，真机将无法通过局域网连接后端。
+- 若构建连接云服务器的 APK，必须显式传入 `--dart-define=API_BASE_URL=http://119.91.47.141` 或后续正式域名；不要混用局域网包和云服务器包。
+- 公网部署后，后端健康检查正常不等于 FutuOpenD 正常。FutuOpenD 默认由后端通过 `FUTU_HOST` / `FUTU_PORT` 访问，禁止让 Flutter 直连 FutuOpenD，禁止将 FutuOpenD 端口直接暴露公网。
 - 电脑切换 Wi-Fi、热点、路由器或网卡后，局域网 IP 可能变化；必须重新构建并安装 APK。`build_mobile_lan_debug.ps1` 默认会自动探测当前带默认网关的 IPv4 地址。
 - 真机 APK 安装后必须到 App 设置页核对“后端 API”显示的地址；如果不是当前电脑局域网地址，本次 APK 视为构建错误，必须重新构建安装。
 

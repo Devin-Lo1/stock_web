@@ -1,13 +1,13 @@
 # App 马上解决任务顺序
 
-最后更新：2026-05-24
+最后更新：2026-05-25
 
 本文档用于交接“下一位开发者马上应该做什么”。它不是长期规划文档，而是当前版本之后最优先的执行清单。
 
 当前功能基线：
 
 ```text
-7ba80fb feat: refine fund portfolio views
+2f0e13d chore: add server database backup scripts
 ```
 
 当前工作区要求：
@@ -18,6 +18,40 @@
 - 涉及后端改动必须执行 `python -m compileall app`。
 - 涉及真机体验必须重新构建并安装 APK。
 - 当前真机调试采用局域网后端地址。重新打 debug APK 时禁止裸跑 `flutter build apk --debug`，必须直接运行 `.\scripts\build_mobile_lan_debug.ps1` 自动探测当前电脑局域网 IP，或手动传 `--dart-define=API_BASE_URL=http://电脑当前局域网IP:8000`。
+
+## 0. 2026-05-25 当前马上任务（云服务器交接）
+
+当前刚完成：
+
+```text
+Gitee 远程仓库已建立并推送
+腾讯云轻量服务器已初始化：Ubuntu 22.04、Nginx、PostgreSQL、FastAPI systemd
+App debug APK 已构建为连接公网 API：http://119.91.47.141
+新增后端部署脚本：scripts/deploy_backend.sh
+新增 PostgreSQL 备份脚本和 timer 安装脚本
+场外基金持仓重建逻辑已支持按交易历史、历史日期和三点前后规则重建
+Futu 连接参数已改为 FUTU_HOST / FUTU_PORT / FUTU_CONNECT_TIMEOUT_SECONDS 环境变量
+```
+
+当前最重要判断：
+
+- 后端公网健康检查可用不等于 Futu 可用。
+- 当前服务器没有运行 FutuOpenD，所以 App 显示 Futu 接口不可用属于预期。
+- 基金数据源和基金提醒不依赖 Futu；股票实时行情、K 线、资金流向、股票搜索、依赖实时行情的策略扫描依赖 Futu。
+- 详细交接见 `docs/APP服务器部署与Futu交接说明.md`。
+
+下一位开发者马上做：
+
+1. 在服务器确认 `stock-web-backend`、Nginx、PostgreSQL、备份 timer 和 UFW 状态。
+2. 服务器执行最新部署脚本并确认：
+   - `curl -sS http://127.0.0.1/health`
+   - `curl -sS http://119.91.47.141/health`
+3. 决定 FutuOpenD 运行位置，并通过 `.env` 配置 `FUTU_HOST`、`FUTU_PORT`。禁止将 FutuOpenD 端口直接暴露公网。
+4. 给公网 API 增加访问保护，至少先做简单 token 或登录态。
+5. 后续绑定域名和 HTTPS，再考虑长期公网使用。
+6. 真机重点验证基金：添加基金、金额/份额互转、历史买入/卖出、三点前后确认日、手续费率、持仓重建、基金提醒多时间扫描。
+
+注意：下面 2026-05-24 及更早任务保留历史背景。若与本节冲突，以本节为准。
 
 ## 0. 2026-05-24 当前马上任务（最新）
 

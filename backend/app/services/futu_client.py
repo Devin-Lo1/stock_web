@@ -1,4 +1,5 @@
 import math
+import os
 import socket
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -13,9 +14,11 @@ from ..schemas import (
 )
 
 
-FUTU_HOST = "127.0.0.1"
-FUTU_PORT = 11111
-FUTU_CONNECT_TIMEOUT_SECONDS = 2
+FUTU_HOST = os.getenv("FUTU_HOST", "127.0.0.1").strip() or "127.0.0.1"
+FUTU_PORT = int(os.getenv("FUTU_PORT", "11111").strip() or "11111")
+FUTU_CONNECT_TIMEOUT_SECONDS = float(
+    os.getenv("FUTU_CONNECT_TIMEOUT_SECONDS", "2").strip() or "2"
+)
 
 
 class FutuDependencyError(RuntimeError):

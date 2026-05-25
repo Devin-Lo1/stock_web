@@ -1,11 +1,11 @@
 # App 架构审计与优化路线
 
-最后更新：2026-05-24
+最后更新：2026-05-25
 
 当前 Git 基线：
 
 ```text
-7ba80fb feat: refine fund portfolio views
+2f0e13d chore: add server database backup scripts
 ```
 
 本文档记录项目代码和 docs 的结构扫描结论，用于后续一步步优化项目框架结构。后续新增功能前，应先阅读：
@@ -14,7 +14,26 @@
 2. `docs/APP新开发者接手指南.md`
 3. `docs/APP项目结构说明.md`
 4. `docs/APP马上解决任务顺序.md`
-5. `docs/APP架构审计与优化路线.md`
+5. `docs/APP服务器部署与Futu交接说明.md`
+6. `docs/APP架构审计与优化路线.md`
+
+## 0. 2026-05-25 云端架构新增结论
+
+当前项目已经从纯局域网调试进入云服务器部署阶段：
+
+- App -> 腾讯云公网 API -> Nginx -> FastAPI -> PostgreSQL。
+- 场外基金 provider 独立于 Futu，可以在云端继续工作。
+- FutuOpenD 仍是股票行情链路的外部依赖。云服务器没有运行 FutuOpenD 时，股票实时行情、K 线刷新、股票搜索、资金流向和依赖新行情的策略扫描不可用。
+- 后端已支持通过 `FUTU_HOST`、`FUTU_PORT`、`FUTU_CONNECT_TIMEOUT_SECONDS` 配置 FutuOpenD 地址。
+
+新增架构风险：
+
+1. 公网 API 暂无完整访问保护，后续要补 token 或登录态。
+2. HTTP 暂未上 HTTPS，后续绑定域名后配置证书。
+3. FutuOpenD 不应直接暴露公网，若放在家用电脑，应通过 Tailscale/WireGuard/SSH 隧道让云服务器访问。
+4. 数据库密码曾在调试聊天中出现，生产使用前建议轮换。
+
+详细部署交接见 `docs/APP服务器部署与Futu交接说明.md`。
 
 ## 1. 本次验证状态
 

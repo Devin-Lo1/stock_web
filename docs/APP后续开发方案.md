@@ -1,6 +1,6 @@
 # App 后续开发方案
 
-最后更新：2026-05-24
+最后更新：2026-05-25
 
 本文档用于持续记录“下一步怎么做”。每次完成重要功能后，应更新本文件，让新接手者知道当前最优先的开发内容、依赖关系和验收标准。
 
@@ -10,7 +10,25 @@
 
 ```text
 docs/APP新开发者接手指南.md
+docs/APP服务器部署与Futu交接说明.md
 ```
+
+2026-05-25 最新进展：
+
+- 已建立 Gitee 远程仓库并用于本地到服务器同步。
+- 已购买并初始化腾讯云轻量应用服务器：Ubuntu 22.04、Nginx、PostgreSQL、FastAPI systemd 服务。
+- App debug APK 已构建为连接公网 API：`http://119.91.47.141`。
+- 已新增 `scripts/deploy_backend.sh`，用于服务器 `git pull` 后重启后端并检查状态。
+- 已新增 PostgreSQL 备份脚本和 timer 安装脚本。
+- Futu 连接参数已从硬编码改为环境变量：`FUTU_HOST`、`FUTU_PORT`、`FUTU_CONNECT_TIMEOUT_SECONDS`。
+- 当前 Futu 不可用的原因是云服务器没有运行可达的 FutuOpenD，不代表后端整体离线。
+
+当前下一步：
+
+1. 先确认服务器 systemd、Nginx、PostgreSQL、备份 timer、UFW 和腾讯云防火墙。
+2. 决定 FutuOpenD 方案：云服务器本机、家里电脑安全隧道、或独立行情节点。
+3. 公网 API 加访问保护，再上域名和 HTTPS。
+4. 真机继续核对基金历史交易迁移、养基宝规则、三点前后确认日、费率、份额/金额换算。
 
 2026-05-24 最新进展：
 

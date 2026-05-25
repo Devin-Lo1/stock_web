@@ -1,14 +1,20 @@
 # App 项目结构说明
 
-最后更新：2026-05-24
+最后更新：2026-05-25
 
 最新功能基线：
 
 ```text
-7ba80fb feat: refine fund portfolio views
+2f0e13d chore: add server database backup scripts
 ```
 
-本次文档已同步持仓详情页、量化策略监控、推送记录和场外基金管理结构。当前最新功能还包括：基金搜索、基金持仓、基金估算/正式净值、基金交易记录、基金阈值提醒、多个提醒时间 scheduler、基金详情页 50 日净值趋势和买卖点标记。
+本次文档已同步持仓详情页、量化策略监控、推送记录、场外基金管理结构和云服务器部署交接。当前最新功能还包括：基金搜索、基金持仓、基金估算/正式净值、基金交易记录、基金阈值提醒、多个提醒时间 scheduler、基金详情页 50 日净值趋势和买卖点标记。
+
+云服务器、Gitee、部署脚本、PostgreSQL 备份和 FutuOpenD 可用性说明见：
+
+```text
+docs/APP服务器部署与Futu交接说明.md
+```
 
 本文档用于说明当前项目每个主要代码文件的职责。新接手者看完后，应能判断某个功能应该在哪个目录、哪个文件下开发。
 
@@ -29,6 +35,7 @@ stock_web/
 - `mobile_app/`：Flutter Android App。
 - `backend/`：FastAPI 后端。
 - `docs/`：项目文档。
+- `scripts/`：开发、部署和服务器维护脚本。当前包含局域网 APK 构建、后端部署、PostgreSQL 备份和备份 timer 安装脚本。
 
 ## 2. Flutter App 结构
 
