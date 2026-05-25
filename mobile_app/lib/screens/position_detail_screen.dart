@@ -606,6 +606,7 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
         height: _chartSwitcherHeight,
         child: PageView(
           controller: _chartPageController,
+          physics: const NeverScrollableScrollPhysics(),
           clipBehavior: Clip.hardEdge,
           onPageChanged: (index) => setState(() => _selectedChartIndex = index),
           children: [
