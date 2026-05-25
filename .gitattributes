@@ -7,6 +7,7 @@
 *.yml text
 *.json text
 *.txt text
+*.sh text eol=lf
 *.xml text
 *.kts text
 *.gradle text
