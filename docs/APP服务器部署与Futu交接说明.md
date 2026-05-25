@@ -17,11 +17,18 @@
 - 数据库：PostgreSQL，本机 `127.0.0.1:5432`，库名 `stock_web`，用户 `stock_web`。
 - 数据库密码只允许放在服务器 `.env` 中，禁止写入文档、代码和 Git。
 - 公网 API token 只允许放在服务器 `.env` 的 `API_ACCESS_TOKEN` 中，禁止写入文档、代码和 Git。
-- 重要：截至 2026-05-25 最近核对，云服务器 PostgreSQL 不是本地 PostgreSQL 的完整拷贝；当前云端库主要是后端初始化出的少量默认/验证数据。若要让 App 看到本地旧数据，需要先做 `pg_dump` / `pg_restore` 迁移并在迁移前备份云端库。
+- 2026-05-25 18:31 已以本地 PostgreSQL 为准完成本地到云服务器迁移。迁移后云端 `stock_web` 包含本地持仓、基金、回测、策略监控、通知和推送记录数据；迁移前云端旧库保留为 `stock_web_before_migration_20260525_183135`。
 - 备份脚本：
   - `scripts/backup_postgres.sh`
   - `scripts/install_postgres_backup_timer.sh`
   - 备份目录：`/home/ubuntu/stock_web_backups`
+
+数据库迁移验证：
+
+- 迁移前云端备份：`/home/ubuntu/stock_web_backups/stock_web_20260525_182811.dump`
+- 迁移后云端备份：`/home/ubuntu/stock_web_backups/stock_web_20260525_183210.dump`
+- 迁移后关键表数量：`positions=6`、`fund_positions=1`、`fund_trades=3`、`klines=10367`、`strategy_monitors=1`、`signal_events=36`、`backtest_runs=4`、`notification_devices=11`、`push_records=92`
+- 迁移后 API 验证：`/health=200`、无 token `/api/v1/positions=401`、带 token `/api/v1/positions` 返回 6 条、带 token `/api/v1/funds/positions` 返回 1 条。
 
 本地最近功能基线：
 
@@ -234,7 +241,7 @@ App 云端 debug 包构建示例：
 5. 服务器 `.env` 是否只存在服务器本地，且没有进入 Git。
 6. `futu-opend` 是否 active，且 `11111`、`22222` 是否只监听 `127.0.0.1`。
 7. 数据库密码是否需要轮换；此前调试中密码曾在聊天中出现，生产使用前建议重置。
-8. 如用户反馈“数据变了”，先确认是否仍在使用云端初始化库；不要误以为本地 PostgreSQL 已经自动同步到云服务器。
+8. 如用户反馈“数据变了”，先确认后端仍连接云端 `stock_web`，并核对是否误连旧库 `stock_web_before_migration_20260525_183135` 或本地开发库。
 
 检查命令：
 
@@ -251,12 +258,11 @@ sudo ss -ltnp | grep -E ':(80|8000|11111|22222|5432)'
 
 ## 7. 下一步开发顺序
 
-1. 先决定是否把本地 PostgreSQL 当前数据迁移到云服务器；迁移前必须分别备份本地库和云端库，避免覆盖云端新数据。
-2. 公网 API 已加简单 token 保护，下一步购买或绑定域名后配置 HTTPS。
-3. 没有 HTTPS 前不要把更敏感的功能开放给陌生网络。
-4. 持续真机验证云端 App：基金主页、基金详情、基金交易记录、基金提醒 scheduler、股票持仓缓存展示。
-5. 股票实时行情已恢复，继续回归股票搜索、K 线刷新、资金流向、单股策略监控和信号扫描。
-6. 继续完善基金历史记录迁移：按养基宝规则核对历史买入/卖出日期、三点前后确认日、费率、份额和成本净值重建。
+1. 公网 API 已加简单 token 保护，下一步购买或绑定域名后配置 HTTPS。
+2. 没有 HTTPS 前不要把更敏感的功能开放给陌生网络。
+3. 持续真机验证云端 App：基金主页、基金详情、基金交易记录、基金提醒 scheduler、股票持仓缓存展示。
+4. 股票实时行情已恢复，继续回归股票搜索、K 线刷新、资金流向、单股策略监控和信号扫描。
+5. 继续完善基金历史记录迁移：按养基宝规则核对历史买入/卖出日期、三点前后确认日、费率、份额和成本净值重建。
 
 ## 8. 交接提醒
 
