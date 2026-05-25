@@ -40,25 +40,27 @@ Futu 连接参数已改为 FUTU_HOST / FUTU_PORT / FUTU_CONNECT_TIMEOUT_SECONDS 
 - 后端公网健康检查可用不等于 Futu 可用，仍需单独检查 `/api/v1/futu/health`。
 - 当前服务器已运行 FutuOpenD：systemd 服务 `futu-opend`，API 只监听 `127.0.0.1:11111`，telnet 运维口只监听 `127.0.0.1:22222`。
 - 基金数据源和基金提醒不依赖 Futu；股票实时行情、K 线、资金流向、股票搜索、依赖实时行情的策略扫描依赖 Futu。
+- 云服务器 PostgreSQL 当前不是本地 PostgreSQL 的完整拷贝；2026-05-25 核对时云端只有少量初始化/验证数据，本地库仍有完整的基金、回测、通知和策略监控数据。若 App 数据看起来变了，优先处理本地到云端的数据库迁移。
 - 详细交接见 `docs/APP服务器部署与Futu交接说明.md`。
 
 下一位开发者马上做：
 
-1. 在服务器确认 `stock-web-backend`、Nginx、PostgreSQL、备份 timer 和 UFW 状态。
-2. 服务器执行最新部署脚本并确认：
+1. 决定是否迁移本地 PostgreSQL 到云端；迁移前必须备份本地库和云端库，避免覆盖云端新数据。
+2. 在服务器确认 `stock-web-backend`、Nginx、PostgreSQL、备份 timer 和 UFW 状态。
+3. 服务器执行最新部署脚本并确认：
    - `curl -sS http://127.0.0.1/health`
    - `curl -sS http://119.91.47.141/health`
-3. 确认 FutuOpenD 状态：
+4. 确认 FutuOpenD 状态：
    - `systemctl status futu-opend --no-pager`
    - `sudo ss -ltnp | grep -E ':(11111|22222)'`
    - `curl -sS http://119.91.47.141/api/v1/futu/health`
    - 禁止将 FutuOpenD 端口直接暴露公网。
-4. 确认公网 API 保护：
+5. 确认公网 API 保护：
    - `/health` 应保持公开。
    - `/api/v1/*` 未带 token 应返回 401。
    - App 云端包必须通过 `API_ACCESS_TOKEN` 构建。
-5. 后续绑定域名和 HTTPS，再考虑长期公网使用。
-6. 真机重点验证基金：添加基金、金额/份额互转、历史买入/卖出、三点前后确认日、手续费率、持仓重建、基金提醒多时间扫描。
+6. 后续绑定域名和 HTTPS，再考虑长期公网使用。
+7. 真机重点验证基金：添加基金、金额/份额互转、历史买入/卖出、三点前后确认日、手续费率、持仓重建、基金提醒多时间扫描。
 
 注意：下面 2026-05-24 及更早任务保留历史背景。若与本节冲突，以本节为准。
 

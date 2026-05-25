@@ -22,12 +22,15 @@ docs/APP服务器部署与Futu交接说明.md
 
 2026-05-25 已在云服务器本机部署并登录命令行 FutuOpenD，服务名为 `futu-opend`，只监听 `127.0.0.1:11111` 和本机运维口 `127.0.0.1:22222`。后端通过 `FUTU_HOST=127.0.0.1`、`FUTU_PORT=11111` 访问 FutuOpenD；公网 `/api/v1/futu/health` 已验证返回 `status=ok`、`program_status_type=READY`。若后续 App 再次显示 Futu 不可用，优先检查 `futu-opend` 是否运行、富途账号是否仍登录、以及 `11111` 是否仍只在本机监听。
 
+2026-05-25 核对发现：云服务器 PostgreSQL 当前不是本地 PostgreSQL 的完整拷贝，云端主要是初始化/验证数据；本地库仍保留更多基金、回测、通知和策略监控数据。若用户说“数据变了”，优先按 `pg_dump` / `pg_restore` 做本地到云端迁移，迁移前备份两边数据库。
+
 下一位开发者优先做：
 
-1. 按 `docs/APP服务器部署与Futu交接说明.md` 检查服务器 systemd、Nginx、PostgreSQL、备份和防火墙。
-2. 确认 `futu-opend`、`stock-web-backend`、`nginx`、`postgresql` 均为 active。
-3. 继续保持 FutuOpenD 的 `11111` 和 `22222` 只监听 `127.0.0.1`，禁止暴露公网。
-4. 公网 API 已启用 `API_ACCESS_TOKEN` 简单访问保护；后续继续补域名、HTTPS、登录态和限流。
+1. 先决定是否迁移本地 PostgreSQL 到云端；迁移前备份本地库和云端库。
+2. 按 `docs/APP服务器部署与Futu交接说明.md` 检查服务器 systemd、Nginx、PostgreSQL、备份和防火墙。
+3. 确认 `futu-opend`、`stock-web-backend`、`nginx`、`postgresql` 均为 active。
+4. 继续保持 FutuOpenD 的 `11111` 和 `22222` 只监听 `127.0.0.1`，禁止暴露公网。
+5. 公网 API 已启用 `API_ACCESS_TOKEN` 简单访问保护；后续继续补域名、HTTPS、登录态和限流。
 
 注意：本文后面保留了局域网真机调试历史说明；现在若面向云服务器真机包，必须用 `--dart-define=API_BASE_URL=http://119.91.47.141` 重新构建 APK。
 
