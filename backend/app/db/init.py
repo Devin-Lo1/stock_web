@@ -234,6 +234,50 @@ def init_database(*, seed_defaults: bool = True) -> None:
         )
         connection.execute(
             """
+            CREATE TABLE IF NOT EXISTS fund_trade_record_meta (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+            """,
+        )
+        backfill_flag = connection.execute(
+            """
+            SELECT value
+            FROM fund_trade_record_meta
+            WHERE key = ?
+            """,
+            ("backfilled_from_fund_trades",),
+        ).fetchone()
+        if backfill_flag is None:
+            connection.execute(
+                """
+                INSERT INTO fund_trade_records (
+                    id, fund_position_id, fund_code, name, action, shares, nav,
+                    amount, fee, trade_date, operation_date,
+                    operation_after_cutoff, note, source_trade_id, is_system,
+                    created_at, updated_at
+                )
+                SELECT
+                    id, fund_position_id, fund_code, name, action, shares, nav,
+                    shares * nav + fee, fee, trade_date, operation_date,
+                    operation_after_cutoff, note, id, 1, created_at, updated_at
+                FROM fund_trades
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM fund_trade_records
+                    WHERE source_trade_id = fund_trades.id
+                )
+                """
+            )
+            connection.execute(
+                """
+                INSERT INTO fund_trade_record_meta (key, value)
+                VALUES (?, ?)
+                """,
+                ("backfilled_from_fund_trades", "1"),
+            )
+        connection.execute(
+            """
             CREATE TABLE IF NOT EXISTS fund_navs (
                 fund_code TEXT NOT NULL,
                 nav_date TEXT NOT NULL,
