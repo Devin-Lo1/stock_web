@@ -5,7 +5,7 @@
 最新功能基线：
 
 ```text
-7d1797b chore: add futu opend login config helper
+dcdce44 feat: protect public api with token
 ```
 
 本次文档已同步持仓详情页、量化策略监控、推送记录、场外基金管理结构和云服务器部署交接。当前最新功能还包括：基金搜索、基金持仓、基金估算/正式净值、基金交易记录、基金阈值提醒、多个提醒时间 scheduler、基金详情页 50 日净值趋势和买卖点标记，以及云服务器本机 FutuOpenD 安全接入。

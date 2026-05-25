@@ -25,9 +25,9 @@
 本地最近功能基线：
 
 ```text
+dcdce44 feat: protect public api with token
 7d1797b chore: add futu opend login config helper
 518d8e2 chore: enable local futu opend telnet control
-0c3956c chore: add futu opend server install helper
 ```
 
 ## 2. 当前 App 连接方式

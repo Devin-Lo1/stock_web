@@ -5,7 +5,7 @@
 当前 Git 基线：
 
 ```text
-7d1797b chore: add futu opend login config helper
+dcdce44 feat: protect public api with token
 ```
 
 本文档记录项目代码和 docs 的结构扫描结论，用于后续一步步优化项目框架结构。后续新增功能前，应先阅读：

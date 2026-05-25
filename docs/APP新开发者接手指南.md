@@ -5,7 +5,7 @@
 当前代码功能基线：
 
 ```text
-7d1797b chore: add futu opend login config helper
+dcdce44 feat: protect public api with token
 ```
 
 本文档给新开发者使用。目标是：读完 `docs/` 后能知道当前项目做到哪、不能做什么、下一步从哪里开始。

@@ -7,7 +7,7 @@
 当前功能基线：
 
 ```text
-7d1797b chore: add futu opend login config helper
+dcdce44 feat: protect public api with token
 ```
 
 当前工作区要求：
