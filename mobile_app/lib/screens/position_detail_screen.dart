@@ -697,7 +697,7 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
               ),
             ),
             Text(
-              '${formatHkd(_position.currentPrice - _position.previousClose)}  ${_position.change}',
+              '${formatMarketMoney(_position.market, _position.currentPrice - _position.previousClose)}  ${_position.change}',
               style: TextStyle(
                 color: dailyColor,
                 fontSize: 16,
@@ -1056,6 +1056,10 @@ String _formatPercentOrDash(double? value) {
 String _currencyPrefix(String code) {
   final upper = code.toUpperCase();
   if (upper.startsWith('US.')) return 'US\$';
-  if (upper.startsWith('SH.') || upper.startsWith('SZ.')) return 'CN¥';
+  if (upper.startsWith('SH.') ||
+      upper.startsWith('SZ.') ||
+      upper.startsWith('CN.')) {
+    return 'CN¥';
+  }
   return 'HK\$';
 }

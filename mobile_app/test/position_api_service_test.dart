@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:stock_mobile/models/app_enums.dart';
 import 'package:stock_mobile/models/position_trade.dart';
+import 'package:stock_mobile/models/stock_position.dart';
 import 'package:stock_mobile/services/api_client.dart';
 import 'package:stock_mobile/services/position_api_service.dart';
 
@@ -27,6 +29,41 @@ void main() {
     expect(positions.single.avgCostPrice, 10);
     expect(positions.single.adjustedCostPrice, 8);
     expect(positions.single.realizedProfit, 200);
+  });
+
+  test('createPosition posts A-share market with CNY currency', () async {
+    late String body;
+    final service = PositionApiService(
+      ApiClient(
+        baseUrl: 'http://test.local',
+        httpClient: MockClient((request) async {
+          body = request.body;
+          return http.Response(
+            '{"id":"position-cn","market":"SH","code":"SH.600519",'
+            '"name":"Moutai","quantity":100,"cost_price":1500,'
+            '"currency":"CNY"}',
+            201,
+          );
+        }),
+      ),
+    );
+
+    final position = await service.createPosition(
+      const StockPosition(
+        name: 'Moutai',
+        code: 'SH.600519',
+        quantity: 100,
+        costPrice: 1500,
+        currentPrice: 1500,
+        previousClose: 1500,
+        changeRate: 0,
+        signal: 'ok',
+      ),
+    );
+
+    expect(body, contains('"market":"SH"'));
+    expect(body, contains('"currency":"CNY"'));
+    expect(position.market, MarketFilter.cn);
   });
 
   test('capturePositionSnapshots parses backend calculated metrics', () async {

@@ -250,7 +250,7 @@ class _FullScreenKLineScreenState extends State<FullScreenKLineScreen> {
                                   ),
                                 ),
                                 Text(
-                                  '${formatHkd(widget.position.currentPrice - widget.position.previousClose)}  ${widget.position.change}',
+                                  '${formatMarketMoney(widget.position.market, widget.position.currentPrice - widget.position.previousClose)}  ${widget.position.change}',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(

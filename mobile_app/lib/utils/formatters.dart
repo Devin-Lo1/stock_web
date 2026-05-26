@@ -1,3 +1,5 @@
+import '../models/app_enums.dart';
+
 String formatHkd(double value, {bool showSign = true, int decimals = 0}) {
   final sign = showSign
       ? value > 0
@@ -7,6 +9,22 @@ String formatHkd(double value, {bool showSign = true, int decimals = 0}) {
             : ''
       : '';
   return '${sign}HK\$ ${value.abs().toStringAsFixed(decimals)}';
+}
+
+String formatMarketMoney(
+  MarketFilter market,
+  double value, {
+  bool showSign = true,
+  int decimals = 0,
+}) {
+  final sign = showSign
+      ? value > 0
+            ? '+'
+            : value < 0
+            ? '-'
+            : ''
+      : '';
+  return '$sign${market.currencyPrefix} ${value.abs().toStringAsFixed(decimals)}';
 }
 
 String formatCompactHkd(double value) {

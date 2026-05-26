@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stock_mobile/models/app_enums.dart';
 import 'package:stock_mobile/models/candle.dart';
 import 'package:stock_mobile/models/capital_flow.dart';
 import 'package:stock_mobile/models/quote_snapshot.dart';
+import 'package:stock_mobile/models/stock_position.dart';
 import 'package:stock_mobile/widgets/chart/kline_chart_values.dart';
 
 void main() {
@@ -93,6 +95,13 @@ void main() {
     expect(snapshot.points.single.superNetInflow, 70);
   });
 
+  test('StockPosition classifies A-share codes as CN market', () {
+    expect(_position('SH.600519').market, MarketFilter.cn);
+    expect(_position('SZ.000001').market, MarketFilter.cn);
+    expect(_position('US.NVDA').market, MarketFilter.us);
+    expect(_position('HK.00700').market, MarketFilter.hk);
+  });
+
   test('volume moving average uses candle volume values', () {
     final candles = [
       for (var index = 1; index <= 5; index++)
@@ -113,4 +122,17 @@ void main() {
     expect(volumeMovingAverageAt(candles, 2, 3), 2000);
     expect(volumeMaValuesAt(candles, 4)[5], 3000);
   });
+}
+
+StockPosition _position(String code) {
+  return StockPosition(
+    name: 'Test',
+    code: code,
+    quantity: 1,
+    costPrice: 10,
+    currentPrice: 12,
+    previousClose: 11,
+    changeRate: 9.09,
+    signal: 'ok',
+  );
 }

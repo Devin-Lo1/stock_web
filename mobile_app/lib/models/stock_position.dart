@@ -171,6 +171,11 @@ class StockPosition {
   MarketFilter get market {
     final upperCode = code.toUpperCase();
     if (upperCode.startsWith('US.')) return MarketFilter.us;
+    if (upperCode.startsWith('SH.') ||
+        upperCode.startsWith('SZ.') ||
+        upperCode.startsWith('CN.')) {
+      return MarketFilter.cn;
+    }
     return MarketFilter.hk;
   }
 
@@ -210,9 +215,10 @@ class StockPosition {
       extendedSession.isNotEmpty &&
       extendedPrice > 0;
   bool get isUp => profit >= 0;
-  String get price => formatHkd(currentPrice, showSign: false, decimals: 2);
+  String get price =>
+      formatMarketMoney(market, currentPrice, showSign: false, decimals: 2);
   String get shortPrice =>
       '${currencySymbol(code)}${currentPrice.toStringAsFixed(2)}';
   String get change => formatPercent(changeRate);
-  String get pnl => formatHkd(profit);
+  String get pnl => formatMarketMoney(market, profit);
 }

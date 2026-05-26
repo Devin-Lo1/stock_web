@@ -458,14 +458,22 @@ String _formatPercentOrDash(double? value) {
 String _currencyPrefix(String code) {
   final upper = code.toUpperCase();
   if (upper.startsWith('US.')) return 'US\$';
-  if (upper.startsWith('SH.') || upper.startsWith('SZ.')) return 'CN¥';
+  if (upper.startsWith('SH.') ||
+      upper.startsWith('SZ.') ||
+      upper.startsWith('CN.')) {
+    return 'CN¥';
+  }
   return 'HK\$';
 }
 
 String _currencyCode(String code) {
   final upper = code.toUpperCase();
   if (upper.startsWith('US.')) return 'USD';
-  if (upper.startsWith('SH.') || upper.startsWith('SZ.')) return 'CNY';
+  if (upper.startsWith('SH.') ||
+      upper.startsWith('SZ.') ||
+      upper.startsWith('CN.')) {
+    return 'CNY';
+  }
   return 'HKD';
 }
 
@@ -474,5 +482,6 @@ String _marketTag(String code) {
   if (upper.startsWith('US.')) return 'US';
   if (upper.startsWith('SH.')) return 'SH';
   if (upper.startsWith('SZ.')) return 'SZ';
+  if (upper.startsWith('CN.')) return 'CN';
   return 'HK';
 }

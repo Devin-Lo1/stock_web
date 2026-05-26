@@ -1,12 +1,16 @@
 import '../data/stock_suggestion_catalog.dart';
 import '../models/stock_suggestion.dart';
 
+const _marketPrefixTokens = {'HK.', 'US.', 'SH.', 'SZ.', 'CN.'};
+
 List<StockSuggestion> searchStockSuggestions(String query) {
   final normalizedQuery = query.trim().toUpperCase();
   if (normalizedQuery.isEmpty) return const [];
   final tokens = normalizedQuery
       .split(RegExp(r'\s+'))
-      .where((token) => token.isNotEmpty && token != 'HK.' && token != 'US.')
+      .where(
+        (token) => token.isNotEmpty && !_marketPrefixTokens.contains(token),
+      )
       .toList();
   if (tokens.isEmpty) return const [];
   final seenCodes = <String>{};
@@ -34,7 +38,9 @@ String normalizedStockSearchQuery(String query) {
   return query
       .trim()
       .split(RegExp(r'\s+'))
-      .where((token) => token.isNotEmpty && token != 'HK.' && token != 'US.')
+      .where(
+        (token) => token.isNotEmpty && !_marketPrefixTokens.contains(token),
+      )
       .join(' ');
 }
 

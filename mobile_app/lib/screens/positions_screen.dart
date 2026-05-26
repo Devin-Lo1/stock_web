@@ -110,7 +110,7 @@ class PositionsScreen extends StatelessWidget {
           )
         : 0.0;
     final summaryProfitText = hasBackendMetrics
-        ? formatHkd(totalProfit)
+        ? formatMarketMoney(selectedMarket, totalProfit)
         : '后端收益未同步';
 
     return RefreshIndicator(
@@ -304,23 +304,69 @@ class _PositionsHeader extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: FilledButton.tonalIcon(
+              child: _CompactHeaderButton(
                 onPressed: onOpenFunds,
                 icon: const Icon(Icons.savings_outlined, size: 18),
-                label: const Text('基金'),
+                label: '基金',
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: FilledButton.tonalIcon(
+              child: _CompactHeaderButton(
                 onPressed: onAddPosition,
                 icon: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('添加'),
+                label: '添加',
               ),
             ),
           ],
         ),
       ],
+    );
+  }
+}
+
+class _CompactHeaderButton extends StatelessWidget {
+  const _CompactHeaderButton({
+    required this.onPressed,
+    required this.icon,
+    required this.label,
+  });
+
+  final VoidCallback onPressed;
+  final Widget icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 42,
+      child: FilledButton.tonal(
+        onPressed: onPressed,
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              icon,
+              const SizedBox(width: 4),
+              Text(
+                label,
+                maxLines: 1,
+                softWrap: false,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -350,8 +396,8 @@ class _PositionAccountSummary extends StatelessWidget {
     final dailyRate = totalMarketValue <= 0
         ? 0.0
         : totalDailyProfit / totalMarketValue * 100;
-    final currency = selectedMarket == MarketFilter.us ? 'USD' : 'HKD';
-    final marketLabel = selectedMarket == MarketFilter.us ? '美股市值' : '港股市值';
+    final currency = selectedMarket.currencyCode;
+    final marketLabel = selectedMarket.marketValueLabel;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -509,11 +555,7 @@ String _formatSummaryMoney(
   double value, {
   bool signed = true,
 }) {
-  final prefix = market == MarketFilter.us ? 'US\$' : 'HK\$';
-  if (!signed) return '$prefix${value.abs().toStringAsFixed(2)}';
-  if (value == 0) return '${prefix}0.00';
-  final sign = value > 0 ? '+' : '-';
-  return '$sign$prefix${value.abs().toStringAsFixed(2)}';
+  return formatMarketMoney(market, value, showSign: signed, decimals: 2);
 }
 
 Color _profitColor(double value) {

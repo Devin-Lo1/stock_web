@@ -120,7 +120,10 @@ class DashboardScreen extends StatelessWidget {
                     lastUpdatedAt: lastUpdatedAt,
                   ),
                   const SizedBox(height: 14),
-                  _AssetOverview(positions: positions),
+                  _AssetOverview(
+                    positions: positions,
+                    selectedMarket: selectedMarket,
+                  ),
                   const SizedBox(height: 16),
                   SectionHeader(
                     title: '持仓追踪',
@@ -336,9 +339,10 @@ String _updatedLabel(DateTime? value) {
 }
 
 class _AssetOverview extends StatelessWidget {
-  const _AssetOverview({required this.positions});
+  const _AssetOverview({required this.positions, required this.selectedMarket});
 
   final List<StockPosition> positions;
+  final MarketFilter selectedMarket;
 
   @override
   Widget build(BuildContext context) {
@@ -376,7 +380,12 @@ class _AssetOverview extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            formatHkd(totalMarketValue, showSign: false, decimals: 2),
+            formatMarketMoney(
+              selectedMarket,
+              totalMarketValue,
+              showSign: false,
+              decimals: 2,
+            ),
             style: TextStyle(
               color: primaryTextColor(context),
               fontSize: 30,
@@ -389,7 +398,7 @@ class _AssetOverview extends StatelessWidget {
               Expanded(
                 child: _MetricCard(
                   label: '当日收益',
-                  value: formatHkd(totalDailyProfit),
+                  value: formatMarketMoney(selectedMarket, totalDailyProfit),
                   subValue: formatPercent(_dailyProfitRate(positions)),
                   color: _profitColor(totalDailyProfit),
                 ),
@@ -398,7 +407,7 @@ class _AssetOverview extends StatelessWidget {
               Expanded(
                 child: _MetricCard(
                   label: '持有收益',
-                  value: formatHkd(totalProfit),
+                  value: formatMarketMoney(selectedMarket, totalProfit),
                   subValue: formatPercent(totalProfitRate),
                   color: _profitColor(totalProfit),
                 ),

@@ -6,6 +6,7 @@ import '../models/app_enums.dart';
 import '../models/stock_position.dart';
 import '../models/stock_suggestion.dart';
 import '../services/api_client.dart';
+import '../services/quote_api_service.dart';
 import '../services/stock_search_api_service.dart';
 import '../utils/formatters.dart';
 import '../utils/stock_suggestion_search.dart';
@@ -35,11 +36,17 @@ class _AddPositionSheetState extends State<AddPositionSheet> {
   late final TextEditingController _currentPriceController;
   late final TextEditingController _previousCloseController;
   late final StockSearchApiService _stockSearchService;
+  late final QuoteApiService _quoteService;
   Timer? _searchDebounce;
+  Timer? _quoteDebounce;
   int _searchRequestId = 0;
+  int _quoteRequestId = 0;
+  String? _lastQuoteCode;
   List<StockSuggestion> _suggestions = const [];
   bool _isSearching = false;
   bool _isApplyingSuggestion = false;
+  bool _isLoadingQuote = false;
+  String? _quoteErrorText;
 
   bool get _isEditing => widget.initialPosition != null;
 
@@ -47,7 +54,9 @@ class _AddPositionSheetState extends State<AddPositionSheet> {
   void initState() {
     super.initState();
     final position = widget.initialPosition;
-    _stockSearchService = StockSearchApiService(ApiClient());
+    final apiClient = ApiClient();
+    _stockSearchService = StockSearchApiService(apiClient);
+    _quoteService = QuoteApiService(apiClient);
     _codeController = TextEditingController(
       text: position?.code ?? _defaultCodePrefix(widget.initialMarket),
     );
@@ -66,6 +75,9 @@ class _AddPositionSheetState extends State<AddPositionSheet> {
     );
     _codeController.addListener(_updateSuggestions);
     _nameController.addListener(_updateSuggestions);
+    if (position == null) {
+      _scheduleQuoteFill(immediate: true);
+    }
   }
 
   @override
@@ -73,6 +85,7 @@ class _AddPositionSheetState extends State<AddPositionSheet> {
     _codeController.removeListener(_updateSuggestions);
     _nameController.removeListener(_updateSuggestions);
     _searchDebounce?.cancel();
+    _quoteDebounce?.cancel();
     _codeController.dispose();
     _nameController.dispose();
     _quantityController.dispose();
@@ -181,6 +194,14 @@ class _AddPositionSheetState extends State<AddPositionSheet> {
                     ),
                   ],
                 ),
+              if (!_isEditing && (_isLoadingQuote || _quoteErrorText != null))
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: _QuoteFillStatus(
+                    isLoading: _isLoadingQuote,
+                    errorText: _quoteErrorText,
+                  ),
+                ),
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
@@ -200,6 +221,7 @@ class _AddPositionSheetState extends State<AddPositionSheet> {
 
   void _updateSuggestions() {
     if (_isApplyingSuggestion) return;
+    _scheduleQuoteFill();
     final query = '${_codeController.text} ${_nameController.text}'.trim();
     if (_hasExactCurrentSuggestion(_suggestions)) {
       _searchDebounce?.cancel();
@@ -284,6 +306,7 @@ class _AddPositionSheetState extends State<AddPositionSheet> {
       _suggestions = const [];
       _isSearching = false;
     });
+    _scheduleQuoteFill(immediate: true);
   }
 
   bool _hasExactCurrentSuggestion(List<StockSuggestion> suggestions) {
@@ -296,7 +319,13 @@ class _AddPositionSheetState extends State<AddPositionSheet> {
     );
   }
 
-  void _submit() {
+  Future<void> _submit() async {
+    if (!_isEditing &&
+        (_currentPriceController.text.trim().isEmpty ||
+            _previousCloseController.text.trim().isEmpty)) {
+      await _fillQuoteForCode(_codeController.text, forceRefresh: true);
+      if (!mounted) return;
+    }
     if (!_formKey.currentState!.validate()) return;
     final initialPosition = widget.initialPosition;
     final currentPrice =
@@ -318,6 +347,106 @@ class _AddPositionSheetState extends State<AddPositionSheet> {
             ? 0
             : (currentPrice - previousClose) / previousClose * 100,
         signal: initialPosition?.signal ?? '未生成信号',
+      ),
+    );
+  }
+
+  void _scheduleQuoteFill({bool immediate = false}) {
+    if (_isEditing) return;
+    final code = _normalizedQuoteCode(_codeController.text);
+    _quoteDebounce?.cancel();
+    if (code == null) {
+      if (_quoteErrorText != null || _isLoadingQuote) {
+        setState(() {
+          _quoteErrorText = null;
+          _isLoadingQuote = false;
+        });
+      }
+      return;
+    }
+    if (code == _lastQuoteCode &&
+        _currentPriceController.text.trim().isNotEmpty &&
+        _previousCloseController.text.trim().isNotEmpty) {
+      return;
+    }
+
+    if (immediate) {
+      unawaited(_fillQuoteForCode(code));
+      return;
+    }
+    _quoteDebounce = Timer(
+      const Duration(milliseconds: 500),
+      () => _fillQuoteForCode(code),
+    );
+  }
+
+  Future<bool> _fillQuoteForCode(
+    String rawCode, {
+    bool forceRefresh = false,
+  }) async {
+    final code = _normalizedQuoteCode(rawCode);
+    if (code == null) return false;
+    final requestId = ++_quoteRequestId;
+    if (mounted) {
+      setState(() {
+        _isLoadingQuote = true;
+        _quoteErrorText = null;
+      });
+    }
+    try {
+      final quotes = forceRefresh
+          ? await _quoteService.refreshQuotes([code])
+          : await _quoteService.fetchQuotes([code]);
+      var quote = quotes[code];
+      if (quote == null && !forceRefresh) {
+        quote = (await _quoteService.refreshQuotes([code]))[code];
+      }
+      if (!mounted || requestId != _quoteRequestId) return false;
+      if (quote == null) {
+        setState(() {
+          _isLoadingQuote = false;
+          _quoteErrorText = '行情未返回现价和昨收，可稍后重试或手动填写';
+        });
+        return false;
+      }
+      _currentPriceController.text = formatNumberInput(quote.currentPrice);
+      _previousCloseController.text = formatNumberInput(quote.previousClose);
+      _lastQuoteCode = code;
+      setState(() {
+        _isLoadingQuote = false;
+        _quoteErrorText = null;
+      });
+      return true;
+    } catch (_) {
+      if (!mounted || requestId != _quoteRequestId) return false;
+      setState(() {
+        _isLoadingQuote = false;
+        _quoteErrorText = '行情同步失败，可稍后重试或手动填写';
+      });
+      return false;
+    }
+  }
+}
+
+class _QuoteFillStatus extends StatelessWidget {
+  const _QuoteFillStatus({required this.isLoading, required this.errorText});
+
+  final bool isLoading;
+  final String? errorText;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return const LinearProgressIndicator(minHeight: 2);
+    }
+    final text = errorText;
+    if (text == null) return const SizedBox.shrink();
+    return Text(
+      text,
+      style: TextStyle(
+        color: secondaryTextColor(context),
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
       ),
     );
   }
@@ -357,7 +486,8 @@ class _QuoteReadOnlyCard extends StatelessWidget {
               Expanded(
                 child: _QuoteReadOnlyMetric(
                   label: '昨收',
-                  value: formatHkd(
+                  value: formatMarketMoney(
+                    position.market,
                     position.previousClose,
                     showSign: false,
                     decimals: 2,
@@ -520,10 +650,16 @@ class _PositionInput extends StatelessWidget {
 }
 
 String _defaultCodePrefix(MarketFilter market) {
-  return switch (market) {
-    MarketFilter.us => 'US.',
-    MarketFilter.hk => 'HK.',
-  };
+  return market.defaultCodePrefix;
+}
+
+String? _normalizedQuoteCode(String rawCode) {
+  final code = rawCode.trim().toUpperCase();
+  final match = RegExp(r'^(HK|US|SH|SZ|CN)\.[A-Z0-9.\-]+$').firstMatch(code);
+  if (match == null) return null;
+  final symbol = code.split('.').skip(1).join('.');
+  if (symbol.isEmpty) return null;
+  return code;
 }
 
 Color _marketBadgeColor(String market) {

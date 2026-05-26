@@ -18,6 +18,7 @@ class MarketSwitch extends StatelessWidget {
       segments: const [
         ButtonSegment(value: MarketFilter.hk, label: Text('港股')),
         ButtonSegment(value: MarketFilter.us, label: Text('美股')),
+        ButtonSegment(value: MarketFilter.cn, label: Text('A股')),
       ],
       selected: {selectedMarket},
       showSelectedIcon: false,
