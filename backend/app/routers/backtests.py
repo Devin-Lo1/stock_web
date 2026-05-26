@@ -10,7 +10,15 @@ from ..repositories.backtests import (
     list_backtest_runs,
     rename_backtest_run,
 )
-from ..schemas import BacktestCreate, BacktestRename, BacktestResult, BacktestRun
+from ..schemas import (
+    BacktestBatchCreate,
+    BacktestBatchItemResult,
+    BacktestBatchResult,
+    BacktestCreate,
+    BacktestRename,
+    BacktestResult,
+    BacktestRun,
+)
 
 router = APIRouter(prefix="/api/v1/backtests", tags=["backtests"])
 
@@ -38,6 +46,53 @@ def api_list_backtests(
 def api_create_backtest(payload: BacktestCreate) -> BacktestResult:
     run = create_backtest_run(payload)
     return run_backtest(run)
+
+
+@router.post(
+    "/batch",
+    response_model=BacktestBatchResult,
+    status_code=status.HTTP_201_CREATED,
+)
+def api_create_backtest_batch(payload: BacktestBatchCreate) -> BacktestBatchResult:
+    results: list[BacktestBatchItemResult] = []
+    completed_count = 0
+    failed_count = 0
+
+    for index, item in enumerate(payload.items):
+        try:
+            run = create_backtest_run(item)
+            result = run_backtest(run)
+            if result.run.status == "completed":
+                completed_count += 1
+            elif result.run.status == "failed":
+                failed_count += 1
+            results.append(
+                BacktestBatchItemResult(
+                    index=index,
+                    request=item,
+                    run=result.run,
+                )
+            )
+            if result.run.status == "failed" and not payload.continue_on_error:
+                break
+        except Exception as error:
+            failed_count += 1
+            results.append(
+                BacktestBatchItemResult(
+                    index=index,
+                    request=item,
+                    error=str(error),
+                )
+            )
+            if not payload.continue_on_error:
+                break
+
+    return BacktestBatchResult(
+        total_count=len(payload.items),
+        completed_count=completed_count,
+        failed_count=failed_count,
+        results=results,
+    )
 
 
 @router.delete("", status_code=status.HTTP_204_NO_CONTENT)

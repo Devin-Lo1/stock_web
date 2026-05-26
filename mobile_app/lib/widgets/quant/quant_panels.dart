@@ -1,3 +1,4 @@
+export 'quant_batch_panel.dart';
 export 'quant_config_panel.dart';
 export 'quant_error_panel.dart';
 export 'quant_history_panel.dart';

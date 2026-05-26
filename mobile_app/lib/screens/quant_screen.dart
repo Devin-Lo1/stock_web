@@ -43,10 +43,12 @@ class _QuantScreenState extends State<QuantScreen> {
   final _scrollController = ScrollController();
   final _resultPanelKey = GlobalKey();
   final _stockCodeController = TextEditingController(text: 'HK.02628');
+  final _batchStockCodesController = TextEditingController();
   final _initialCashController = TextEditingController(text: '100000');
   final _feeRateController = TextEditingController(text: '0.0003');
   final _slippageRateController = TextEditingController(text: '0.0005');
   late final Map<String, TextEditingController> _strategyParameterControllers;
+  late final Map<String, TextEditingController> _batchParameterControllers;
   final _historyStockCodeController = TextEditingController();
   late final StockSearchApiService _stockSearchService;
   Timer? _stockSearchDebounce;
@@ -60,6 +62,7 @@ class _QuantScreenState extends State<QuantScreen> {
   String? _historyStrategyFilter;
   String? _historyStatusFilter;
   BacktestResult? _result;
+  BacktestBatchResult? _batchResult;
   List<Candle> _resultCandles = const [];
   bool _isViewingHistoryResult = false;
   String _selectedStockName = '';
@@ -68,6 +71,7 @@ class _QuantScreenState extends State<QuantScreen> {
   bool _isLoadingHistory = true;
   bool _isSearchingStocks = false;
   bool _isRunning = false;
+  bool _isBatchRunning = false;
   bool _isApplyingStockSuggestion = false;
 
   @override
@@ -77,6 +81,11 @@ class _QuantScreenState extends State<QuantScreen> {
       for (final key in allStrategyParameterKeys())
         key: TextEditingController(),
     };
+    _batchParameterControllers = {
+      for (final key in allStrategyParameterKeys())
+        key: TextEditingController(),
+    };
+    _batchStockCodesController.text = _defaultBatchStockCodes();
     _stockSearchService = StockSearchApiService(ApiClient());
     _stockCodeController.addListener(_updateStockSuggestions);
     _loadStrategies();
@@ -85,15 +94,28 @@ class _QuantScreenState extends State<QuantScreen> {
   }
 
   @override
+  void didUpdateWidget(covariant QuantScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_batchStockCodesController.text.trim().isEmpty &&
+        oldWidget.positions.length != widget.positions.length) {
+      _batchStockCodesController.text = _defaultBatchStockCodes();
+    }
+  }
+
+  @override
   void dispose() {
     _scrollController.dispose();
     _stockCodeController.removeListener(_updateStockSuggestions);
     _stockSearchDebounce?.cancel();
     _stockCodeController.dispose();
+    _batchStockCodesController.dispose();
     _initialCashController.dispose();
     _feeRateController.dispose();
     _slippageRateController.dispose();
     for (final controller in _strategyParameterControllers.values) {
+      controller.dispose();
+    }
+    for (final controller in _batchParameterControllers.values) {
       controller.dispose();
     }
     _historyStockCodeController.dispose();
@@ -151,6 +173,17 @@ class _QuantScreenState extends State<QuantScreen> {
           onSuggestionSelected: _applyStockSuggestion,
         ),
         const SizedBox(height: 12),
+        QuantBatchPanel(
+          stockCodesController: _batchStockCodesController,
+          parameterControllers: _batchParameterControllers,
+          selectedStrategy: _selectedStrategy,
+          isRunning: _isBatchRunning,
+          result: _batchResult,
+          onFillPositions: _fillBatchStocksFromPositions,
+          onRun: _runBatch,
+          onOpenRun: _loadHistoryResult,
+        ),
+        const SizedBox(height: 12),
         FilledButton.icon(
           onPressed: _isRunning || _selectedStrategy == null ? null : _run,
           icon: _isRunning
@@ -187,6 +220,7 @@ class _QuantScreenState extends State<QuantScreen> {
       if (!mounted) return;
       final selected = strategies.isEmpty ? null : strategies.first;
       _applyStrategyDefaults(selected);
+      _applyBatchDefaults(selected);
       setState(() {
         _strategies = strategies;
         _selectedStrategy = selected;
@@ -201,6 +235,7 @@ class _QuantScreenState extends State<QuantScreen> {
 
   void _selectStrategy(StrategyDefinition? strategy) {
     _applyStrategyDefaults(strategy);
+    _applyBatchDefaults(strategy);
     setState(() => _selectedStrategy = strategy);
   }
 
@@ -224,6 +259,18 @@ class _QuantScreenState extends State<QuantScreen> {
           );
         }
       }
+    }
+  }
+
+  void _applyBatchDefaults(StrategyDefinition? strategy) {
+    if (strategy == null) return;
+    for (final spec in strategyParameterSpecsFor(strategy.code)) {
+      final base = strategyParameterDefaultText(strategy, spec);
+      _batchParameterControllers[spec.key]?.text = _batchDefaultText(
+        strategy.code,
+        spec,
+        base,
+      );
     }
   }
 
@@ -473,6 +520,38 @@ class _QuantScreenState extends State<QuantScreen> {
     }
   }
 
+  Future<void> _runBatch() async {
+    final strategy = _selectedStrategy;
+    if (strategy == null) return;
+    final requestsOrError = _buildBatchRequests(strategy);
+    if (requestsOrError is _QuantValidationError) {
+      setState(() {
+        _error = requestsOrError;
+        _batchResult = null;
+      });
+      return;
+    }
+    final requests = requestsOrError as List<BacktestRequest>;
+    setState(() {
+      _isBatchRunning = true;
+      _error = null;
+      _batchResult = null;
+    });
+    try {
+      final result = await widget.repository.runBacktestBatch(
+        BacktestBatchRequest(items: requests),
+      );
+      if (!mounted) return;
+      setState(() => _batchResult = result);
+      await _loadHistory(showError: false);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _isBatchRunning = false);
+    }
+  }
+
   Future<void> _run() async {
     final strategy = _selectedStrategy;
     if (strategy == null) return;
@@ -589,6 +668,134 @@ class _QuantScreenState extends State<QuantScreen> {
       slippageRate: slippageRate as double,
       parameters: parametersOrError as Map<String, Object?>,
     );
+  }
+
+  Object _buildBatchRequests(StrategyDefinition strategy) {
+    final stockCodesOrError = _batchStockCodes();
+    if (stockCodesOrError is _QuantValidationError) return stockCodesOrError;
+    if (_startDate.isAfter(_endDate)) {
+      return const _QuantValidationError('开始日期不能晚于结束日期');
+    }
+
+    final initialCash = _parsePositiveDouble(
+      _initialCashController.text,
+      '初始资金',
+    );
+    if (initialCash is _QuantValidationError) return initialCash;
+    final feeRate = _parseNonNegativeDouble(_feeRateController.text, '手续费率');
+    if (feeRate is _QuantValidationError) return feeRate;
+    final slippageRate = _parseNonNegativeDouble(
+      _slippageRateController.text,
+      '滑点率',
+    );
+    if (slippageRate is _QuantValidationError) return slippageRate;
+
+    final parameterVariantsOrError = _buildBatchParameterVariants(strategy);
+    if (parameterVariantsOrError is _QuantValidationError) {
+      return parameterVariantsOrError;
+    }
+    final stockCodes = stockCodesOrError as List<String>;
+    final parameterVariants =
+        parameterVariantsOrError as List<Map<String, Object?>>;
+    final totalCount = stockCodes.length * parameterVariants.length;
+    if (totalCount > 50) {
+      return _QuantValidationError('批量组合最多 50 组，当前 $totalCount 组');
+    }
+
+    return [
+      for (final stockCode in stockCodes)
+        for (final parameters in parameterVariants)
+          BacktestRequest(
+            strategyCode: strategy.code,
+            stockCode: stockCode,
+            period: 'day',
+            startDate: _startDate,
+            endDate: _endDate,
+            initialCash: initialCash as double,
+            feeRate: feeRate as double,
+            slippageRate: slippageRate as double,
+            parameters: parameters,
+          ),
+    ];
+  }
+
+  Object _batchStockCodes() {
+    final codes = _batchStockCodesController.text
+        .split(RegExp(r'[\s,，;；]+'))
+        .map((item) => item.trim().toUpperCase())
+        .where((item) => item.isNotEmpty)
+        .toList();
+    if (codes.isEmpty) return const _QuantValidationError('请输入批量股票池');
+    final uniqueCodes = <String>[];
+    final seen = <String>{};
+    for (final code in codes) {
+      if (!code.contains('.') || code.length < 4) {
+        return _QuantValidationError('股票代码格式不正确：$code');
+      }
+      if (seen.add(code)) uniqueCodes.add(code);
+    }
+    return uniqueCodes;
+  }
+
+  Object _buildBatchParameterVariants(StrategyDefinition strategy) {
+    if (strategy.code == 'composite_factor') {
+      final parametersOrError = _buildStrategyParameters(strategy);
+      if (parametersOrError is _QuantValidationError) return parametersOrError;
+      return [parametersOrError as Map<String, Object?>];
+    }
+
+    final specs = strategyParameterSpecsFor(strategy.code);
+    var variants = <Map<String, Object?>>[<String, Object?>{}];
+    for (final spec in specs) {
+      final valuesOrError = _parseBatchParameterValues(spec);
+      if (valuesOrError is _QuantValidationError) return valuesOrError;
+      final values = valuesOrError as List<Object?>;
+      variants = [
+        for (final variant in variants)
+          for (final value in values) {...variant, spec.key: value},
+      ];
+      if (variants.length > 50) {
+        return const _QuantValidationError('参数组合过多，请缩小参数列表');
+      }
+    }
+
+    for (final parameters in variants) {
+      final relationError = _validateStrategyParameterRelations(
+        strategy.code,
+        parameters,
+      );
+      if (relationError != null) return relationError;
+    }
+    return variants;
+  }
+
+  Object _parseBatchParameterValues(StrategyParameterSpec spec) {
+    final text = (_batchParameterControllers[spec.key]?.text ?? spec.fallback)
+        .trim();
+    final parts = text
+        .split(RegExp(r'[,，;；\s]+'))
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return _QuantValidationError('请输入${spec.label}参数');
+    final values = <Object?>[];
+    for (final part in parts) {
+      final value = switch (spec.valueType) {
+        StrategyParameterValueType.positiveInt => _parsePositiveInt(
+          part,
+          spec.label,
+        ),
+        StrategyParameterValueType.boundedDouble => _parseBoundedDouble(
+          part,
+          spec.label,
+        ),
+        StrategyParameterValueType.option => _parseOption(part, spec),
+        StrategyParameterValueType.multiOption => _parseMultiOption(part, spec),
+      };
+      if (value is _QuantValidationError) return value;
+      values.add(value);
+    }
+    return values;
   }
 
   Object _buildStrategyParameters(StrategyDefinition strategy) {
@@ -934,6 +1141,58 @@ class _QuantScreenState extends State<QuantScreen> {
     }
     return null;
   }
+
+  void _fillBatchStocksFromPositions() {
+    _batchStockCodesController.text = _defaultBatchStockCodes();
+  }
+
+  String _defaultBatchStockCodes() {
+    final codes = [
+      for (final position in widget.positions) position.code.toUpperCase(),
+    ];
+    if (codes.isEmpty) return _stockCodeController.text.trim().toUpperCase();
+    return codes.toSet().join(', ');
+  }
+}
+
+String _batchDefaultText(
+  String strategyCode,
+  StrategyParameterSpec spec,
+  String base,
+) {
+  if (strategyCode == 'ma_cross') {
+    return switch (spec.key) {
+      'short_window' => '3,5,8,10',
+      'long_window' => '20,30,60',
+      _ => base,
+    };
+  }
+  if (strategyCode == 'rsi_reversal' ||
+      strategyCode == 'rsi_oversold_rebound') {
+    return switch (spec.key) {
+      'rsi_window' => '6,14,21',
+      'oversold' => '25,30,35',
+      'overbought' => '65,70,75',
+      _ => base,
+    };
+  }
+  if (strategyCode == 'macd_trend') {
+    return switch (spec.key) {
+      'fast_window' => '8,12',
+      'slow_window' => '21,26',
+      'signal_window' => '9',
+      _ => base,
+    };
+  }
+  if (strategyCode == 'trend_score') {
+    return switch (spec.key) {
+      'ma_window' => '10,20,30',
+      'momentum_window' => '10,20',
+      'volume_window' => '20',
+      _ => base,
+    };
+  }
+  return base;
 }
 
 Object _parsePositiveDouble(String value, String label) {

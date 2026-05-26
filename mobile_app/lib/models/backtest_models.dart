@@ -34,6 +34,37 @@ class BacktestRequest {
       'parameters': parameters,
     };
   }
+
+  factory BacktestRequest.fromJson(Map<String, dynamic> json) {
+    return BacktestRequest(
+      strategyCode: json['strategy_code'] as String? ?? '',
+      stockCode: json['stock_code'] as String? ?? '',
+      period: json['period'] as String? ?? 'day',
+      startDate: _readDate(json['start_date']) ?? DateTime(2000),
+      endDate: _readDate(json['end_date']) ?? DateTime(2000),
+      initialCash: _readDouble(json['initial_cash']),
+      feeRate: _readDouble(json['fee_rate']),
+      slippageRate: _readDouble(json['slippage_rate']),
+      parameters: _readMap(json['parameters']),
+    );
+  }
+}
+
+class BacktestBatchRequest {
+  const BacktestBatchRequest({
+    required this.items,
+    this.continueOnError = true,
+  });
+
+  final List<BacktestRequest> items;
+  final bool continueOnError;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'items': [for (final item in items) item.toJson()],
+      'continue_on_error': continueOnError,
+    };
+  }
 }
 
 class BacktestRun {
@@ -173,6 +204,64 @@ class BacktestResult {
       trades: (json['trades'] as List? ?? const [])
           .whereType<Map<String, dynamic>>()
           .map(BacktestTrade.fromJson)
+          .toList(),
+    );
+  }
+}
+
+class BacktestBatchItemResult {
+  const BacktestBatchItemResult({
+    required this.index,
+    required this.request,
+    required this.run,
+    required this.error,
+  });
+
+  final int index;
+  final BacktestRequest? request;
+  final BacktestRun? run;
+  final String? error;
+
+  bool get isCompleted => run?.status == 'completed';
+  bool get isFailed => error != null || run?.status == 'failed';
+
+  factory BacktestBatchItemResult.fromJson(Map<String, dynamic> json) {
+    final requestJson = json['request'];
+    final runJson = json['run'];
+    return BacktestBatchItemResult(
+      index: (json['index'] as num?)?.toInt() ?? 0,
+      request: requestJson is Map<String, dynamic>
+          ? BacktestRequest.fromJson(requestJson)
+          : null,
+      run: runJson is Map<String, dynamic>
+          ? BacktestRun.fromJson(runJson)
+          : null,
+      error: json['error'] as String?,
+    );
+  }
+}
+
+class BacktestBatchResult {
+  const BacktestBatchResult({
+    required this.totalCount,
+    required this.completedCount,
+    required this.failedCount,
+    required this.results,
+  });
+
+  final int totalCount;
+  final int completedCount;
+  final int failedCount;
+  final List<BacktestBatchItemResult> results;
+
+  factory BacktestBatchResult.fromJson(Map<String, dynamic> json) {
+    return BacktestBatchResult(
+      totalCount: (json['total_count'] as num?)?.toInt() ?? 0,
+      completedCount: (json['completed_count'] as num?)?.toInt() ?? 0,
+      failedCount: (json['failed_count'] as num?)?.toInt() ?? 0,
+      results: (json['results'] as List? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(BacktestBatchItemResult.fromJson)
           .toList(),
     );
   }

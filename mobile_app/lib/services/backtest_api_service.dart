@@ -31,6 +31,23 @@ class BacktestApiService {
     );
   }
 
+  Future<BacktestBatchResult> runBacktestBatch(
+    BacktestBatchRequest request,
+  ) async {
+    final decoded = await _apiClient.post(
+      '/api/v1/backtests/batch',
+      request.toJson(),
+    );
+    if (decoded is Map<String, dynamic>) {
+      return BacktestBatchResult.fromJson(decoded);
+    }
+    throw const ApiException(
+      statusCode: 0,
+      code: 'INVALID_BACKTEST_BATCH_RESPONSE',
+      message: '批量回测结果格式不正确',
+    );
+  }
+
   Future<List<BacktestRun>> fetchBacktestRuns({
     String? stockCode,
     String? strategyCode,

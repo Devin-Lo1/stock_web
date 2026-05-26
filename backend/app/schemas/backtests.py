@@ -65,3 +65,22 @@ class BacktestResult(BaseModel):
     run: BacktestRun
     equity_curve: list[BacktestEquityPoint] = Field(default_factory=list)
     trades: list[BacktestTrade] = Field(default_factory=list)
+
+
+class BacktestBatchCreate(BaseModel):
+    items: list[BacktestCreate] = Field(min_length=1, max_length=50)
+    continue_on_error: bool = True
+
+
+class BacktestBatchItemResult(BaseModel):
+    index: int
+    request: BacktestCreate
+    run: BacktestRun | None = None
+    error: str | None = None
+
+
+class BacktestBatchResult(BaseModel):
+    total_count: int
+    completed_count: int
+    failed_count: int
+    results: list[BacktestBatchItemResult] = Field(default_factory=list)

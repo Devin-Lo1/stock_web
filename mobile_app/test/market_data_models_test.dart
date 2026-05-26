@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stock_mobile/models/backtest_models.dart';
 import 'package:stock_mobile/models/app_enums.dart';
 import 'package:stock_mobile/models/candle.dart';
 import 'package:stock_mobile/models/capital_flow.dart';
@@ -100,6 +101,65 @@ void main() {
     expect(_position('SZ.000001').market, MarketFilter.cn);
     expect(_position('US.NVDA').market, MarketFilter.us);
     expect(_position('HK.00700').market, MarketFilter.hk);
+  });
+
+  test('BacktestBatchResult parses ranked run summaries', () {
+    final result = BacktestBatchResult.fromJson({
+      'total_count': 2,
+      'completed_count': 1,
+      'failed_count': 1,
+      'results': [
+        {
+          'index': 0,
+          'request': {
+            'strategy_code': 'ma_cross',
+            'stock_code': 'US.NVDA',
+            'period': 'day',
+            'start_date': '2025-01-01',
+            'end_date': '2026-05-27',
+            'initial_cash': 100000,
+            'fee_rate': 0.0003,
+            'slippage_rate': 0.0005,
+            'parameters': {'short_window': 5, 'long_window': 20},
+          },
+          'run': {
+            'id': 'run-1',
+            'name': '',
+            'strategy_code': 'ma_cross',
+            'stock_code': 'US.NVDA',
+            'period': 'day',
+            'start_date': '2025-01-01',
+            'end_date': '2026-05-27',
+            'initial_cash': 100000,
+            'fee_rate': 0.0003,
+            'slippage_rate': 0.0005,
+            'parameters': {'short_window': 5, 'long_window': 20},
+            'status': 'completed',
+            'summary': {'total_return': 0.18},
+          },
+        },
+        {
+          'index': 1,
+          'request': {
+            'strategy_code': 'ma_cross',
+            'stock_code': 'US.AAPL',
+            'period': 'day',
+            'start_date': '2025-01-01',
+            'end_date': '2026-05-27',
+            'initial_cash': 100000,
+            'fee_rate': 0.0003,
+            'slippage_rate': 0.0005,
+            'parameters': {'short_window': 8, 'long_window': 30},
+          },
+          'error': 'not enough candles',
+        },
+      ],
+    });
+
+    expect(result.totalCount, 2);
+    expect(result.completedCount, 1);
+    expect(result.results.first.run?.summaryDouble('total_return'), 0.18);
+    expect(result.results.last.isFailed, isTrue);
   });
 
   test('volume moving average uses candle volume values', () {

@@ -15,6 +15,10 @@ class BacktestRepository {
     return _apiService.runBacktest(request);
   }
 
+  Future<BacktestBatchResult> runBacktestBatch(BacktestBatchRequest request) {
+    return _apiService.runBacktestBatch(request);
+  }
+
   Future<List<BacktestRun>> loadBacktestRuns({
     String? stockCode,
     String? strategyCode,
