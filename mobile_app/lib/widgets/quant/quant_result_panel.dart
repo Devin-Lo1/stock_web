@@ -350,11 +350,16 @@ class _SnapshotChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final height = item.span == 3
+        ? 58.0 + (textScale - 1).clamp(0, 1) * 12
+        : 66.0 + (textScale - 1).clamp(0, 1) * 22;
+
     return SizedBox(
       width: width,
-      height: item.span == 3 ? 54 : 56,
+      height: height,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
         decoration: BoxDecoration(
           color: cardColor(context),
           borderRadius: BorderRadius.circular(8),
@@ -369,6 +374,7 @@ class _SnapshotChip extends StatelessWidget {
               style: TextStyle(
                 color: secondaryTextColor(context),
                 fontSize: 10,
+                height: 1.1,
               ),
             ),
             const SizedBox(height: 2),
@@ -379,7 +385,7 @@ class _SnapshotChip extends StatelessWidget {
               style: TextStyle(
                 color: primaryTextColor(context),
                 fontSize: item.span == 3 ? 12 : 12,
-                height: 1.15,
+                height: 1.12,
                 fontWeight: FontWeight.w800,
               ),
             ),
