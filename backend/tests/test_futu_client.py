@@ -1,13 +1,20 @@
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 import pytest
 
 from app.services.futu_client import (
     FutuOpenDError,
+    _active_us_extended_session,
     _capital_bucket,
     _currency_from_code,
     _ensure_futu_port_available,
     _market_from_code,
     _row_to_capital_flow_point,
 )
+
+
+US_EASTERN = ZoneInfo("America/New_York")
 
 
 @pytest.mark.parametrize(
@@ -41,6 +48,29 @@ def test_futu_port_precheck_fails_fast(monkeypatch) -> None:
 
     with pytest.raises(FutuOpenDError, match="FutuOpenD is not reachable"):
         _ensure_futu_port_available()
+
+
+@pytest.mark.parametrize(
+    ("hour", "minute", "session"),
+    [
+        (3, 59, "overnight"),
+        (4, 0, "pre"),
+        (9, 29, "pre"),
+        (9, 30, ""),
+        (15, 59, ""),
+        (16, 0, "after"),
+        (19, 59, "after"),
+        (20, 0, "overnight"),
+    ],
+)
+def test_active_us_extended_session(hour: int, minute: int, session: str) -> None:
+    now = datetime(2026, 5, 26, hour, minute, tzinfo=US_EASTERN)
+    assert _active_us_extended_session(now) == session
+
+
+def test_active_us_extended_session_ignores_weekends() -> None:
+    now = datetime(2026, 5, 30, 10, 0, tzinfo=US_EASTERN)
+    assert _active_us_extended_session(now) == ""
 
 
 def test_capital_flow_helpers_parse_futu_rows() -> None:

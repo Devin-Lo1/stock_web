@@ -331,13 +331,55 @@ def init_database(*, seed_defaults: bool = True) -> None:
                 lot_size REAL NOT NULL DEFAULT 0,
                 change REAL NOT NULL,
                 change_rate REAL NOT NULL,
-                quote_time TEXT NOT NULL
+                quote_time TEXT NOT NULL,
+                extended_session TEXT NOT NULL DEFAULT '',
+                extended_price REAL NOT NULL DEFAULT 0,
+                extended_change REAL NOT NULL DEFAULT 0,
+                extended_change_rate REAL NOT NULL DEFAULT 0,
+                extended_volume REAL NOT NULL DEFAULT 0,
+                extended_turnover REAL NOT NULL DEFAULT 0
             )
             """,
         )
         _ensure_column(connection, "quote_snapshots", "turnover_rate", "REAL NOT NULL DEFAULT 0")
         _ensure_column(connection, "quote_snapshots", "pe_ratio", "REAL NOT NULL DEFAULT 0")
         _ensure_column(connection, "quote_snapshots", "lot_size", "REAL NOT NULL DEFAULT 0")
+        _ensure_column(
+            connection,
+            "quote_snapshots",
+            "extended_session",
+            "TEXT NOT NULL DEFAULT ''",
+        )
+        _ensure_column(
+            connection,
+            "quote_snapshots",
+            "extended_price",
+            "REAL NOT NULL DEFAULT 0",
+        )
+        _ensure_column(
+            connection,
+            "quote_snapshots",
+            "extended_change",
+            "REAL NOT NULL DEFAULT 0",
+        )
+        _ensure_column(
+            connection,
+            "quote_snapshots",
+            "extended_change_rate",
+            "REAL NOT NULL DEFAULT 0",
+        )
+        _ensure_column(
+            connection,
+            "quote_snapshots",
+            "extended_volume",
+            "REAL NOT NULL DEFAULT 0",
+        )
+        _ensure_column(
+            connection,
+            "quote_snapshots",
+            "extended_turnover",
+            "REAL NOT NULL DEFAULT 0",
+        )
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS klines (

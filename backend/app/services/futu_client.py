@@ -1,8 +1,9 @@
 import math
 import os
 import socket
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from .futu_import import get_futu_sdk
 from ..schemas import (
@@ -19,6 +20,7 @@ FUTU_PORT = int(os.getenv("FUTU_PORT", "11111").strip() or "11111")
 FUTU_CONNECT_TIMEOUT_SECONDS = float(
     os.getenv("FUTU_CONNECT_TIMEOUT_SECONDS", "2").strip() or "2"
 )
+US_EASTERN = ZoneInfo("America/New_York")
 
 
 class FutuDependencyError(RuntimeError):
@@ -69,6 +71,7 @@ def get_futu_quote(code: str) -> QuoteSnapshot:
         previous_close = _read_float(row, "prev_close_price")
         change = current_price - previous_close if previous_close else 0
         change_rate = change / previous_close * 100 if previous_close else 0
+        extended = _extended_quote_fields(normalized_code, row)
 
         return QuoteSnapshot(
             code=normalized_code,
@@ -87,6 +90,7 @@ def get_futu_quote(code: str) -> QuoteSnapshot:
             change=change,
             change_rate=change_rate,
             quote_time=datetime.now(timezone.utc),
+            **extended,
         )
     finally:
         quote_context.close()
@@ -211,6 +215,43 @@ def _read_float(row: Any, key: str) -> float:
         return parsed if math.isfinite(parsed) else 0.0
     except (TypeError, ValueError):
         return 0.0
+
+
+def _extended_quote_fields(code: str, row: Any) -> dict[str, Any]:
+    if not code.startswith("US."):
+        return {}
+
+    session = _active_us_extended_session()
+    if not session:
+        return {}
+
+    price = _read_float(row, f"{session}_price")
+    if price <= 0:
+        return {}
+
+    return {
+        "extended_session": session,
+        "extended_price": price,
+        "extended_change": _read_float(row, f"{session}_change_val"),
+        "extended_change_rate": _read_float(row, f"{session}_change_rate"),
+        "extended_volume": _read_float(row, f"{session}_volume"),
+        "extended_turnover": _read_float(row, f"{session}_turnover"),
+    }
+
+
+def _active_us_extended_session(now: datetime | None = None) -> str:
+    eastern_now = (now or datetime.now(timezone.utc)).astimezone(US_EASTERN)
+    if eastern_now.weekday() >= 5:
+        return ""
+
+    current_time = eastern_now.time()
+    if time(4, 0) <= current_time < time(9, 30):
+        return "pre"
+    if time(9, 30) <= current_time < time(16, 0):
+        return ""
+    if time(16, 0) <= current_time < time(20, 0):
+        return "after"
+    return "overnight"
 
 
 def _capital_bucket(row: Any, bucket: str) -> CapitalFlowBucket:

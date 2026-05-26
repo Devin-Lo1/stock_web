@@ -20,12 +20,22 @@ void main() {
       'change': 7.4,
       'change_rate': 1.97,
       'quote_time': '2026-05-11T10:30:00',
+      'extended_session': 'after',
+      'extended_price': 381.2,
+      'extended_change': -1.2,
+      'extended_change_rate': -0.31,
+      'extended_volume': 12000,
+      'extended_turnover': 4574400,
     });
 
     expect(quote.code, 'HK.00700');
     expect(quote.currentPrice, 382.4);
     expect(quote.previousClose, 375.0);
     expect(quote.quoteTime, DateTime(2026, 5, 11, 10, 30));
+    expect(quote.extendedSession, 'after');
+    expect(quote.extendedPrice, 381.2);
+    expect(quote.extendedChangeRate, -0.31);
+    expect(quote.hasExtendedSession, isTrue);
   });
 
   test('Candle parses and serializes kline values', () {

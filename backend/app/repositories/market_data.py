@@ -22,7 +22,9 @@ def get_quotes(codes: list[str]) -> list[QuoteSnapshot]:
                 f"""
                 SELECT code, market, currency, current_price, previous_close,
                        open, high, low, volume, turnover, turnover_rate,
-                       pe_ratio, lot_size, change, change_rate, quote_time
+                       pe_ratio, lot_size, change, change_rate, quote_time,
+                       extended_session, extended_price, extended_change,
+                       extended_change_rate, extended_volume, extended_turnover
                 FROM quote_snapshots
                 WHERE UPPER(code) IN ({placeholders})
                 ORDER BY code ASC
@@ -34,7 +36,9 @@ def get_quotes(codes: list[str]) -> list[QuoteSnapshot]:
                 """
                 SELECT code, market, currency, current_price, previous_close,
                        open, high, low, volume, turnover, turnover_rate,
-                       pe_ratio, lot_size, change, change_rate, quote_time
+                       pe_ratio, lot_size, change, change_rate, quote_time,
+                       extended_session, extended_price, extended_change,
+                       extended_change_rate, extended_volume, extended_turnover
                 FROM quote_snapshots
                 ORDER BY code ASC
                 """,
@@ -49,9 +53,11 @@ def upsert_quote(quote: QuoteSnapshot) -> QuoteSnapshot:
             INSERT INTO quote_snapshots (
                 code, market, currency, current_price, previous_close, open,
                 high, low, volume, turnover, turnover_rate, pe_ratio, lot_size,
-                change, change_rate, quote_time
+                change, change_rate, quote_time, extended_session,
+                extended_price, extended_change, extended_change_rate,
+                extended_volume, extended_turnover
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(code) DO UPDATE SET
                 market = excluded.market,
                 currency = excluded.currency,
@@ -67,7 +73,13 @@ def upsert_quote(quote: QuoteSnapshot) -> QuoteSnapshot:
                 lot_size = excluded.lot_size,
                 change = excluded.change,
                 change_rate = excluded.change_rate,
-                quote_time = excluded.quote_time
+                quote_time = excluded.quote_time,
+                extended_session = excluded.extended_session,
+                extended_price = excluded.extended_price,
+                extended_change = excluded.extended_change,
+                extended_change_rate = excluded.extended_change_rate,
+                extended_volume = excluded.extended_volume,
+                extended_turnover = excluded.extended_turnover
             """,
             _quote_values(quote),
         )

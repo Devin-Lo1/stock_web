@@ -106,6 +106,12 @@ def _quote_values(quote: QuoteSnapshot) -> tuple[object, ...]:
         quote.change,
         quote.change_rate,
         _datetime_to_text(quote.quote_time),
+        quote.extended_session,
+        quote.extended_price,
+        quote.extended_change,
+        quote.extended_change_rate,
+        quote.extended_volume,
+        quote.extended_turnover,
     )
 
 
@@ -380,6 +386,12 @@ def _row_to_quote(row: sqlite3.Row | dict[str, Any]) -> QuoteSnapshot:
         change=row["change"],
         change_rate=row["change_rate"],
         quote_time=_text_to_datetime(row["quote_time"]),
+        extended_session=_row_value(row, "extended_session", ""),
+        extended_price=_row_value(row, "extended_price", 0),
+        extended_change=_row_value(row, "extended_change", 0),
+        extended_change_rate=_row_value(row, "extended_change_rate", 0),
+        extended_volume=_row_value(row, "extended_volume", 0),
+        extended_turnover=_row_value(row, "extended_turnover", 0),
     )
 
 
@@ -619,6 +631,17 @@ def _json_from_text(value: str | dict[str, Any]) -> dict[str, Any]:
     if isinstance(value, dict):
         return value
     return json.loads(value)
+
+
+def _row_value(
+    row: sqlite3.Row | dict[str, Any],
+    key: str,
+    default: Any,
+) -> Any:
+    if key not in row.keys():
+        return default
+    value = row[key]
+    return default if value is None else value
 
 
 def _position_metric(

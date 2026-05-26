@@ -22,6 +22,12 @@ class QuoteSnapshot(BaseModel):
     change: float
     change_rate: float
     quote_time: datetime
+    extended_session: str = ""
+    extended_price: float = 0
+    extended_change: float = 0
+    extended_change_rate: float = 0
+    extended_volume: float = 0
+    extended_turnover: float = 0
 
 
 class CapitalFlowBucket(BaseModel):

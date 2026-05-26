@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/stock_position.dart';
 import '../../utils/formatters.dart';
 import '../../utils/theme_helpers.dart';
+import 'extended_session_line.dart';
 
 class BrokeragePositionTable extends StatelessWidget {
   const BrokeragePositionTable({
@@ -212,7 +213,7 @@ class _FixedNameCell extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        height: 82,
+        height: _rowHeight(position),
         padding: const EdgeInsets.fromLTRB(8, 10, 6, 8),
         decoration: BoxDecoration(
           border: Border(top: BorderSide(color: borderColor(context))),
@@ -244,6 +245,14 @@ class _FixedNameCell extends StatelessWidget {
                 ),
               ],
             ),
+            if (position.hasExtendedSession) ...[
+              const SizedBox(height: 4),
+              ExtendedSessionLine(
+                position: position,
+                fontSize: 9.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ],
           ],
         ),
       ),
@@ -271,7 +280,7 @@ class _MetricRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        height: 82,
+        height: _rowHeight(position),
         decoration: BoxDecoration(
           border: Border(top: BorderSide(color: borderColor(context))),
         ),
@@ -407,6 +416,10 @@ class _FitText extends StatelessWidget {
       ),
     );
   }
+}
+
+double _rowHeight(StockPosition position) {
+  return position.hasExtendedSession ? 92 : 82;
 }
 
 Color _profitColor(double value) {

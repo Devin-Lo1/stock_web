@@ -1,13 +1,13 @@
 # App 马上解决任务顺序
 
-最后更新：2026-05-25
+最后更新：2026-05-26
 
 本文档用于交接“下一位开发者马上应该做什么”。它不是长期规划文档，而是当前版本之后最优先的执行清单。
 
 当前功能基线：
 
 ```text
-dcdce44 feat: protect public api with token
+4ddbc3f fix: prevent quant parameter overflow
 ```
 
 当前工作区要求：
@@ -17,7 +17,46 @@ dcdce44 feat: protect public api with token
 - 所有代码改动必须执行 format、analyze、test。
 - 涉及后端改动必须执行 `python -m compileall app`。
 - 涉及真机体验必须重新构建并安装 APK。
-- 当前真机调试采用局域网后端地址。重新打 debug APK 时禁止裸跑 `flutter build apk --debug`，必须直接运行 `.\scripts\build_mobile_lan_debug.ps1` 自动探测当前电脑局域网 IP，或手动传 `--dart-define=API_BASE_URL=http://电脑当前局域网IP:8000`。
+- 当前真机调试采用云服务器 API：`http://119.91.47.141`。重新打 debug APK 时禁止裸跑 `flutter build apk --debug`，必须显式传入 `API_BASE_URL` 和 `API_ACCESS_TOKEN`。
+
+## 0. 2026-05-26 当前马上任务（新开发者接手）
+
+当前刚完成：
+
+```text
+域名 devinstock.cloud / www.devinstock.cloud 已解析到 119.91.47.141
+服务器侧 Nginx + Let's Encrypt HTTPS 已初配
+App 暂仍使用 http://119.91.47.141，等待真机 HTTPS 验证后再切域名
+云端量化回测 500 已修复：PostgreSQL K 线查询子查询别名问题
+回测历史参数区真机溢出已修复并同步到云端
+美股持仓已按用户截图替换，旧美股持仓已移除
+港股持仓已按用户截图替换，旧港股持仓已移除
+Futu 行情和云端快照已刷新；云端 PostgreSQL 仍是事实数据源
+基金模块已补估算收益小圆圈“估”、下一参考净值/日期、交易记录和持仓修正相关功能
+基金模块和量化回测历史已完成一轮云端复测，当前无阻塞问题
+```
+
+下一位开发者马上做：
+
+1. 在本地和服务器确认最新提交为 `4ddbc3f` 或之后提交。
+2. 实现 App 大模型 AI 后端网关：只能通过后端代理，密钥禁止进入 Flutter、Git、文档和聊天。
+3. 替换 App 图标：确认源图规格，生成 Android 多尺寸 launcher icon。
+4. 实现美股盘前盘后行情展示：Futu `get_market_snapshot` 已确认可返回 `pre_*`、`after_*`、`overnight_*` 字段，优先做 App 轮询 + 后端缓存。
+5. 若继续回归量化，优先真机打开最近两条云端测试回测历史，确认详情页图表和买卖标记展示正常。
+6. 备案和真机 HTTPS 验证完成后，再把 App API 从 `http://119.91.47.141` 切到 `https://devinstock.cloud`。
+
+2026-05-26 新增可行性检查结论：
+
+- AI 渠道：当前代码没有大模型实现，但 FastAPI + 统一 `ApiClient` 已具备接入条件。建议新增 `/api/v1/ai/*` 后端路由、服务端 provider 抽象和移动端 AI 页面/入口。
+- App 图标：AndroidManifest 使用 `android:icon="@mipmap/ic_launcher"`，资源已存在 `mdpi` 到 `xxxhdpi` 五套 PNG，可直接替换或用生成工具统一生成。
+- 美股盘前盘后：云端 FutuOpenD 实测 `US.NVDA`、`US.AMUU` 可返回盘前、盘后、夜盘价格、涨跌、成交量和成交额字段；Flutter 仍只能走 FastAPI，不能直连 FutuOpenD。
+
+当前不要做：
+
+- 不要把 API token、数据库密码、SSH 私钥、Futu 账号密码写进 Git、文档或聊天。
+- 不要暴露 FutuOpenD 的 11111/22222 到公网。
+- 不要把“基金业绩走势”改成“我的收益”。
+- 不要让基金加减仓影响基金自身业绩走势；加减仓只影响用户持仓、收益、策略参考点。
 
 ## 0. 2026-05-25 当前马上任务（云服务器交接）
 
@@ -58,7 +97,7 @@ Futu 连接参数已改为 FUTU_HOST / FUTU_PORT / FUTU_CONNECT_TIMEOUT_SECONDS 
    - `/health` 应保持公开。
    - `/api/v1/*` 未带 token 应返回 401。
    - App 云端包必须通过 `API_ACCESS_TOKEN` 构建。
-5. 后续绑定域名和 HTTPS，再考虑长期公网使用。
+5. 域名和服务器侧 HTTPS 已初配，后续完成真机 HTTPS 验证后再考虑 App 切换。
 6. 真机重点验证基金：添加基金、金额/份额互转、历史买入/卖出、三点前后确认日、手续费率、持仓重建、基金提醒多时间扫描。
 
 注意：下面 2026-05-24 及更早任务保留历史背景。若与本节冲突，以本节为准。

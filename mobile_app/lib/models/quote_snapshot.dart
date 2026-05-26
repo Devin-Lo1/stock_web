@@ -16,6 +16,12 @@ class QuoteSnapshot {
     required this.change,
     required this.changeRate,
     required this.quoteTime,
+    this.extendedSession = '',
+    this.extendedPrice = 0,
+    this.extendedChange = 0,
+    this.extendedChangeRate = 0,
+    this.extendedVolume = 0,
+    this.extendedTurnover = 0,
   });
 
   final String code;
@@ -34,6 +40,15 @@ class QuoteSnapshot {
   final double change;
   final double changeRate;
   final DateTime? quoteTime;
+  final String extendedSession;
+  final double extendedPrice;
+  final double extendedChange;
+  final double extendedChangeRate;
+  final double extendedVolume;
+  final double extendedTurnover;
+
+  bool get hasExtendedSession =>
+      extendedSession.isNotEmpty && extendedPrice > 0;
 
   factory QuoteSnapshot.fromJson(Map<String, dynamic> json) {
     return QuoteSnapshot(
@@ -55,6 +70,25 @@ class QuoteSnapshot {
       change: _readDouble(json['change']),
       changeRate: _readDouble(json['changeRate'] ?? json['change_rate']),
       quoteTime: _readDateTime(json['quoteTime'] ?? json['quote_time']),
+      extendedSession:
+          json['extendedSession'] as String? ??
+          json['extended_session'] as String? ??
+          '',
+      extendedPrice: _readDouble(
+        json['extendedPrice'] ?? json['extended_price'],
+      ),
+      extendedChange: _readDouble(
+        json['extendedChange'] ?? json['extended_change'],
+      ),
+      extendedChangeRate: _readDouble(
+        json['extendedChangeRate'] ?? json['extended_change_rate'],
+      ),
+      extendedVolume: _readDouble(
+        json['extendedVolume'] ?? json['extended_volume'],
+      ),
+      extendedTurnover: _readDouble(
+        json['extendedTurnover'] ?? json['extended_turnover'],
+      ),
     );
   }
 
@@ -76,6 +110,12 @@ class QuoteSnapshot {
       'change': change,
       'changeRate': changeRate,
       'quoteTime': quoteTime?.toIso8601String(),
+      'extendedSession': extendedSession,
+      'extendedPrice': extendedPrice,
+      'extendedChange': extendedChange,
+      'extendedChangeRate': extendedChangeRate,
+      'extendedVolume': extendedVolume,
+      'extendedTurnover': extendedTurnover,
     };
   }
 }

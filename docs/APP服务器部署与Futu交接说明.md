@@ -1,13 +1,15 @@
 # App 服务器部署与 Futu 交接说明
 
-最后更新：2026-05-25
+最后更新：2026-05-26
 
 本文记录最近一次从局域网调试切到云服务器后的交接状态。若本文与早期“局域网真机调试”说明冲突，以本文为准。
 
 ## 1. 当前服务器基线
 
 - 云服务器：腾讯云轻量应用服务器，广州，Ubuntu 22.04.5 LTS。
-- 公网 API：`http://119.91.47.141`
+- 当前 App 使用的公网 API：`http://119.91.47.141`
+- 域名：`devinstock.cloud`、`www.devinstock.cloud`
+- HTTPS：服务器侧已配置 Let's Encrypt，证书到期日为 `2026-08-24`
 - 健康检查：`http://119.91.47.141/health`
 - 服务器项目目录：`/home/ubuntu/stock_web`
 - 代码仓库：`git@gitee.com:luo-dewen/stock_web.git`
@@ -27,15 +29,18 @@
 
 - 迁移前云端备份：`/home/ubuntu/stock_web_backups/stock_web_20260525_182811.dump`
 - 迁移后云端备份：`/home/ubuntu/stock_web_backups/stock_web_20260525_183210.dump`
+- 2026-05-26 美股持仓替换前备份：`/home/ubuntu/stock_web_backups/stock_web_20260526_165323.dump`
+- 2026-05-26 港股持仓替换前备份：`/home/ubuntu/stock_web_backups/stock_web_20260526_172741.dump`
 - 迁移后关键表数量：`positions=6`、`fund_positions=1`、`fund_trades=3`、`klines=10367`、`strategy_monitors=1`、`signal_events=36`、`backtest_runs=4`、`notification_devices=11`、`push_records=92`
 - 迁移后 API 验证：`/health=200`、无 token `/api/v1/positions=401`、带 token `/api/v1/positions` 返回 6 条、带 token `/api/v1/funds/positions` 返回 1 条。
 
 本地最近功能基线：
 
 ```text
-dcdce44 feat: protect public api with token
-7d1797b chore: add futu opend login config helper
-518d8e2 chore: enable local futu opend telnet control
+4ddbc3f fix: prevent quant parameter overflow
+a92a987 fix: make kline query postgres compatible
+2f6c48f feat: mark estimated fund day profit
+c4611e2 fix: value fund holdings by official nav
 ```
 
 ## 2. 当前 App 连接方式
@@ -45,12 +50,14 @@ dcdce44 feat: protect public api with token
 重新构建 APK 时必须显式指定服务器地址：
 
 ```powershell
-cd C:\Users\58229\Desktop\stock_web\mobile_app
-D:\flutter\bin\flutter.bat build apk --debug --dart-define=API_BASE_URL=http://119.91.47.141
-adb install -r build\app\outputs\flutter-apk\app-debug.apk
+cd C:\Users\58229\Desktop\stock_web
+$key=Join-Path $env:USERPROFILE '.ssh\id_ed25519_gitee_stock_web'
+$token=ssh -i $key -o BatchMode=yes ubuntu@119.91.47.141 'set -a; . /home/ubuntu/stock_web/backend/.env >/dev/null 2>&1; printf %s "$API_ACCESS_TOKEN"'
+.\scripts\build_mobile_lan_debug.ps1 -ApiBaseUrl 'http://119.91.47.141' -ApiAccessToken $token
+adb install -r mobile_app\build\app\outputs\flutter-apk\app-debug.apk
 ```
 
-如果后续改回局域网调试，再使用 `scripts/build_mobile_lan_debug.ps1`。不要裸跑 `flutter build apk --debug`，否则真机可能回退到 `127.0.0.1:8000`。
+如果后续改回局域网调试，再明确传局域网地址。不要裸跑 `flutter build apk --debug`，否则真机可能回退到 `127.0.0.1:8000` 或缺少 API token。
 
 ## 3. 当前 FutuOpenD 状态
 
@@ -70,7 +77,7 @@ adb install -r build\app\outputs\flutter-apk\app-debug.apk
 安全边界：
 
 - FutuOpenD 的 `11111` 和 `22222` 端口只允许监听 `127.0.0.1`。
-- UFW 只开放 `22/tcp` 和 `80/tcp`。
+- UFW 应只开放必要端口，例如 `22/tcp`、`80/tcp`、`443/tcp`；不得开放 `11111`、`22222`、`5432` 到公网。
 - 不要把 `/etc/futu-opend/FutuOpenD.xml` 提交到 Git；该文件包含本机登录配置。
 - 不要把富途账号密码、`.env`、数据库密码或 SSH 私钥写入文档、聊天记录和 Git。
 
@@ -98,7 +105,7 @@ FUTU_CONNECT_TIMEOUT_SECONDS=2
 
 3. FutuOpenD 放云服务器本机，并由 `futu-opend` systemd 服务托管。
 4. 不要把 `11111` 端口直接暴露到公网。
-5. Nginx、云防火墙和 UFW 只开放必要端口：当前建议 `22`、`80`，后续上 HTTPS 后开放 `443`。
+5. Nginx、云防火墙和 UFW 只开放必要端口：当前建议 `22`、`80`、`443`。
 
 ### 4.1 云服务器本机 FutuOpenD 安装步骤
 
@@ -230,6 +237,63 @@ App 云端 debug 包构建示例：
 .\scripts\build_mobile_lan_debug.ps1 -ApiBaseUrl http://119.91.47.141 -ApiAccessToken $env:STOCK_WEB_API_TOKEN
 ```
 
+### 5.2 域名与 HTTPS 当前状态
+
+当前域名状态：
+
+- `devinstock.cloud` A 记录指向 `119.91.47.141`。
+- `www.devinstock.cloud` A 记录指向 `119.91.47.141`。
+- Nginx 已配置域名站点。
+- Let's Encrypt 证书已签发，当前到期日为 `2026-08-24`。
+- App 暂时仍使用 `http://119.91.47.141`，等真机和普通外网验证 HTTPS 后再切换。
+
+验证命令：
+
+```bash
+curl -i http://119.91.47.141/health
+curl -i https://devinstock.cloud/health
+sudo nginx -t
+systemctl status certbot.timer --no-pager
+```
+
+带 token 的业务接口验证不要把 token 写入共享文档，可在服务器上临时读取 `.env` 后执行。
+
+### 5.3 2026-05-26 云端回测修复记录
+
+云端量化回测出现 `Internal Server Error` 时，根因不是 PostgreSQL 服务不可用，也不是回测引擎整体坏掉，而是 K 线查询在 PostgreSQL 下使用了未命名子查询。PostgreSQL 要求 `FROM (...) AS alias`。
+
+已修复文件：
+
+```text
+backend/app/repositories/market_data.py
+```
+
+接手后继续复测：
+
+- 启动回测不再 500。
+- 回测历史点击可以打开。
+- 历史详情里的买卖操作和对应 K 线图可以正常加载。
+- 若某策略没有交易，先判断是否是策略语义导致。
+
+### 5.4 2026-05-26 数据导入与回归验证记录
+
+本轮以用户最新券商截图为准重建股票持仓，云端 PostgreSQL 仍是事实数据源，本地旧库不要当主库。
+
+已完成：
+
+- 美股持仓替换为 `US.AMUU`、`US.GGLL`、`US.LINT`、`US.MUU`、`US.NVDA`、`US.TQQQ`，旧美股持仓已移除。
+- 港股持仓替换为 `HK.01398`、`HK.02318`、`HK.09988`、`HK.25956`、`HK.26393`、`HK.26739`、`HK.26987`、`HK.28607`，旧港股持仓已移除。
+- Futu 行情和持仓快照已刷新；港股总市值 `HK$ 66,414`、持仓盈亏 `HK$ -1,864` 已与截图口径核对。
+- 基金模块已复测：基金列表、基金详情、交易记录、持仓修正、收益曲线、策略参考净值/日期当前无阻塞问题。
+- 量化模块已复测：云端回测不再 500，历史详情可返回买卖操作、收益曲线和对应 K 线数据。
+- 真机 UI 修复：`4ddbc3f` 已修复回测历史参数区在小屏/大字体下的底部溢出。
+- 美股扩展行情可行性：云端 FutuOpenD 实测 `get_market_snapshot` 对 `US.NVDA`、`US.AMUU` 返回 `pre_*`、`after_*`、`overnight_*` 字段，可用于盘前、盘后和夜盘行情展示。
+
+注意：
+
+- `HK.28607` 等认股证的当日盈亏可能与券商截图存在口径差异，当前后端按 `持仓数量 * (现价 - 昨收)` 计算；券商可能按当日买入、交易费用和账户实时口径计算。
+- 后续接入 AI、大图标替换、美股盘前盘后行情时，仍必须保持 Flutter 只访问 FastAPI，不直接连接 FutuOpenD 或第三方模型服务。
+
 ## 6. 服务器待确认事项
 
 下一位开发者接手后优先确认：
@@ -258,11 +322,11 @@ sudo ss -ltnp | grep -E ':(80|8000|11111|22222|5432)'
 
 ## 7. 下一步开发顺序
 
-1. 公网 API 已加简单 token 保护，下一步购买或绑定域名后配置 HTTPS。
-2. 没有 HTTPS 前不要把更敏感的功能开放给陌生网络。
-3. 持续真机验证云端 App：基金主页、基金详情、基金交易记录、基金提醒 scheduler、股票持仓缓存展示。
-4. 股票实时行情已恢复，继续回归股票搜索、K 线刷新、资金流向、单股策略监控和信号扫描。
-5. 继续完善基金历史记录迁移：按养基宝规则核对历史买入/卖出日期、三点前后确认日、费率、份额和成本净值重建。
+1. 先实现 App 大模型 AI 后端网关，采用后端代理和服务端密钥管理，Flutter 不直连模型厂商。
+2. 替换 App 图标，优先用统一源图生成 Android 多尺寸 launcher icon。
+3. 实现美股盘前盘后行情展示，优先做后端缓存轮询，后续再评估实时推送通道。
+4. 备案和真机 HTTPS 验证完成后，再把 App API 从 `http://119.91.47.141` 切到 `https://devinstock.cloud`。
+5. 后续补用户登录鉴权、限流、日志告警和备份恢复演练。
 
 ## 8. 交接提醒
 

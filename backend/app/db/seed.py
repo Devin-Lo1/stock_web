@@ -181,9 +181,11 @@ def _seed_quotes(connection: _DatabaseConnection) -> None:
             INSERT INTO quote_snapshots (
                 code, market, currency, current_price, previous_close, open,
                 high, low, volume, turnover, turnover_rate, pe_ratio, lot_size,
-                change, change_rate, quote_time
+                change, change_rate, quote_time, extended_session,
+                extended_price, extended_change, extended_change_rate,
+                extended_volume, extended_turnover
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             _quote_values(quote),
         )

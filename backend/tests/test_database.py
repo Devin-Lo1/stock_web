@@ -371,6 +371,12 @@ def test_quote_upsert_and_get() -> None:
         change=-0.86,
         change_rate=-2.81,
         quote_time=quote_time,
+        extended_session="after",
+        extended_price=29.6,
+        extended_change=-0.12,
+        extended_change_rate=-0.4,
+        extended_volume=120000,
+        extended_turnover=3552000,
     )
 
     database.upsert_quote(quote)
@@ -378,7 +384,18 @@ def test_quote_upsert_and_get() -> None:
 
     assert rows == [quote]
 
-    changed = quote.model_copy(update={"current_price": 30.0, "change": -0.58})
+    changed = quote.model_copy(
+        update={
+            "current_price": 30.0,
+            "change": -0.58,
+            "extended_session": "",
+            "extended_price": 0,
+            "extended_change": 0,
+            "extended_change_rate": 0,
+            "extended_volume": 0,
+            "extended_turnover": 0,
+        }
+    )
     database.upsert_quote(changed)
 
     assert database.get_quotes(["HK.02628"]) == [changed]

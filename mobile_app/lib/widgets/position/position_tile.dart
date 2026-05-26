@@ -4,6 +4,7 @@ import '../../models/stock_position.dart';
 import '../../utils/formatters.dart';
 import '../../utils/theme_helpers.dart';
 import 'compact_metric.dart';
+import 'extended_session_line.dart';
 
 class PositionTile extends StatelessWidget {
   const PositionTile({super.key, required this.position, required this.onTap});
@@ -51,6 +52,10 @@ class PositionTile extends StatelessWidget {
                         fontSize: 11,
                       ),
                     ),
+                    if (position.hasExtendedSession) ...[
+                      const SizedBox(height: 3),
+                      ExtendedSessionLine(position: position),
+                    ],
                   ],
                 ),
               ),

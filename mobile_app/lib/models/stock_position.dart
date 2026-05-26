@@ -21,6 +21,12 @@ class StockPosition {
     this.turnoverRate = 0,
     this.peRatio = 0,
     this.lotSize = 0,
+    this.extendedSession = '',
+    this.extendedPrice = 0,
+    this.extendedChange = 0,
+    this.extendedChangeRate = 0,
+    this.extendedVolume = 0,
+    this.extendedTurnover = 0,
     required this.changeRate,
     required this.signal,
     this.snapshotMarketValue,
@@ -52,6 +58,12 @@ class StockPosition {
   final double turnoverRate;
   final double peRatio;
   final double lotSize;
+  final String extendedSession;
+  final double extendedPrice;
+  final double extendedChange;
+  final double extendedChangeRate;
+  final double extendedVolume;
+  final double extendedTurnover;
   final double changeRate;
   final String signal;
   final double? snapshotMarketValue;
@@ -84,6 +96,12 @@ class StockPosition {
       turnoverRate: (json['turnoverRate'] as num?)?.toDouble() ?? 0,
       peRatio: (json['peRatio'] as num?)?.toDouble() ?? 0,
       lotSize: (json['lotSize'] as num?)?.toDouble() ?? 0,
+      extendedSession: json['extendedSession'] as String? ?? '',
+      extendedPrice: (json['extendedPrice'] as num?)?.toDouble() ?? 0,
+      extendedChange: (json['extendedChange'] as num?)?.toDouble() ?? 0,
+      extendedChangeRate: (json['extendedChangeRate'] as num?)?.toDouble() ?? 0,
+      extendedVolume: (json['extendedVolume'] as num?)?.toDouble() ?? 0,
+      extendedTurnover: (json['extendedTurnover'] as num?)?.toDouble() ?? 0,
       changeRate: (json['changeRate'] as num?)?.toDouble() ?? 0,
       signal: json['signal'] as String? ?? '',
       snapshotMarketValue: (json['snapshotMarketValue'] as num?)?.toDouble(),
@@ -123,6 +141,12 @@ class StockPosition {
       'turnoverRate': turnoverRate,
       'peRatio': peRatio,
       'lotSize': lotSize,
+      'extendedSession': extendedSession,
+      'extendedPrice': extendedPrice,
+      'extendedChange': extendedChange,
+      'extendedChangeRate': extendedChangeRate,
+      'extendedVolume': extendedVolume,
+      'extendedTurnover': extendedTurnover,
       'changeRate': changeRate,
       'signal': signal,
       if (snapshotMarketValue != null)
@@ -181,6 +205,10 @@ class StockPosition {
   double get totalProfit => snapshotTotalProfit ?? realizedProfit + profit;
   double get totalProfitRate => snapshotTotalProfitRate ?? profitRate;
   double get positionWeight => snapshotPositionWeight ?? 0;
+  bool get hasExtendedSession =>
+      market == MarketFilter.us &&
+      extendedSession.isNotEmpty &&
+      extendedPrice > 0;
   bool get isUp => profit >= 0;
   String get price => formatHkd(currentPrice, showSign: false, decimals: 2);
   String get shortPrice =>
