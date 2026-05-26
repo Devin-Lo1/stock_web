@@ -56,7 +56,7 @@ class _StockSignalAppState extends State<StockSignalApp> {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: '智能量化助手',
+      title: 'AIquant',
       theme: isDark
           ? theme
           : theme.copyWith(

@@ -111,7 +111,7 @@ class _AccountHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  '智能量化助手已陪伴您 91 天',
+                  'AIquant 已陪伴您 91 天',
                   style: TextStyle(
                     color: secondaryTextColor(context),
                     fontSize: 13,
