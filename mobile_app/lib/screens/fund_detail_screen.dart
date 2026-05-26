@@ -67,7 +67,7 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
   void initState() {
     super.initState();
     _summary = widget.summary;
-    unawaited(_loadNavs());
+    unawaited(_loadNavs(refresh: true));
   }
 
   Future<void> _loadNavs({bool refresh = false}) async {
@@ -1751,7 +1751,6 @@ class _FundNavCurvePainter extends CustomPainter {
         ? (costNav / points.first.unitNav - 1) * 100
         : null;
     final allValues = <double>[...fundValues, ...benchmarkValues, 0];
-    if (costValue != null) allValues.add(costValue);
     var minValue = allValues.reduce(math.min);
     var maxValue = allValues.reduce(math.max);
     if ((maxValue - minValue).abs() < 0.01) {
@@ -1772,12 +1771,16 @@ class _FundNavCurvePainter extends CustomPainter {
     }
     _drawDashedLine(canvas, chart, _yFor(0, chart, minValue, range), gridColor);
     if (costValue != null) {
-      _drawDashedLine(
-        canvas,
-        chart,
-        _yFor(costValue, chart, minValue, range),
-        _costColor.withValues(alpha: 0.72),
-      );
+      final costY = _yFor(costValue, chart, minValue, range);
+      final costVisible = costY >= chart.top && costY <= chart.bottom;
+      if (costVisible) {
+        _drawDashedLine(
+          canvas,
+          chart,
+          costY,
+          _costColor.withValues(alpha: 0.72),
+        );
+      }
     }
 
     final benchmarkPath = _benchmarkPath(chart, minValue, range);
