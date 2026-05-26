@@ -337,7 +337,8 @@ class _FundsScreenState extends State<FundsScreen> {
                 marketValue: totalMarketValue,
                 dayProfit: totalDayProfit,
                 totalProfit: totalProfit,
-                label: hasEstimated ? '估算当日收益' : '当日收益',
+                label: '当日收益',
+                isEstimated: hasEstimated,
               ),
               const SizedBox(height: 8),
               _FundSchedulerPanel(
@@ -446,12 +447,14 @@ class _FundAccountOverview extends StatelessWidget {
     required this.dayProfit,
     required this.totalProfit,
     required this.label,
+    required this.isEstimated,
   });
 
   final double marketValue;
   final double dayProfit;
   final double totalProfit;
   final String label;
+  final bool isEstimated;
 
   @override
   Widget build(BuildContext context) {
@@ -474,6 +477,7 @@ class _FundAccountOverview extends StatelessWidget {
               value: _money(dayProfit),
               valueColor: _profitColor(dayProfit),
               alignCenter: true,
+              isEstimated: isEstimated,
             ),
           ),
           Expanded(
@@ -847,6 +851,7 @@ class _FundTableRow extends StatelessWidget {
                     primary: _money(summary.dayProfit),
                     secondary: _percent(summary.dayProfitRate),
                     value: summary.dayProfit,
+                    isEstimated: summary.isEstimated,
                   ),
                 ),
                 Expanded(
@@ -890,6 +895,7 @@ class _OverviewMetric extends StatelessWidget {
     this.valueColor,
     this.alignEnd = false,
     this.alignCenter = false,
+    this.isEstimated = false,
   });
 
   final String label;
@@ -897,6 +903,7 @@ class _OverviewMetric extends StatelessWidget {
   final Color? valueColor;
   final bool alignEnd;
   final bool alignCenter;
+  final bool isEstimated;
 
   @override
   Widget build(BuildContext context) {
@@ -928,14 +935,23 @@ class _OverviewMetric extends StatelessWidget {
         FittedBox(
           fit: BoxFit.scaleDown,
           alignment: alignment,
-          child: Text(
-            value,
-            maxLines: 1,
-            style: TextStyle(
-              color: valueColor ?? primaryTextColor(context),
-              fontSize: 19,
-              fontWeight: FontWeight.w900,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                value,
+                maxLines: 1,
+                style: TextStyle(
+                  color: valueColor ?? primaryTextColor(context),
+                  fontSize: 19,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              if (isEstimated) ...[
+                const SizedBox(width: 4),
+                const _EstimateBadge(),
+              ],
+            ],
           ),
         ),
       ],
@@ -948,11 +964,13 @@ class _ValueColumn extends StatelessWidget {
     required this.primary,
     required this.secondary,
     required this.value,
+    this.isEstimated = false,
   });
 
   final String primary;
   final String secondary;
   final double value;
+  final bool isEstimated;
 
   @override
   Widget build(BuildContext context) {
@@ -960,15 +978,27 @@ class _ValueColumn extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Text(
-          primary,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.right,
-          style: TextStyle(
-            color: color,
-            fontSize: 14,
-            fontWeight: FontWeight.w900,
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerRight,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                primary,
+                maxLines: 1,
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              if (isEstimated) ...[
+                const SizedBox(width: 3),
+                const _EstimateBadge(),
+              ],
+            ],
           ),
         ),
         const SizedBox(height: 4),
@@ -982,6 +1012,35 @@ class _ValueColumn extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _EstimateBadge extends StatelessWidget {
+  const _EstimateBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 12,
+      height: 12,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: appAccentColor(context).withValues(alpha: 0.72),
+          width: 1,
+        ),
+      ),
+      child: Text(
+        '估',
+        style: TextStyle(
+          color: appAccentColor(context).withValues(alpha: 0.82),
+          fontSize: 7,
+          height: 1,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
     );
   }
 }
