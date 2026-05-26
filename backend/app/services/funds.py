@@ -67,7 +67,8 @@ def _build_fund_summary(
         display_time = quote.estimate_time
         valuation_mode = "estimated"
 
-    market_value = position.shares * display_nav if display_nav > 0 else 0
+    valuation_nav = latest.unit_nav if latest is not None and latest.unit_nav > 0 else display_nav
+    market_value = position.shares * valuation_nav if valuation_nav > 0 else 0
     day_profit = _day_profit(
         shares=position.shares,
         display_nav=display_nav,

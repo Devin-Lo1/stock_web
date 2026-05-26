@@ -394,6 +394,7 @@ def test_fund_summary_uses_estimate_until_official_nav_updates() -> None:
     assert summary.valuation_mode == "estimated"
     assert summary.display_nav == 1.26
     assert round(summary.day_profit, 2) == 60
+    assert round(summary.market_value, 2) == 1200
 
     official = latest.model_copy(update={"nav_date": date(2026, 5, 22), "unit_nav": 1.25})
     final_summary = _build_fund_summary(position, official, quote)
