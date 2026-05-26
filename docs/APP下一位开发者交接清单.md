@@ -98,6 +98,7 @@ $token=ssh -i $key -o BatchMode=yes ubuntu@119.91.47.141 'set -a; . /home/ubuntu
 
 ## 7. 最近修复点
 
+- `9d11684`：接入美股盘前、盘后、夜盘扩展行情字段，并在 App 持仓列表按时段显示小字。
 - `4ddbc3f`：修复回测历史参数区在真机小屏/大字体下的底部溢出。
 - `a92a987`：修复云端量化 K 线查询在 PostgreSQL 下缺少子查询别名导致的 500。
 - `2f6c48f`：基金当日估算收益增加小圆圈“估”标识。
@@ -108,7 +109,7 @@ $token=ssh -i $key -o BatchMode=yes ubuntu@119.91.47.141 'set -a; . /home/ubuntu
 ## 8. 下一步建议
 
 1. 先做 App 的大模型 AI 后端网关，密钥只能放服务端 `.env`，Flutter 不直连模型厂商。
-2. 确认 App 图标源图，优先使用统一源图生成 Android 各尺寸图标。
-3. 扩展美股盘前盘后行情展示，优先后端缓存 + App 轮询，后续再评估 WebSocket/SSE。
+2. App 图标已按用户提供原图替换，后续如再换图，沿用统一源图生成 Android 各尺寸图标的方式。
+3. 继续真机验证美股收盘后和盘前的小字显示效果。
 4. 备案和真机 HTTPS 验证完成后，再把 App API 从 `http://119.91.47.141` 切到 `https://devinstock.cloud`。
 5. 后续补用户登录鉴权、限流、日志告警和备份恢复演练。

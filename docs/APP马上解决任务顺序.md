@@ -40,16 +40,15 @@ Futu 行情和云端快照已刷新；云端 PostgreSQL 仍是事实数据源
 
 1. 在本地和服务器确认最新提交为 `4ddbc3f` 或之后提交。
 2. 实现 App 大模型 AI 后端网关：只能通过后端代理，密钥禁止进入 Flutter、Git、文档和聊天。
-3. 替换 App 图标：确认源图规格，生成 Android 多尺寸 launcher icon。
-4. 实现美股盘前盘后行情展示：Futu `get_market_snapshot` 已确认可返回 `pre_*`、`after_*`、`overnight_*` 字段，优先做 App 轮询 + 后端缓存。
-5. 若继续回归量化，优先真机打开最近两条云端测试回测历史，确认详情页图表和买卖标记展示正常。
-6. 备案和真机 HTTPS 验证完成后，再把 App API 从 `http://119.91.47.141` 切到 `https://devinstock.cloud`。
+3. App 图标已替换，后续如再换图，沿用 `mobile_app/assets/app_icon_source.png` -> Android `mipmap-*` 的生成方式。
+4. 若继续回归量化，优先真机打开最近两条云端测试回测历史，确认详情页图表和买卖标记展示正常。
+5. 备案和真机 HTTPS 验证完成后，再把 App API 从 `http://119.91.47.141` 切到 `https://devinstock.cloud`。
 
 2026-05-26 新增可行性检查结论：
 
 - AI 渠道：当前代码没有大模型实现，但 FastAPI + 统一 `ApiClient` 已具备接入条件。建议新增 `/api/v1/ai/*` 后端路由、服务端 provider 抽象和移动端 AI 页面/入口。
-- App 图标：AndroidManifest 使用 `android:icon="@mipmap/ic_launcher"`，资源已存在 `mdpi` 到 `xxxhdpi` 五套 PNG，可直接替换或用生成工具统一生成。
-- 美股盘前盘后：云端 FutuOpenD 实测 `US.NVDA`、`US.AMUU` 可返回盘前、盘后、夜盘价格、涨跌、成交量和成交额字段；Flutter 仍只能走 FastAPI，不能直连 FutuOpenD。
+- App 图标：已按用户提供原图替换，源图保留在 `mobile_app/assets/app_icon_source.png`，AndroidManifest 仍使用 `android:icon="@mipmap/ic_launcher"`。
+- 美股盘前盘后：已实现后端缓存字段和 App 持仓列表小字显示。云端 FutuOpenD 实测 `US.NVDA`、`US.AMUU` 可返回盘前、盘后、夜盘价格、涨跌、成交量和成交额字段；Flutter 仍只能走 FastAPI，不能直连 FutuOpenD。
 
 当前不要做：
 

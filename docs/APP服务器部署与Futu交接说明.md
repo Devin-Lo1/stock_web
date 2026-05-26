@@ -287,7 +287,8 @@ backend/app/repositories/market_data.py
 - 基金模块已复测：基金列表、基金详情、交易记录、持仓修正、收益曲线、策略参考净值/日期当前无阻塞问题。
 - 量化模块已复测：云端回测不再 500，历史详情可返回买卖操作、收益曲线和对应 K 线数据。
 - 真机 UI 修复：`4ddbc3f` 已修复回测历史参数区在小屏/大字体下的底部溢出。
-- 美股扩展行情可行性：云端 FutuOpenD 实测 `get_market_snapshot` 对 `US.NVDA`、`US.AMUU` 返回 `pre_*`、`after_*`、`overnight_*` 字段，可用于盘前、盘后和夜盘行情展示。
+- 美股扩展行情：已接入 `pre_*`、`after_*`、`overnight_*` 字段并写入后端行情缓存；App 持仓列表会在美股非正常交易时段于股票名称下方显示盘前、盘后或夜盘小字，正常开盘时隐藏。
+- App 图标：已按用户提供原图替换，源图保留在 `mobile_app/assets/app_icon_source.png`，Android `mipmap-*` 启动图标已重新生成并完成真机安装。
 
 注意：
 
@@ -323,8 +324,8 @@ sudo ss -ltnp | grep -E ':(80|8000|11111|22222|5432)'
 ## 7. 下一步开发顺序
 
 1. 先实现 App 大模型 AI 后端网关，采用后端代理和服务端密钥管理，Flutter 不直连模型厂商。
-2. 替换 App 图标，优先用统一源图生成 Android 多尺寸 launcher icon。
-3. 实现美股盘前盘后行情展示，优先做后端缓存轮询，后续再评估实时推送通道。
+2. 若后续再次替换 App 图标，继续用统一源图生成 Android 多尺寸 launcher icon。
+3. 继续真机验证美股收盘后和盘前的小字显示效果。
 4. 备案和真机 HTTPS 验证完成后，再把 App API 从 `http://119.91.47.141` 切到 `https://devinstock.cloud`。
 5. 后续补用户登录鉴权、限流、日志告警和备份恢复演练。
 
