@@ -799,74 +799,83 @@ class _FundTableRow extends StatelessWidget {
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: borderColor(context))),
         ),
-        child: Row(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              flex: 44,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    position.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: primaryTextColor(context),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '¥${summary.marketValue.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      color: secondaryTextColor(context),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  if (reference != null) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      '下次参考 ${reference.nav.toStringAsFixed(4)} · ${reference.tradeDate == null ? '成本均值' : _dateOnlyText(reference.tradeDate!)} · ${_percent(reference.changeRate)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: secondaryTextColor(context),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 44,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        position.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: primaryTextColor(context),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
-                    ),
-                  ],
-                  if (recommendation != null) ...[
-                    const SizedBox(height: 5),
-                    GestureDetector(
-                      onTap: onEditAlert,
-                      child: _SmallSignalBadge(
-                        text: _fundRecommendationLabel(recommendation),
+                      const SizedBox(height: 4),
+                      Text(
+                        '¥${summary.marketValue.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          color: secondaryTextColor(context),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                  ],
-                ],
-              ),
+                      if (recommendation != null) ...[
+                        const SizedBox(height: 5),
+                        GestureDetector(
+                          onTap: onEditAlert,
+                          child: _SmallSignalBadge(
+                            text: _fundRecommendationLabel(recommendation),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Expanded(
+                  flex: 28,
+                  child: _ValueColumn(
+                    primary: _money(summary.dayProfit),
+                    secondary: _percent(summary.dayProfitRate),
+                    value: summary.dayProfit,
+                  ),
+                ),
+                Expanded(
+                  flex: 28,
+                  child: _ValueColumn(
+                    primary: _money(summary.holdingProfit),
+                    secondary: _percent(summary.holdingProfitRate),
+                    value: summary.holdingProfit,
+                  ),
+                ),
+              ],
             ),
-            Expanded(
-              flex: 28,
-              child: _ValueColumn(
-                primary: _money(summary.dayProfit),
-                secondary: _percent(summary.dayProfitRate),
-                value: summary.dayProfit,
+            if (reference != null) ...[
+              const SizedBox(height: 4),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '下次参考 ${reference.nav.toStringAsFixed(4)} · ${reference.tradeDate == null ? '成本均值' : _dateOnlyText(reference.tradeDate!)} · ${_percent(reference.changeRate)}',
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: secondaryTextColor(context),
+                    fontSize: 10,
+                    height: 1.1,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
-            ),
-            Expanded(
-              flex: 28,
-              child: _ValueColumn(
-                primary: _money(summary.holdingProfit),
-                secondary: _percent(summary.holdingProfitRate),
-                value: summary.holdingProfit,
-              ),
-            ),
+            ],
           ],
         ),
       ),
