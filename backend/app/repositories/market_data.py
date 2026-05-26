@@ -88,7 +88,7 @@ def list_candles(code: str, period: str, limit: int) -> list[Candle]:
                 WHERE UPPER(code) = ? AND period = ?
                 ORDER BY time DESC
                 LIMIT ?
-            )
+            ) latest_candles
             ORDER BY time ASC
             """,
             (normalized_code, normalized_period, bounded_limit),
