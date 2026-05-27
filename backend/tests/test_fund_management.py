@@ -293,7 +293,7 @@ def test_fund_trade_waits_for_confirmation_nav(monkeypatch) -> None:
         FundTradeCreate(
             action="buy",
             amount=1000,
-            nav=2.5,
+            nav=9.9,
             auto_nav=True,
             operation_date=date(2026, 5, 27),
             operation_after_cutoff=False,
@@ -307,6 +307,7 @@ def test_fund_trade_waits_for_confirmation_nav(monkeypatch) -> None:
     records = list_fund_trade_records(position_id=position.id, limit=10)
     assert records[0].source_trade_id is None
     assert records[0].is_system is True
+    assert records[0].nav == 2.5
 
     upsert_fund_navs(
         [

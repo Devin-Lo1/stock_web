@@ -662,12 +662,18 @@ def _build_pending_trade_record(
     )
     if _nav_point_for_date(position.fund_code, trade_date) is not None:
         return None
+    latest_nav = get_latest_fund_nav(position.fund_code)
+    fallback_nav = (
+        latest_nav.unit_nav
+        if latest_nav is not None and latest_nav.unit_nav > 0
+        else payload.nav
+    )
     record = _build_fund_trade_record(
         position,
         FundTradeRecordCreate(
             action=payload.action,
             shares=payload.shares,
-            nav=payload.nav,
+            nav=fallback_nav,
             amount=payload.amount,
             fee=payload.fee,
             auto_nav=False,

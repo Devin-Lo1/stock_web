@@ -1800,7 +1800,6 @@ class _FundTradeSheet extends StatefulWidget {
 class _FundTradeSheetState extends State<_FundTradeSheet> {
   final _amountController = TextEditingController();
   late final TextEditingController _sharesController;
-  late final TextEditingController _navController;
   late final TextEditingController _feeRateController;
   late bool _useAmount;
   double? _selectedSellRatio;
@@ -1812,14 +1811,9 @@ class _FundTradeSheetState extends State<_FundTradeSheet> {
     final isBuy = widget.action == 'buy';
     _useAmount = isBuy;
     _sharesController = TextEditingController();
-    final officialNav = widget.summary.latestNav?.unitNav ?? 0;
-    _navController = TextEditingController(
-      text: officialNav > 0 ? officialNav.toStringAsFixed(4) : '',
-    );
     _feeRateController = TextEditingController(text: isBuy ? '0' : '0.50');
     _amountController.addListener(_rebuild);
     _sharesController.addListener(_rebuild);
-    _navController.addListener(_rebuild);
     _feeRateController.addListener(_rebuild);
   }
 
@@ -1827,7 +1821,6 @@ class _FundTradeSheetState extends State<_FundTradeSheet> {
   void dispose() {
     _amountController.dispose();
     _sharesController.dispose();
-    _navController.dispose();
     _feeRateController.dispose();
     super.dispose();
   }
@@ -1837,6 +1830,14 @@ class _FundTradeSheetState extends State<_FundTradeSheet> {
   }
 
   bool get _isBuy => widget.action == 'buy';
+
+  double get _referenceNav {
+    final latestNav = widget.summary.latestNav?.unitNav ?? 0;
+    if (latestNav > 0) return latestNav;
+    return widget.summary.displayNav;
+  }
+
+  DateTime? get _referenceNavDate => widget.summary.latestNav?.navDate;
 
   String get _title => widget.operationLabel ?? (_isBuy ? '同步加仓' : '同步减仓');
 
@@ -1860,9 +1861,9 @@ class _FundTradeSheetState extends State<_FundTradeSheet> {
   }
 
   _FundTradeValues? _resolvedTradeValues() {
-    final nav = double.tryParse(_navController.text.trim());
+    final nav = _referenceNav;
     final feeRate = double.tryParse(_feeRateController.text.trim()) ?? 0;
-    if (nav == null || nav <= 0 || feeRate < 0) return null;
+    if (nav <= 0 || feeRate < 0) return null;
 
     double shares;
     double amount;
@@ -1997,34 +1998,14 @@ class _FundTradeSheetState extends State<_FundTradeSheet> {
             ),
           ],
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _useAmount
-                      ? _amountController
-                      : _sharesController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: _useAmount
-                        ? (_isBuy ? '同步买入金额' : '同步卖出金额')
-                        : (_isBuy ? '同步买入份额' : '同步卖出份额'),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: TextField(
-                  controller: _navController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(labelText: '净值'),
-                ),
-              ),
-            ],
+          TextField(
+            controller: _useAmount ? _amountController : _sharesController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              labelText: _useAmount
+                  ? (_isBuy ? '同步买入金额' : '同步卖出金额')
+                  : (_isBuy ? '同步买入份额' : '同步卖出份额'),
+            ),
           ),
           const SizedBox(height: 8),
           TextField(
@@ -2056,6 +2037,10 @@ class _FundTradeSheetState extends State<_FundTradeSheet> {
               spacing: 8,
               runSpacing: 8,
               children: [
+                _SummaryChip(
+                  text:
+                      '系统净值 ${_referenceNav.toStringAsFixed(4)}${_referenceNavDate == null ? '' : ' · ${_dateOnlyText(_referenceNavDate!)}'}',
+                ),
                 _SummaryChip(text: '份额 ${values.shares.toStringAsFixed(2)}'),
                 _SummaryChip(text: '手续费 ${values.fee.toStringAsFixed(2)}'),
                 _SummaryChip(
