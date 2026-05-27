@@ -1931,7 +1931,7 @@ class _FundNavCurvePainter extends CustomPainter {
       ..strokeWidth = 1.1
       ..style = PaintingStyle.stroke;
     for (final record in records) {
-      final index = _nearestPointIndex(record.tradeDate);
+      final index = _exactPointIndex(record.tradeDate);
       if (index == null) continue;
       final x = _xForDate(chart, points[index].navDate);
       final y = _yFor(values[index], chart, minValue, range);
@@ -1944,21 +1944,18 @@ class _FundNavCurvePainter extends CustomPainter {
     }
   }
 
-  int? _nearestPointIndex(DateTime tradeDate) {
+  int? _exactPointIndex(DateTime tradeDate) {
     if (points.isEmpty) return null;
-    var bestIndex = 0;
-    var bestDistance = 1 << 30;
+    final markerDate = DateTime(tradeDate.year, tradeDate.month, tradeDate.day);
     for (var i = 0; i < points.length; i++) {
-      final distance = points[i].navDate
-          .difference(DateTime(tradeDate.year, tradeDate.month, tradeDate.day))
-          .inDays
-          .abs();
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestIndex = i;
+      final pointDate = points[i].navDate;
+      if (pointDate.year == markerDate.year &&
+          pointDate.month == markerDate.month &&
+          pointDate.day == markerDate.day) {
+        return i;
       }
     }
-    return bestDistance <= 7 ? bestIndex : null;
+    return null;
   }
 
   double _xForDate(Rect chart, DateTime date) {

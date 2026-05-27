@@ -8,6 +8,7 @@ from app.repositories.funds import (
     get_fund_position,
     list_fund_trade_records,
     list_fund_trades,
+    materialize_pending_fund_trades,
     sync_fund_position_holding,
     upsert_fund_navs,
 )
@@ -264,6 +265,68 @@ def test_fund_trade_amount_uses_historical_nav() -> None:
     assert round(trade.shares, 2) == 299
 
 
+def test_fund_trade_waits_for_confirmation_nav(monkeypatch) -> None:
+    monkeypatch.setattr("app.repositories.funds._refresh_navs_for_code", lambda fund_code: None)
+    upsert_fund_navs(
+        [
+            FundNavPoint(
+                fund_code="000033",
+                nav_date=date(2026, 5, 26),
+                unit_nav=2.5,
+                updated_at=_now(),
+            ),
+        ],
+    )
+    position = create_fund_position(
+        FundPositionCreate(
+            fund_code="000033",
+            name="Pending Fund",
+            fund_type="mixed",
+            shares=100,
+            cost_nav=2.0,
+            trade_date=date(2026, 5, 20),
+        ),
+    )
+
+    pending = create_fund_trade_for_position(
+        position,
+        FundTradeCreate(
+            action="buy",
+            amount=1000,
+            nav=2.5,
+            auto_nav=True,
+            operation_date=date(2026, 5, 27),
+            operation_after_cutoff=False,
+        ),
+    )
+    unchanged = get_fund_position(position.id)
+    assert unchanged is not None
+    assert unchanged.shares == 100
+    assert pending.trade_date == date(2026, 5, 27)
+    assert list_fund_trades(position_id=position.id, limit=10)[0].trade_date == date(2026, 5, 20)
+    records = list_fund_trade_records(position_id=position.id, limit=10)
+    assert records[0].source_trade_id is None
+    assert records[0].is_system is True
+
+    upsert_fund_navs(
+        [
+            FundNavPoint(
+                fund_code="000033",
+                nav_date=date(2026, 5, 27),
+                unit_nav=2.4,
+                updated_at=_now(),
+            ),
+        ],
+    )
+    assert materialize_pending_fund_trades(position.id) == 1
+    updated = get_fund_position(position.id)
+    assert updated is not None
+    assert round(updated.shares, 2) == round(100 + 1000 / 2.4, 2)
+    records = list_fund_trade_records(position_id=position.id, limit=10)
+    assert records[0].source_trade_id is not None
+    assert records[0].nav == 2.4
+
+
 def test_fund_position_rebuilds_from_out_of_order_trades() -> None:
     position = create_fund_position(
         FundPositionCreate(
@@ -359,6 +422,41 @@ def test_fund_cashflow_at_current_nav_does_not_create_profit() -> None:
         sell_summary.holding_profit + sell_summary.position.realized_profit,
         2,
     ) == round(before.total_profit, 2)
+
+
+def test_fund_day_profit_excludes_same_day_buy() -> None:
+    position = create_fund_position(
+        FundPositionCreate(
+            fund_code="000044",
+            name="Day Profit Fund",
+            fund_type="mixed",
+            shares=100,
+            cost_nav=1.0,
+            trade_date=date(2026, 5, 20),
+        ),
+    )
+    create_fund_trade_for_position(
+        position,
+        FundTradeCreate(
+            action="buy",
+            amount=110,
+            nav=1.1,
+            trade_date=date(2026, 5, 27),
+        ),
+    )
+    updated = get_fund_position(position.id)
+    assert updated is not None
+    latest = FundNavPoint(
+        fund_code="000044",
+        nav_date=date(2026, 5, 27),
+        unit_nav=1.1,
+        daily_growth_rate=10,
+        updated_at=_now(),
+    )
+    trades = list_fund_trades(position_id=position.id, limit=10)
+    summary = _build_fund_summary(updated, latest, trades=trades)
+
+    assert round(summary.day_profit, 2) == 10
 
 
 def test_fund_summary_uses_estimate_until_official_nav_updates() -> None:

@@ -1812,10 +1812,9 @@ class _FundTradeSheetState extends State<_FundTradeSheet> {
     final isBuy = widget.action == 'buy';
     _useAmount = isBuy;
     _sharesController = TextEditingController();
+    final officialNav = widget.summary.latestNav?.unitNav ?? 0;
     _navController = TextEditingController(
-      text: widget.summary.displayNav > 0
-          ? widget.summary.displayNav.toStringAsFixed(4)
-          : '',
+      text: officialNav > 0 ? officialNav.toStringAsFixed(4) : '',
     );
     _feeRateController = TextEditingController(text: isBuy ? '0' : '0.50');
     _amountController.addListener(_rebuild);

@@ -6,6 +6,7 @@ from ..repositories.funds import (
     get_latest_fund_nav,
     list_fund_positions,
     list_fund_trades,
+    materialize_pending_fund_trades,
     upsert_fund_navs,
 )
 from ..schemas import (
@@ -35,16 +36,18 @@ def list_fund_position_summaries(*, refresh: bool = True) -> list[FundPositionSu
             upsert_fund_navs(points)
             if quote is not None:
                 quotes[fund_code] = quote
+    materialize_pending_fund_trades()
+    positions = list_fund_positions()
     summaries: list[FundPositionSummary] = []
     for position in positions:
         latest = get_latest_fund_nav(position.fund_code)
-        trades = list_fund_trades(position_id=position.id, limit=1)
+        trades = list_fund_trades(position_id=position.id, limit=500)
         summaries.append(
             _build_fund_summary(
                 position,
                 latest,
                 quotes.get(position.fund_code),
-                last_trade=trades[0] if trades else None,
+                trades=trades,
             ),
         )
     return summaries
@@ -55,7 +58,11 @@ def _build_fund_summary(
     latest: FundNavPoint | None,
     quote: FundQuote | None = None,
     last_trade: FundTrade | None = None,
+    trades: list[FundTrade] | None = None,
 ) -> FundPositionSummary:
+    ordered_trades = _sorted_trades(trades)
+    if last_trade is None and ordered_trades:
+        last_trade = ordered_trades[-1]
     display_nav = latest.unit_nav if latest is not None else 0
     display_change_rate = latest.daily_growth_rate if latest is not None else 0
     display_time = latest.updated_at if latest is not None else None
@@ -69,8 +76,14 @@ def _build_fund_summary(
 
     valuation_nav = latest.unit_nav if latest is not None and latest.unit_nav > 0 else display_nav
     market_value = position.shares * valuation_nav if valuation_nav > 0 else 0
+    day_profit_shares = _day_profit_shares(
+        position=position,
+        latest=latest,
+        valuation_mode=valuation_mode,
+        trades=ordered_trades,
+    )
     day_profit = _day_profit(
-        shares=position.shares,
+        shares=day_profit_shares,
         display_nav=display_nav,
         change_rate=display_change_rate,
         latest=latest,
@@ -111,6 +124,12 @@ def _build_fund_summary(
     )
 
 
+def _sorted_trades(trades: list[FundTrade] | None) -> list[FundTrade]:
+    if not trades:
+        return []
+    return sorted(trades, key=lambda item: (item.trade_date, item.created_at))
+
+
 def _should_use_estimate(
     latest: FundNavPoint | None,
     quote: FundQuote | None,
@@ -120,6 +139,29 @@ def _should_use_estimate(
     latest_date = latest.nav_date if latest is not None else date.min
     estimate_date = quote.estimate_time.astimezone(UTC).date()
     return estimate_date > latest_date
+
+
+def _day_profit_shares(
+    *,
+    position: FundPosition,
+    latest: FundNavPoint | None,
+    valuation_mode: str,
+    trades: list[FundTrade],
+) -> float:
+    if latest is None or not trades:
+        return position.shares
+    shares = 0.0
+    for trade in trades:
+        if valuation_mode == "official":
+            if trade.trade_date >= latest.nav_date:
+                continue
+        elif trade.trade_date > latest.nav_date:
+            continue
+        if trade.action == "buy":
+            shares += trade.shares
+        else:
+            shares -= trade.shares
+    return max(0.0, shares)
 
 
 def _day_profit(
