@@ -14,6 +14,7 @@ import '../services/stock_search_api_service.dart';
 import '../utils/stock_suggestion_search.dart';
 import '../widgets/common/page_title.dart';
 import '../widgets/quant/quant_panels.dart';
+import 'backtest_result_screen.dart';
 
 class QuantScreen extends StatefulWidget {
   const QuantScreen({
@@ -41,7 +42,6 @@ class QuantScreen extends StatefulWidget {
 
 class _QuantScreenState extends State<QuantScreen> {
   final _scrollController = ScrollController();
-  final _resultPanelKey = GlobalKey();
   final _stockCodeController = TextEditingController(text: 'HK.02628');
   final _batchStockCodesController = TextEditingController();
   final _batchStockSearchController = TextEditingController();
@@ -65,10 +65,7 @@ class _QuantScreenState extends State<QuantScreen> {
   StrategyDefinition? _selectedStrategy;
   String? _historyStrategyFilter;
   String? _historyStatusFilter;
-  BacktestResult? _result;
   BacktestBatchResult? _batchResult;
-  List<Candle> _resultCandles = const [];
-  bool _isViewingHistoryResult = false;
   String _selectedStockName = '';
   Object? _error;
   bool _isLoadingStrategies = true;
@@ -212,15 +209,6 @@ class _QuantScreenState extends State<QuantScreen> {
         ),
         const SizedBox(height: 12),
         if (_error != null) QuantErrorPanel(error: _error!),
-        if (_result != null)
-          KeyedSubtree(
-            key: _resultPanelKey,
-            child: QuantResultPanel(
-              result: _result!,
-              candles: _resultCandles,
-              isHistoricalResult: _isViewingHistoryResult,
-            ),
-          ),
       ],
     );
   }
@@ -362,14 +350,11 @@ class _QuantScreenState extends State<QuantScreen> {
         if (!mounted) return;
         setState(() {
           _error = null;
-          _result = result;
-          _resultCandles = const [];
-          _isViewingHistoryResult = true;
           _stockCodeController.text = result.run.stockCode;
           _startDate = result.run.startDate ?? _startDate;
           _endDate = result.run.endDate ?? _endDate;
         });
-        _scrollToResult();
+        _openBacktestResultPage(result, const [], isHistoricalResult: true);
         return;
       }
       final candles = await widget.onLoadBacktestCandles(
@@ -378,19 +363,17 @@ class _QuantScreenState extends State<QuantScreen> {
         limit: 1000,
       );
       if (!mounted) return;
+      final resultCandles = _filterCandles(
+        candles,
+        result.run.startDate,
+        result.run.endDate,
+      );
       setState(() {
-        _result = result;
-        _resultCandles = _filterCandles(
-          candles,
-          result.run.startDate,
-          result.run.endDate,
-        );
-        _isViewingHistoryResult = true;
         _stockCodeController.text = result.run.stockCode;
         _startDate = result.run.startDate ?? _startDate;
         _endDate = result.run.endDate ?? _endDate;
       });
-      _scrollToResult();
+      _openBacktestResultPage(result, resultCandles, isHistoricalResult: true);
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = error);
@@ -435,11 +418,6 @@ class _QuantScreenState extends State<QuantScreen> {
         _recentRuns = _recentRuns
             .where((candidate) => candidate.id != run.id)
             .toList();
-        if (_result?.run.id == run.id) {
-          _result = null;
-          _resultCandles = const [];
-          _isViewingHistoryResult = false;
-        }
       });
       await _loadHistory(showError: false);
     } catch (error) {
@@ -493,13 +471,6 @@ class _QuantScreenState extends State<QuantScreen> {
           for (final candidate in _recentRuns)
             candidate.id == renamed.id ? renamed : candidate,
         ];
-        if (_result?.run.id == renamed.id) {
-          _result = BacktestResult(
-            run: renamed,
-            equityCurve: _result!.equityCurve,
-            trades: _result!.trades,
-          );
-        }
       });
     } catch (error) {
       if (!mounted) return;
@@ -541,12 +512,7 @@ class _QuantScreenState extends State<QuantScreen> {
     try {
       await widget.repository.deleteAllBacktestRuns();
       if (!mounted) return;
-      setState(() {
-        _recentRuns = const [];
-        _result = null;
-        _resultCandles = const [];
-        _isViewingHistoryResult = false;
-      });
+      setState(() => _recentRuns = const []);
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = error);
@@ -592,12 +558,7 @@ class _QuantScreenState extends State<QuantScreen> {
     if (strategy == null) return;
     final requestOrError = _buildRequest(strategy);
     if (requestOrError is _QuantValidationError) {
-      setState(() {
-        _error = requestOrError;
-        _result = null;
-        _resultCandles = const [];
-        _isViewingHistoryResult = false;
-      });
+      setState(() => _error = requestOrError);
       return;
     }
     final request = requestOrError as BacktestRequest;
@@ -619,12 +580,7 @@ class _QuantScreenState extends State<QuantScreen> {
       final failedMessage = _backtestFailureMessage(result);
       if (failedMessage != null) {
         if (!mounted) return;
-        setState(() {
-          _error = _QuantValidationError(failedMessage);
-          _result = null;
-          _resultCandles = const [];
-          _isViewingHistoryResult = false;
-        });
+        setState(() => _error = _QuantValidationError(failedMessage));
         return;
       }
       final candles = await widget.onLoadBacktestCandles(
@@ -633,17 +589,13 @@ class _QuantScreenState extends State<QuantScreen> {
         limit: 1000,
       );
       if (!mounted) return;
-      setState(() {
-        _result = result;
-        _resultCandles = _filterCandles(
-          candles,
-          result.run.startDate,
-          result.run.endDate,
-        );
-        _isViewingHistoryResult = false;
-      });
-      _scrollToResult();
+      final resultCandles = _filterCandles(
+        candles,
+        result.run.startDate,
+        result.run.endDate,
+      );
       await _loadHistory(showError: false);
+      _openBacktestResultPage(result, resultCandles, isHistoricalResult: false);
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = error);
@@ -652,17 +604,21 @@ class _QuantScreenState extends State<QuantScreen> {
     }
   }
 
-  void _scrollToResult() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final context = _resultPanelKey.currentContext;
-      if (context == null) return;
-      Scrollable.ensureVisible(
-        context,
-        duration: const Duration(milliseconds: 320),
-        curve: Curves.easeOutCubic,
-        alignment: 0.04,
-      );
-    });
+  void _openBacktestResultPage(
+    BacktestResult result,
+    List<Candle> candles, {
+    required bool isHistoricalResult,
+  }) {
+    if (!mounted) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => BacktestResultScreen(
+          result: result,
+          candles: candles,
+          isHistoricalResult: isHistoricalResult,
+        ),
+      ),
+    );
   }
 
   Object _buildRequest(StrategyDefinition strategy) {

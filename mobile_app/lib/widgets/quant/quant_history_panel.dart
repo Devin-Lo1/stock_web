@@ -7,6 +7,8 @@ import '../../utils/theme_helpers.dart';
 import 'quant_common_widgets.dart';
 
 const _dropdownMenuMaxHeight = 160.0;
+const _historyVisibleRunCount = 10;
+const _historyRunTileExtent = 80.0;
 
 class QuantHistoryPanel extends StatefulWidget {
   const QuantHistoryPanel({
@@ -106,20 +108,12 @@ class _QuantHistoryPanelState extends State<QuantHistoryPanel> {
           else if (sortedRuns.isEmpty)
             Text('暂无历史回测', style: TextStyle(color: secondaryTextColor(context)))
           else
-            Column(
-              children: [
-                for (final run in sortedRuns)
-                  _BacktestHistoryTile(
-                    run: run,
-                    strategyName: _strategyName(
-                      widget.strategies,
-                      run.strategyCode,
-                    ),
-                    onTap: () => widget.onSelected(run),
-                    onDelete: () => widget.onDelete(run),
-                    onRename: () => widget.onRename(run),
-                  ),
-              ],
+            _HistoryRunList(
+              runs: sortedRuns,
+              strategies: widget.strategies,
+              onSelected: widget.onSelected,
+              onDelete: widget.onDelete,
+              onRename: widget.onRename,
             ),
         ],
       ),
@@ -165,6 +159,80 @@ class _IndexedBacktestRun {
 
   final int index;
   final BacktestRun run;
+}
+
+class _HistoryRunList extends StatefulWidget {
+  const _HistoryRunList({
+    required this.runs,
+    required this.strategies,
+    required this.onSelected,
+    required this.onDelete,
+    required this.onRename,
+  });
+
+  final List<BacktestRun> runs;
+  final List<StrategyDefinition> strategies;
+  final ValueChanged<BacktestRun> onSelected;
+  final ValueChanged<BacktestRun> onDelete;
+  final ValueChanged<BacktestRun> onRename;
+
+  @override
+  State<_HistoryRunList> createState() => _HistoryRunListState();
+}
+
+class _HistoryRunListState extends State<_HistoryRunList> {
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleCount = widget.runs.length > _historyVisibleRunCount
+        ? _historyVisibleRunCount
+        : widget.runs.length;
+    final height = visibleCount * _historyRunTileExtent;
+    if (widget.runs.length <= _historyVisibleRunCount) {
+      return SizedBox(
+        height: height,
+        child: Column(
+          children: [
+            for (final run in widget.runs)
+              SizedBox(height: _historyRunTileExtent, child: _buildTile(run)),
+          ],
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: height,
+      child: Scrollbar(
+        controller: _scrollController,
+        child: ListView.builder(
+          controller: _scrollController,
+          primary: false,
+          padding: EdgeInsets.zero,
+          physics: const ClampingScrollPhysics(),
+          itemExtent: _historyRunTileExtent,
+          itemCount: widget.runs.length,
+          itemBuilder: (context, index) => _buildTile(widget.runs[index]),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTile(BacktestRun run) {
+    return _BacktestHistoryTile(
+      run: run,
+      strategyName: _strategyName(widget.strategies, run.strategyCode),
+      onTap: () => widget.onSelected(run),
+      onDelete: () => widget.onDelete(run),
+      onRename: () => widget.onRename(run),
+    );
+  }
 }
 
 class _HistoryFilters extends StatelessWidget {
@@ -417,30 +485,30 @@ class _BacktestHistoryTile extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Wrap(
-                    spacing: 5,
-                    runSpacing: 4,
-                    children: [
-                      _HistoryMetaChip(text: run.stockCode),
-                      _HistoryMetaChip(text: strategyName),
-                      _HistoryMetaChip(
-                        text:
-                            '${quantDateText(run.startDate)}-${quantDateText(run.endDate)}',
-                      ),
-                      _HistoryMetaChip(
-                        text:
-                            '胜率 ${hasWinRate ? formatPercent(winRate) : '--'}',
-                      ),
-                      _HistoryMetaChip(
-                        text:
-                            '操作 ${hasTradeCount ? tradeCount.toString() : '--'}',
-                      ),
-                      _HistoryMetaChip(
-                        text:
-                            '成功 ${hasSuccessRate ? formatPercent(successRate) : '--'}',
-                      ),
-                    ],
+                  const SizedBox(height: 3),
+                  Text(
+                    '${run.stockCode} · $strategyName · '
+                    '${quantDateText(run.startDate)}-${quantDateText(run.endDate)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: secondaryTextColor(context),
+                      fontSize: 11,
+                      height: 1.1,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '胜率 ${hasWinRate ? formatPercent(winRate) : '--'}  '
+                    '操作 ${hasTradeCount ? tradeCount.toString() : '--'}  '
+                    '成功 ${hasSuccessRate ? formatPercent(successRate) : '--'}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: secondaryTextColor(context),
+                      fontSize: 11,
+                      height: 1.1,
+                    ),
                   ),
                 ],
               ),
@@ -481,26 +549,6 @@ class _BacktestHistoryTile extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _HistoryMetaChip extends StatelessWidget {
-  const _HistoryMetaChip({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(
-        color: secondaryTextColor(context),
-        fontSize: 11,
-        height: 1.1,
       ),
     );
   }
