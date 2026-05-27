@@ -399,7 +399,18 @@ def _summary(signals: list[VolumeProfileSignal]) -> dict[str, object]:
 
 def _latest_chart_signal(signals: list[VolumeProfileSignal]) -> VolumeProfileSignal | None:
     for signal in reversed(signals):
-        if signal.profile_date is not None and signal.direction is not None:
+        if (
+            signal.profile_date is not None
+            and signal.direction is not None
+            and signal.outcome != "skipped"
+        ):
+            return signal
+    for signal in reversed(signals):
+        if (
+            signal.profile_date is not None
+            and signal.direction is not None
+            and signal.outcome == "skipped"
+        ):
             return signal
     for signal in reversed(signals):
         if signal.profile_date is not None:
