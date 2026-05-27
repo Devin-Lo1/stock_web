@@ -460,6 +460,124 @@ def test_fund_day_profit_excludes_same_day_buy() -> None:
     assert round(summary.day_profit, 2) == 10
 
 
+def test_fund_strategy_reference_zeroes_same_day_confirmed_trade() -> None:
+    position = create_fund_position(
+        FundPositionCreate(
+            fund_code="000045",
+            name="Same Day Reference Fund",
+            fund_type="mixed",
+            shares=100,
+            cost_nav=1.0,
+            trade_date=date(2026, 5, 20),
+            alert_threshold_percent=1,
+        ),
+    )
+    create_fund_trade_for_position(
+        position,
+        FundTradeCreate(
+            action="buy",
+            amount=110,
+            nav=1.1,
+            trade_date=date(2026, 5, 27),
+        ),
+    )
+    updated = get_fund_position(position.id)
+    assert updated is not None
+    latest = FundNavPoint(
+        fund_code="000045",
+        nav_date=date(2026, 5, 27),
+        unit_nav=1.08,
+        daily_growth_rate=-2,
+        updated_at=_now(),
+    )
+    summary = _build_fund_summary(
+        updated,
+        latest,
+        trades=list_fund_trades(position_id=position.id, limit=10),
+        trade_records=list_fund_trade_records(position_id=position.id, limit=10),
+    )
+
+    assert summary.strategy_reference is not None
+    assert summary.strategy_reference.trade_date == date(2026, 5, 27)
+    assert summary.strategy_reference.nav == 1.1
+    assert summary.strategy_reference.change_rate == 0
+    assert summary.grid_recommendation is None
+
+
+def test_fund_strategy_reference_uses_pending_record_for_same_day_estimate(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "app.repositories.funds._refresh_navs_for_code",
+        lambda fund_code: None,
+    )
+    upsert_fund_navs(
+        [
+            FundNavPoint(
+                fund_code="000046",
+                nav_date=date(2026, 5, 26),
+                unit_nav=2.5,
+                updated_at=_now(),
+            ),
+        ],
+    )
+    position = create_fund_position(
+        FundPositionCreate(
+            fund_code="000046",
+            name="Pending Strategy Fund",
+            fund_type="mixed",
+            shares=100,
+            cost_nav=2.0,
+            trade_date=date(2026, 5, 20),
+            alert_threshold_percent=1,
+        ),
+    )
+    create_fund_trade_for_position(
+        position,
+        FundTradeCreate(
+            action="buy",
+            amount=1000,
+            nav=9.9,
+            auto_nav=True,
+            operation_date=date(2026, 5, 27),
+            operation_after_cutoff=False,
+        ),
+    )
+    unchanged = get_fund_position(position.id)
+    assert unchanged is not None
+    latest = FundNavPoint(
+        fund_code="000046",
+        nav_date=date(2026, 5, 26),
+        unit_nav=2.5,
+        daily_growth_rate=0,
+        updated_at=_now(),
+    )
+    quote = FundQuote(
+        fund_code="000046",
+        name="Pending Strategy Fund",
+        nav_date=date(2026, 5, 26),
+        unit_nav=2.5,
+        estimated_nav=2.4,
+        estimated_change_rate=-4,
+        estimate_time=datetime(2026, 5, 27, 7, 0, tzinfo=timezone.utc),
+    )
+    summary = _build_fund_summary(
+        unchanged,
+        latest,
+        quote,
+        trades=list_fund_trades(position_id=position.id, limit=10),
+        trade_records=list_fund_trade_records(position_id=position.id, limit=10),
+    )
+
+    assert summary.valuation_mode == "estimated"
+    assert summary.strategy_reference is not None
+    assert summary.strategy_reference.source == "pending_trade_record"
+    assert summary.strategy_reference.trade_date == date(2026, 5, 27)
+    assert summary.strategy_reference.nav == 2.5
+    assert summary.strategy_reference.change_rate == 0
+    assert summary.grid_recommendation is None
+
+
 def test_fund_summary_uses_estimate_until_official_nav_updates() -> None:
     position = create_fund_position(
         FundPositionCreate(
@@ -574,6 +692,7 @@ def test_scan_fund_alerts_creates_signal_event_from_grid_recommendation() -> Non
             fund_type="mixed",
             shares=1000,
             cost_nav=1.0,
+            trade_date=date(2026, 5, 20),
             alert_enabled=True,
             alert_threshold_percent=5,
             alert_sell_ratio=0.25,

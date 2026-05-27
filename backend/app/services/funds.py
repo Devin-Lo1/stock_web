@@ -1,10 +1,12 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from datetime import date, datetime
 
 from ..db.converters import UTC
 from ..repositories.funds import (
     get_latest_fund_nav,
     list_fund_positions,
+    list_fund_trade_records,
     list_fund_trades,
     materialize_pending_fund_trades,
     upsert_fund_navs,
@@ -17,8 +19,25 @@ from ..schemas import (
     FundQuote,
     FundStrategyReference,
     FundTrade,
+    FundTradeRecord,
 )
 from .fund_provider import EastmoneyFundProvider, FundProviderError
+
+_STRATEGY_REFERENCE_RECORD_ACTIONS = {
+    "buy",
+    "sell",
+    "correct",
+    "recurring",
+    "convert",
+}
+
+
+@dataclass(frozen=True)
+class _StrategyReferenceCandidate:
+    nav: float
+    trade_date: date | None
+    source: str
+    created_at: datetime | None
 
 
 def refresh_fund_navs(fund_code: str, *, limit: int = 90):
@@ -42,12 +61,14 @@ def list_fund_position_summaries(*, refresh: bool = True) -> list[FundPositionSu
     for position in positions:
         latest = get_latest_fund_nav(position.fund_code)
         trades = list_fund_trades(position_id=position.id, limit=500)
+        trade_records = list_fund_trade_records(position_id=position.id, limit=500)
         summaries.append(
             _build_fund_summary(
                 position,
                 latest,
                 quotes.get(position.fund_code),
                 trades=trades,
+                trade_records=trade_records,
             ),
         )
     return summaries
@@ -59,6 +80,7 @@ def _build_fund_summary(
     quote: FundQuote | None = None,
     last_trade: FundTrade | None = None,
     trades: list[FundTrade] | None = None,
+    trade_records: list[FundTradeRecord] | None = None,
 ) -> FundPositionSummary:
     ordered_trades = _sorted_trades(trades)
     if last_trade is None and ordered_trades:
@@ -73,8 +95,15 @@ def _build_fund_summary(
         display_change_rate = quote.estimated_change_rate
         display_time = quote.estimate_time
         valuation_mode = "estimated"
+    valuation_date = _valuation_date(
+        latest=latest,
+        quote=quote,
+        valuation_mode=valuation_mode,
+    )
 
-    valuation_nav = latest.unit_nav if latest is not None and latest.unit_nav > 0 else display_nav
+    valuation_nav = (
+        latest.unit_nav if latest is not None and latest.unit_nav > 0 else display_nav
+    )
     market_value = position.shares * valuation_nav if valuation_nav > 0 else 0
     day_profit_shares = _day_profit_shares(
         position=position,
@@ -98,6 +127,8 @@ def _build_fund_summary(
         valuation_mode=valuation_mode,
         valuation_time=display_time,
         last_trade=last_trade,
+        trade_records=trade_records,
+        valuation_date=valuation_date,
     )
     recommendation = _build_grid_recommendation(
         position=position,
@@ -139,6 +170,23 @@ def _should_use_estimate(
     latest_date = latest.nav_date if latest is not None else date.min
     estimate_date = quote.estimate_time.astimezone(UTC).date()
     return estimate_date > latest_date
+
+
+def _valuation_date(
+    *,
+    latest: FundNavPoint | None,
+    quote: FundQuote | None,
+    valuation_mode: str,
+) -> date | None:
+    if (
+        valuation_mode == "estimated"
+        and quote is not None
+        and quote.estimate_time is not None
+    ):
+        return quote.estimate_time.astimezone(UTC).date()
+    if latest is not None:
+        return latest.nav_date
+    return None
 
 
 def _day_profit_shares(
@@ -241,19 +289,82 @@ def _build_strategy_reference(
     valuation_mode: str,
     valuation_time: datetime | None,
     last_trade: FundTrade | None,
+    trade_records: list[FundTradeRecord] | None = None,
+    valuation_date: date | None = None,
 ) -> FundStrategyReference | None:
     if position.shares <= 0 or current_nav <= 0:
         return None
-    baseline_nav = last_trade.nav if last_trade is not None else position.avg_cost_nav
+    candidate = _latest_strategy_reference_candidate(
+        last_trade=last_trade,
+        trade_records=trade_records,
+    )
+    baseline_nav = candidate.nav if candidate is not None else position.avg_cost_nav
     if baseline_nav <= 0:
         return None
+    reference_date = candidate.trade_date if candidate is not None else None
+    change_rate = 0.0
+    if (
+        reference_date is None
+        or valuation_date is None
+        or valuation_date > reference_date
+    ):
+        change_rate = (current_nav - baseline_nav) / baseline_nav * 100
     return FundStrategyReference(
         nav=baseline_nav,
-        trade_date=last_trade.trade_date if last_trade is not None else None,
-        source="last_trade" if last_trade is not None else "position_cost",
-        change_rate=(current_nav - baseline_nav) / baseline_nav * 100,
+        trade_date=reference_date,
+        source=candidate.source if candidate is not None else "position_cost",
+        change_rate=change_rate,
         valuation_mode=valuation_mode,
         valuation_time=valuation_time,
+    )
+
+
+def _latest_strategy_reference_candidate(
+    *,
+    last_trade: FundTrade | None,
+    trade_records: list[FundTradeRecord] | None,
+) -> _StrategyReferenceCandidate | None:
+    candidates: list[_StrategyReferenceCandidate] = []
+    if last_trade is not None and last_trade.nav > 0:
+        candidates.append(
+            _StrategyReferenceCandidate(
+                nav=last_trade.nav,
+                trade_date=last_trade.trade_date,
+                source="last_trade",
+                created_at=last_trade.created_at,
+            ),
+        )
+    for record in trade_records or []:
+        if not _is_strategy_reference_record(record):
+            continue
+        candidates.append(
+            _StrategyReferenceCandidate(
+                nav=record.nav,
+                trade_date=record.trade_date,
+                source=(
+                    "pending_trade_record"
+                    if record.source_trade_id is None
+                    else "system_trade_record"
+                ),
+                created_at=record.created_at,
+            ),
+        )
+    if not candidates:
+        return None
+    return max(
+        candidates,
+        key=lambda item: (
+            item.trade_date or date.min,
+            item.created_at.isoformat() if item.created_at is not None else "",
+        ),
+    )
+
+
+def _is_strategy_reference_record(record: FundTradeRecord) -> bool:
+    return (
+        record.is_system
+        and record.nav > 0
+        and record.action in _STRATEGY_REFERENCE_RECORD_ACTIONS
     )
 
 

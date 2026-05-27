@@ -62,6 +62,7 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
   List<FundTrade> _trades = const [];
   List<FundTradeRecord> _records = const [];
   bool _isLoadingNavs = true;
+  bool _isScanningAlerts = false;
 
   @override
   void initState() {
@@ -141,6 +142,32 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
   Future<void> _handleEditAlert() async {
     await widget.onEditAlert(_summary);
     await _reloadSummary();
+  }
+
+  Future<void> _handleRunAlertScan() async {
+    if (_isScanningAlerts) return;
+    setState(() => _isScanningAlerts = true);
+    try {
+      final status = await widget.repository.runAlertScan(refresh: true);
+      await _reloadSummary(refresh: true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '策略扫描已完成：扫描 ${status.scannedCount} 个，新增 ${status.createdCount} 条',
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('策略扫描失败：$error')));
+      }
+    } finally {
+      if (mounted) setState(() => _isScanningAlerts = false);
+    }
   }
 
   Future<void> _handleDelete() async {
@@ -342,8 +369,10 @@ class _FundDetailScreenState extends State<FundDetailScreen> {
                     _AlertTab(
                       summary: summary,
                       records: _records,
+                      isScanningAlerts: _isScanningAlerts,
                       onAdjust: () => unawaited(_handleAdjust()),
                       onEditAlert: () => unawaited(_handleEditAlert()),
+                      onRunScan: () => unawaited(_handleRunAlertScan()),
                       onAddRecord: () => unawaited(_handleAddRecord()),
                       onDeleteRecord: (record) =>
                           unawaited(_handleDeleteRecord(record)),
@@ -934,8 +963,10 @@ class _AlertTab extends StatelessWidget {
   const _AlertTab({
     required this.summary,
     required this.records,
+    required this.isScanningAlerts,
     required this.onAdjust,
     required this.onEditAlert,
+    required this.onRunScan,
     required this.onAddRecord,
     required this.onDeleteRecord,
     required this.onDelete,
@@ -943,8 +974,10 @@ class _AlertTab extends StatelessWidget {
 
   final FundPositionSummary summary;
   final List<FundTradeRecord> records;
+  final bool isScanningAlerts;
   final VoidCallback onAdjust;
   final VoidCallback onEditAlert;
+  final VoidCallback onRunScan;
   final VoidCallback onAddRecord;
   final ValueChanged<FundTradeRecord> onDeleteRecord;
   final VoidCallback onDelete;
@@ -965,6 +998,18 @@ class _AlertTab extends StatelessWidget {
             content:
                 '当前净值未触发 ${position.alertThresholdPercent.toStringAsFixed(1)}% 阈值。',
           ),
+        const SizedBox(height: 12),
+        FilledButton.icon(
+          onPressed: isScanningAlerts ? null : onRunScan,
+          icon: isScanningAlerts
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.manage_search_rounded),
+          label: Text(isScanningAlerts ? '扫描中' : '扫描一次'),
+        ),
         const SizedBox(height: 12),
         _MetricGrid(
           items: [
