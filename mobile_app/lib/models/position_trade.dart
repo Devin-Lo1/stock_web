@@ -3,14 +3,14 @@ class PositionTradeDraft {
     required this.action,
     required this.quantity,
     required this.price,
-    this.fee = 0,
+    this.fee,
     this.note = '',
   });
 
   final String action;
   final double quantity;
   final double price;
-  final double fee;
+  final double? fee;
   final String note;
 
   Map<String, dynamic> toBackendJson() {
@@ -18,7 +18,7 @@ class PositionTradeDraft {
       'action': action,
       'quantity': quantity,
       'price': price,
-      'fee': fee,
+      if (fee != null) 'fee': fee,
       'note': note,
     };
   }

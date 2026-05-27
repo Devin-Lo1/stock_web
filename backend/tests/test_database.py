@@ -162,11 +162,11 @@ def test_position_trade_delete_replays_remaining_trades() -> None:
     opening = database.list_position_trades(position_id=created.id)[0]
     add = database.create_position_trade_for_position(
         database.get_position(created.id) or created,
-        PositionTradeCreate(action="add", quantity=100, price=20),
+        PositionTradeCreate(action="add", quantity=100, price=20, fee=0),
     )
     reduce = database.create_position_trade_for_position(
         database.get_position(created.id) or created,
-        PositionTradeCreate(action="reduce", quantity=50, price=30),
+        PositionTradeCreate(action="reduce", quantity=50, price=30, fee=0),
     )
 
     position_after_reduce = database.get_position(created.id)
@@ -211,6 +211,7 @@ def test_position_trade_close_updates_position_snapshot() -> None:
             "action": "close",
             "quantity": 100,
             "price": 95,
+            "fee": 0,
         },
     )
     current_position = client.get("/api/v1/positions").json()[0]
@@ -321,6 +322,7 @@ def test_position_snapshot_uses_adjusted_cost_and_realized_profit() -> None:
             "action": "reduce",
             "quantity": 50,
             "price": 15,
+            "fee": 0,
         },
     )
     database.upsert_quote(

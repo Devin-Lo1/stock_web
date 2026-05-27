@@ -8,6 +8,7 @@ from ..db.converters import (
     _row_to_position_trade,
 )
 from ..schemas import Position, PositionTrade, PositionTradeCreate
+from ..services.trade_fees import calculate_default_position_trade_fee
 
 
 class PositionTradeError(ValueError):
@@ -139,8 +140,19 @@ def _replay_position_trades(
 def _build_position_trade(
     position: Position,
     payload: PositionTradeCreate,
+    *,
+    auto_fee: bool = True,
 ) -> PositionTrade:
     now = _now()
+    fee = payload.fee
+    if fee is None and auto_fee:
+        fee = calculate_default_position_trade_fee(
+            market=position.market,
+            code=position.code,
+            action=payload.action,
+            quantity=payload.quantity,
+            price=payload.price,
+        )
     return PositionTrade(
         id=str(uuid4()),
         position_id=position.id,
@@ -151,7 +163,7 @@ def _build_position_trade(
         action=payload.action,
         quantity=payload.quantity,
         price=payload.price,
-        fee=payload.fee,
+        fee=fee or 0,
         trade_time=payload.trade_time or now,
         note=payload.note,
         created_at=now,

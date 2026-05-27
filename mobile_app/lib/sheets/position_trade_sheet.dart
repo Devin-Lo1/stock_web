@@ -52,7 +52,7 @@ class _PositionTradeSheetState extends State<PositionTradeSheet> {
           ? ''
           : widget.position.currentPrice.toStringAsFixed(2),
     );
-    _feeController = TextEditingController(text: '0');
+    _feeController = TextEditingController();
     _noteController = TextEditingController();
   }
 
@@ -102,11 +102,15 @@ class _PositionTradeSheetState extends State<PositionTradeSheet> {
             const SizedBox(height: 10),
             TextFormField(
               controller: _feeController,
-              decoration: const InputDecoration(labelText: '手续费'),
+              decoration: const InputDecoration(
+                labelText: '手续费（留空自动）',
+                helperText: '港美股按系统规则估算；填数值则按手动值',
+              ),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
-              validator: (value) => _validateNonNegative(value, '请输入手续费'),
+              validator: (value) =>
+                  _validateOptionalNonNegative(value, '手续费不能为负'),
             ),
             const SizedBox(height: 10),
             TextFormField(
@@ -135,7 +139,7 @@ class _PositionTradeSheetState extends State<PositionTradeSheet> {
         action: widget.action,
         quantity: _readDouble(_quantityController.text),
         price: _readDouble(_priceController.text),
-        fee: _readDouble(_feeController.text),
+        fee: _readOptionalDouble(_feeController.text),
         note: _noteController.text.trim(),
       ),
     );
@@ -154,8 +158,22 @@ String? _validateNonNegative(String? value, String message) {
   return null;
 }
 
+String? _validateOptionalNonNegative(String? value, String message) {
+  final text = value?.trim() ?? '';
+  if (text.isEmpty) return null;
+  final parsed = double.tryParse(text);
+  if (parsed == null || parsed < 0) return message;
+  return null;
+}
+
 double _readDouble(String? value) {
   return double.tryParse(value?.trim() ?? '') ?? 0;
+}
+
+double? _readOptionalDouble(String? value) {
+  final text = value?.trim() ?? '';
+  if (text.isEmpty) return null;
+  return double.tryParse(text);
 }
 
 String _actionLabel(String action) {

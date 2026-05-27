@@ -44,7 +44,9 @@ def create_position(payload: PositionCreate) -> Position:
                 action="open",
                 quantity=position.quantity,
                 price=position.cost_price,
+                fee=0,
             ),
+            auto_fee=False,
         )
     with _connect() as connection:
         connection.execute(

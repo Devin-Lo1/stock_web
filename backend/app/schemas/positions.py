@@ -43,7 +43,7 @@ class PositionTradeCreate(BaseModel):
     action: PositionTradeAction
     quantity: float = Field(gt=0)
     price: float = Field(ge=0)
-    fee: float = Field(default=0, ge=0)
+    fee: float | None = Field(default=None, ge=0)
     trade_time: datetime | None = None
     note: str = Field(default="", max_length=500)
 

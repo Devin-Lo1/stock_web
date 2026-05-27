@@ -169,6 +169,33 @@ void main() {
     expect(trade.actionLabel, '加仓');
   });
 
+  test('createPositionTrade omits fee when draft uses automatic fee', () async {
+    late String body;
+    final service = PositionApiService(
+      ApiClient(
+        baseUrl: 'http://test.local',
+        httpClient: MockClient((request) async {
+          body = request.body;
+          return http.Response(
+            '{"id":"trade-2","position_id":"position-1","market":"US",'
+            '"code":"US.MU","name":"Micron","currency":"USD",'
+            '"action":"reduce","quantity":2,"price":120,"fee":18,'
+            '"trade_time":"2026-05-21T01:00:00Z","note":""}',
+            201,
+          );
+        }),
+      ),
+    );
+
+    final trade = await service.createPositionTrade(
+      'position-1',
+      const PositionTradeDraft(action: 'reduce', quantity: 2, price: 120),
+    );
+
+    expect(body, isNot(contains('"fee"')));
+    expect(trade.fee, 18);
+  });
+
   test('deletePositionTrade calls backend delete endpoint', () async {
     late String method;
     late Uri requestedUri;
