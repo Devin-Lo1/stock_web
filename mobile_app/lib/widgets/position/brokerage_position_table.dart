@@ -5,6 +5,8 @@ import '../../utils/formatters.dart';
 import '../../utils/theme_helpers.dart';
 import 'extended_session_line.dart';
 
+const double _fixedNameColumnWidth = 148;
+
 class BrokeragePositionTable extends StatelessWidget {
   const BrokeragePositionTable({
     super.key,
@@ -32,7 +34,7 @@ class BrokeragePositionTable extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
-                width: 112,
+                width: _fixedNameColumnWidth,
                 child: Column(
                   children: [
                     const _FixedHeaderCell(),
@@ -249,8 +251,9 @@ class _FixedNameCell extends StatelessWidget {
               const SizedBox(height: 4),
               ExtendedSessionLine(
                 position: position,
-                fontSize: 9.5,
+                fontSize: 9.2,
                 fontWeight: FontWeight.w800,
+                fitToWidth: true,
               ),
             ],
           ],
@@ -419,7 +422,7 @@ class _FitText extends StatelessWidget {
 }
 
 double _rowHeight(StockPosition position) {
-  return position.hasExtendedSession ? 92 : 82;
+  return position.hasExtendedSession ? 96 : 82;
 }
 
 Color _profitColor(double value) {

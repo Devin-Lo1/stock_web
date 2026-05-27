@@ -10,27 +10,57 @@ class ExtendedSessionLine extends StatelessWidget {
     this.fontSize = 10,
     this.fontWeight = FontWeight.w800,
     this.textAlign = TextAlign.left,
+    this.fitToWidth = false,
   });
 
   final StockPosition position;
   final double fontSize;
   final FontWeight fontWeight;
   final TextAlign textAlign;
+  final bool fitToWidth;
 
   @override
   Widget build(BuildContext context) {
     if (!position.hasExtendedSession) return const SizedBox.shrink();
 
-    return Text(
-      _extendedText(position),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      textAlign: textAlign,
-      style: TextStyle(
-        color: _profitColor(position.extendedChange).withValues(alpha: 0.9),
-        fontSize: fontSize,
-        fontWeight: fontWeight,
-      ),
+    final text = _extendedText(position);
+    final style = TextStyle(
+      color: _profitColor(position.extendedChange).withValues(alpha: 0.9),
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+    );
+    if (!fitToWidth) {
+      return Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: textAlign,
+        style: style,
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (!constraints.hasBoundedWidth) {
+          return Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.visible,
+            textAlign: textAlign,
+            style: style,
+          );
+        }
+        return SizedBox(
+          width: constraints.maxWidth,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: textAlign == TextAlign.right
+                ? Alignment.centerRight
+                : Alignment.centerLeft,
+            child: Text(text, maxLines: 1, style: style),
+          ),
+        );
+      },
     );
   }
 }
