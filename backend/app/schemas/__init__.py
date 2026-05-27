@@ -8,6 +8,11 @@ from .backtests import (
     BacktestResult,
     BacktestRun,
     BacktestTrade,
+    VolumeProfileBacktestCreate,
+    VolumeProfileBacktestResult,
+    VolumeProfileBucket,
+    VolumeProfileDayProfile,
+    VolumeProfileSignal,
 )
 from .klines import Candle
 from .positions import (
@@ -92,6 +97,11 @@ __all__ = [
     "BacktestResult",
     "BacktestRun",
     "BacktestTrade",
+    "VolumeProfileBacktestCreate",
+    "VolumeProfileBacktestResult",
+    "VolumeProfileBucket",
+    "VolumeProfileDayProfile",
+    "VolumeProfileSignal",
     "Candle",
     "Position",
     "PositionCreate",

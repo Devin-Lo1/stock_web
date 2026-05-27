@@ -162,6 +162,77 @@ void main() {
     expect(result.results.last.isFailed, isTrue);
   });
 
+  test('VolumeProfileBacktestResult parses profile chart payload', () {
+    final result = VolumeProfileBacktestResult.fromJson({
+      'request': {
+        'stock_code': 'US.TQQQ',
+        'start_date': '2025-01-01',
+        'end_date': '2026-05-27',
+        'deviation_threshold': 0.5,
+        'bucket_count': 250,
+        'value_area_ratio': 0.68,
+        'stop_loss_multiple': 1.0,
+      },
+      'summary': {'success_rate': 0.66, 'triggered_count': 12},
+      'signals': [
+        {
+          'date': '2026-05-27',
+          'profile_date': '2026-05-26',
+          'direction': 'short',
+          'open_price': 100.8,
+          'target_price': 100.2,
+          'stop_price': 101.4,
+          'deviation': 0.42,
+          'outcome': 'success',
+          'outcome_time': '2026-05-27T10:05:00',
+          'outcome_price': 100.2,
+          'poc': 100.1,
+          'vah': 100.2,
+          'val': 98.8,
+        },
+      ],
+      'chart_profile': {
+        'date': '2026-05-26',
+        'poc': 100.1,
+        'vah': 100.2,
+        'val': 98.8,
+        'total_volume': 1200000,
+        'bucket_count': 2,
+        'value_area_ratio': 0.68,
+        'buckets': [
+          {
+            'price_low': 98.8,
+            'price_high': 99.5,
+            'price_mid': 99.15,
+            'volume': 300000,
+            'volume_ratio': 0.25,
+          },
+        ],
+      },
+      'chart_candles': [
+        {
+          'code': 'US.TQQQ',
+          'market': 'US',
+          'period': '1m',
+          'time': '2026-05-27T09:30:00',
+          'open': 100.8,
+          'high': 101.0,
+          'low': 100.1,
+          'close': 100.3,
+          'volume': 12000,
+          'turnover': 1200000,
+        },
+      ],
+    });
+
+    expect(result.request?.stockCode, 'US.TQQQ');
+    expect(result.summaryDouble('success_rate'), 0.66);
+    expect(result.summaryInt('triggered_count'), 12);
+    expect(result.signals.single.isSuccess, isTrue);
+    expect(result.chartProfile?.buckets.single.volumeRatio, 0.25);
+    expect(result.chartCandles.single.period, '1m');
+  });
+
   test('volume moving average uses candle volume values', () {
     final candles = [
       for (var index = 1; index <= 5; index++)

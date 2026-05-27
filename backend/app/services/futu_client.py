@@ -208,6 +208,53 @@ def request_history_klines(
         quote_context.close()
 
 
+def request_history_klines_all(
+    code: str,
+    period: str,
+    start: str,
+    end: str,
+    max_count: int = 120000,
+) -> list[Candle]:
+    sdk = get_futu_sdk()
+    if sdk is None:
+        raise FutuDependencyError("futu-api is not installed")
+
+    normalized_code = code.strip().upper()
+    normalized_period = _normalize_period(period)
+    bounded_count = max(1, min(max_count, 160000))
+    ktype = _futu_ktype(sdk, normalized_period)
+    _ensure_futu_port_available()
+    quote_context = sdk.OpenQuoteContext(host=FUTU_HOST, port=FUTU_PORT)
+    try:
+        candles: list[Candle] = []
+        page_req_key = None
+        while len(candles) < bounded_count:
+            request_count = min(1000, bounded_count - len(candles))
+            ret, data, page_req_key = quote_context.request_history_kline(
+                normalized_code,
+                start=start,
+                end=end,
+                ktype=ktype,
+                autype=sdk.AuType.QFQ,
+                max_count=request_count,
+                page_req_key=page_req_key,
+            )
+            if ret != sdk.RET_OK:
+                raise FutuOpenDError(str(data))
+            if data.empty:
+                break
+            candles.extend(
+                _row_to_candle(normalized_code, normalized_period, row)
+                for _, row in data.iterrows()
+            )
+            if page_req_key is None:
+                break
+        candles.sort(key=lambda candle: candle.time)
+        return candles[:bounded_count]
+    finally:
+        quote_context.close()
+
+
 def _read_float(row: Any, key: str) -> float:
     value = row.get(key, 0)
     try:

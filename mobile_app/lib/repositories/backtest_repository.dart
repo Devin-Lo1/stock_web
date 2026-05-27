@@ -19,6 +19,12 @@ class BacktestRepository {
     return _apiService.runBacktestBatch(request);
   }
 
+  Future<VolumeProfileBacktestResult> runVolumeProfileBacktest(
+    VolumeProfileBacktestRequest request,
+  ) {
+    return _apiService.runVolumeProfileBacktest(request);
+  }
+
   Future<List<BacktestRun>> loadBacktestRuns({
     String? stockCode,
     String? strategyCode,

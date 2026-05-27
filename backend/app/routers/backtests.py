@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Query, status
 
 from ..backtest import run_backtest
+from ..backtest.volume_profile import run_volume_profile_backtest
 from ..errors import not_found_error
 from ..repositories.backtests import (
     create_backtest_run,
@@ -18,6 +19,8 @@ from ..schemas import (
     BacktestRename,
     BacktestResult,
     BacktestRun,
+    VolumeProfileBacktestCreate,
+    VolumeProfileBacktestResult,
 )
 
 router = APIRouter(prefix="/api/v1/backtests", tags=["backtests"])
@@ -93,6 +96,17 @@ def api_create_backtest_batch(payload: BacktestBatchCreate) -> BacktestBatchResu
         failed_count=failed_count,
         results=results,
     )
+
+
+@router.post(
+    "/volume-profile",
+    response_model=VolumeProfileBacktestResult,
+    status_code=status.HTTP_201_CREATED,
+)
+def api_create_volume_profile_backtest(
+    payload: VolumeProfileBacktestCreate,
+) -> VolumeProfileBacktestResult:
+    return run_volume_profile_backtest(payload)
 
 
 @router.delete("", status_code=status.HTTP_204_NO_CONTENT)

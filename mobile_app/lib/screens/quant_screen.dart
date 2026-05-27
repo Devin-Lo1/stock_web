@@ -15,6 +15,7 @@ import '../utils/stock_suggestion_search.dart';
 import '../widgets/common/page_title.dart';
 import '../widgets/quant/quant_panels.dart';
 import 'backtest_result_screen.dart';
+import 'volume_profile_result_screen.dart';
 
 class QuantScreen extends StatefulWidget {
   const QuantScreen({
@@ -45,6 +46,11 @@ class _QuantScreenState extends State<QuantScreen> {
   final _stockCodeController = TextEditingController(text: 'HK.02628');
   final _batchStockCodesController = TextEditingController();
   final _batchStockSearchController = TextEditingController();
+  final _volumeProfileStockCodeController = TextEditingController(
+    text: 'HK.02628',
+  );
+  final _volumeProfileDeviationController = TextEditingController(text: '0.5');
+  final _volumeProfileBucketController = TextEditingController(text: '250');
   final _initialCashController = TextEditingController(text: '100000');
   final _feeRateController = TextEditingController(text: '0.0003');
   final _slippageRateController = TextEditingController(text: '0.0005');
@@ -58,6 +64,8 @@ class _QuantScreenState extends State<QuantScreen> {
   int _batchStockSearchRequestId = 0;
   DateTime _startDate = DateTime(2025, 1, 1);
   DateTime _endDate = _todayDate();
+  DateTime _volumeProfileStartDate = DateTime(2025, 1, 1);
+  DateTime _volumeProfileEndDate = _todayDate();
   List<StrategyDefinition> _strategies = const [];
   List<StockSuggestion> _stockSuggestions = const [];
   List<StockSuggestion> _batchStockSuggestions = const [];
@@ -74,6 +82,7 @@ class _QuantScreenState extends State<QuantScreen> {
   bool _isSearchingBatchStocks = false;
   bool _isRunning = false;
   bool _isBatchRunning = false;
+  bool _isVolumeProfileRunning = false;
   bool _isApplyingStockSuggestion = false;
   bool _isApplyingBatchStockSuggestion = false;
 
@@ -116,6 +125,9 @@ class _QuantScreenState extends State<QuantScreen> {
     _stockCodeController.dispose();
     _batchStockCodesController.dispose();
     _batchStockSearchController.dispose();
+    _volumeProfileStockCodeController.dispose();
+    _volumeProfileDeviationController.dispose();
+    _volumeProfileBucketController.dispose();
     _initialCashController.dispose();
     _feeRateController.dispose();
     _slippageRateController.dispose();
@@ -194,6 +206,22 @@ class _QuantScreenState extends State<QuantScreen> {
           onAddStockSearchText: _addBatchStockSearchText,
           onRun: _runBatch,
           onOpenRun: _loadHistoryResult,
+        ),
+        const SizedBox(height: 12),
+        QuantVolumeProfilePanel(
+          stockCodeController: _volumeProfileStockCodeController,
+          deviationThresholdController: _volumeProfileDeviationController,
+          bucketCountController: _volumeProfileBucketController,
+          startDate: _volumeProfileStartDate,
+          endDate: _volumeProfileEndDate,
+          isRunning: _isVolumeProfileRunning,
+          onStartDateChanged: (value) {
+            setState(() => _volumeProfileStartDate = value);
+          },
+          onEndDateChanged: (value) {
+            setState(() => _volumeProfileEndDate = value);
+          },
+          onRun: _runVolumeProfileBacktest,
         ),
         const SizedBox(height: 12),
         FilledButton.icon(
@@ -553,6 +581,76 @@ class _QuantScreenState extends State<QuantScreen> {
     }
   }
 
+  Future<void> _runVolumeProfileBacktest() async {
+    final stockCode = _volumeProfileStockCodeController.text
+        .trim()
+        .toUpperCase();
+    if (stockCode.isEmpty) {
+      setState(() {
+        _error = const _QuantValidationError('请输入价值区回测股票代码');
+      });
+      return;
+    }
+    if (!stockCode.contains('.') || stockCode.length < 4) {
+      setState(() {
+        _error = const _QuantValidationError('股票代码格式不正确，例如 US.TQQQ');
+      });
+      return;
+    }
+    if (_volumeProfileStartDate.isAfter(_volumeProfileEndDate)) {
+      setState(() {
+        _error = const _QuantValidationError('开始日期不能晚于结束日期');
+      });
+      return;
+    }
+    final deviationThreshold = _parsePositiveDouble(
+      _volumeProfileDeviationController.text,
+      '偏离阈值',
+    );
+    if (deviationThreshold is _QuantValidationError) {
+      setState(() => _error = deviationThreshold);
+      return;
+    }
+    final bucketCount = _parsePositiveInt(
+      _volumeProfileBucketController.text,
+      '价格桶数',
+    );
+    if (bucketCount is _QuantValidationError) {
+      setState(() => _error = bucketCount);
+      return;
+    }
+    final bucketCountValue = bucketCount as int;
+    if (bucketCountValue < 20 || bucketCountValue > 500) {
+      setState(() {
+        _error = const _QuantValidationError('价格桶数必须在 20 到 500 之间');
+      });
+      return;
+    }
+
+    setState(() {
+      _isVolumeProfileRunning = true;
+      _error = null;
+    });
+    try {
+      final result = await widget.repository.runVolumeProfileBacktest(
+        VolumeProfileBacktestRequest(
+          stockCode: stockCode,
+          startDate: _volumeProfileStartDate,
+          endDate: _volumeProfileEndDate,
+          deviationThreshold: deviationThreshold as double,
+          bucketCount: bucketCountValue,
+        ),
+      );
+      if (!mounted) return;
+      _openVolumeProfileResultPage(result);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _isVolumeProfileRunning = false);
+    }
+  }
+
   Future<void> _run() async {
     final strategy = _selectedStrategy;
     if (strategy == null) return;
@@ -617,6 +715,15 @@ class _QuantScreenState extends State<QuantScreen> {
           candles: candles,
           isHistoricalResult: isHistoricalResult,
         ),
+      ),
+    );
+  }
+
+  void _openVolumeProfileResultPage(VolumeProfileBacktestResult result) {
+    if (!mounted) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => VolumeProfileResultScreen(result: result),
       ),
     );
   }

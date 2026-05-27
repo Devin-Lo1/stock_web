@@ -48,6 +48,23 @@ class BacktestApiService {
     );
   }
 
+  Future<VolumeProfileBacktestResult> runVolumeProfileBacktest(
+    VolumeProfileBacktestRequest request,
+  ) async {
+    final decoded = await _apiClient.post(
+      '/api/v1/backtests/volume-profile',
+      request.toJson(),
+    );
+    if (decoded is Map<String, dynamic>) {
+      return VolumeProfileBacktestResult.fromJson(decoded);
+    }
+    throw const ApiException(
+      statusCode: 0,
+      code: 'INVALID_VOLUME_PROFILE_RESPONSE',
+      message: '价值区回测结果格式不正确',
+    );
+  }
+
   Future<List<BacktestRun>> fetchBacktestRuns({
     String? stockCode,
     String? strategyCode,
