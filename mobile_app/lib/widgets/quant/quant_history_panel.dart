@@ -8,7 +8,7 @@ import 'quant_common_widgets.dart';
 
 const _dropdownMenuMaxHeight = 160.0;
 
-class QuantHistoryPanel extends StatelessWidget {
+class QuantHistoryPanel extends StatefulWidget {
   const QuantHistoryPanel({
     super.key,
     required this.runs,
@@ -45,7 +45,16 @@ class QuantHistoryPanel extends StatelessWidget {
   final VoidCallback onDeleteAll;
 
   @override
+  State<QuantHistoryPanel> createState() => _QuantHistoryPanelState();
+}
+
+class _QuantHistoryPanelState extends State<QuantHistoryPanel> {
+  _HistorySortKey _sortKey = _HistorySortKey.latest;
+  bool _sortDescending = true;
+
+  @override
   Widget build(BuildContext context) {
+    final sortedRuns = _sortedRuns(widget.runs);
     return QuantPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,12 +66,14 @@ class QuantHistoryPanel extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  onPressed: isLoading || runs.isEmpty ? null : onDeleteAll,
+                  onPressed: widget.isLoading || widget.runs.isEmpty
+                      ? null
+                      : widget.onDeleteAll,
                   icon: const Icon(Icons.delete_sweep_outlined),
                   tooltip: '删除全部历史回测',
                 ),
                 IconButton(
-                  onPressed: isLoading ? null : onReload,
+                  onPressed: widget.isLoading ? null : widget.onReload,
                   icon: const Icon(Icons.refresh_rounded),
                   tooltip: '刷新历史回测',
                 ),
@@ -71,31 +82,42 @@ class QuantHistoryPanel extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _HistoryFilters(
-            strategies: strategies,
-            stockCodeController: stockCodeController,
-            strategyFilter: strategyFilter,
-            statusFilter: statusFilter,
-            isLoading: isLoading,
-            onApplyFilters: onApplyFilters,
-            onClearFilters: onClearFilters,
-            onStrategyFilterChanged: onStrategyFilterChanged,
-            onStatusFilterChanged: onStatusFilterChanged,
+            strategies: widget.strategies,
+            stockCodeController: widget.stockCodeController,
+            strategyFilter: widget.strategyFilter,
+            statusFilter: widget.statusFilter,
+            isLoading: widget.isLoading,
+            onApplyFilters: widget.onApplyFilters,
+            onClearFilters: widget.onClearFilters,
+            onStrategyFilterChanged: widget.onStrategyFilterChanged,
+            onStatusFilterChanged: widget.onStatusFilterChanged,
           ),
           const SizedBox(height: 10),
-          if (isLoading)
+          _HistorySortBar(
+            sortKey: _sortKey,
+            descending: _sortDescending,
+            isLoading: widget.isLoading,
+            onSortKeyChanged: _setSortKey,
+            onToggleDirection: _toggleSortDirection,
+          ),
+          const SizedBox(height: 10),
+          if (widget.isLoading)
             const LinearProgressIndicator()
-          else if (runs.isEmpty)
+          else if (sortedRuns.isEmpty)
             Text('暂无历史回测', style: TextStyle(color: secondaryTextColor(context)))
           else
             Column(
               children: [
-                for (final run in runs)
+                for (final run in sortedRuns)
                   _BacktestHistoryTile(
                     run: run,
-                    strategyName: _strategyName(strategies, run.strategyCode),
-                    onTap: () => onSelected(run),
-                    onDelete: () => onDelete(run),
-                    onRename: () => onRename(run),
+                    strategyName: _strategyName(
+                      widget.strategies,
+                      run.strategyCode,
+                    ),
+                    onTap: () => widget.onSelected(run),
+                    onDelete: () => widget.onDelete(run),
+                    onRename: () => widget.onRename(run),
                   ),
               ],
             ),
@@ -103,6 +125,46 @@ class QuantHistoryPanel extends StatelessWidget {
       ),
     );
   }
+
+  void _setSortKey(_HistorySortKey? value) {
+    if (value == null) return;
+    setState(() {
+      _sortKey = value;
+      _sortDescending = value != _HistorySortKey.stock;
+    });
+  }
+
+  void _toggleSortDirection() {
+    setState(() => _sortDescending = !_sortDescending);
+  }
+
+  List<BacktestRun> _sortedRuns(List<BacktestRun> runs) {
+    final indexedRuns = [
+      for (var index = 0; index < runs.length; index++)
+        _IndexedBacktestRun(index: index, run: runs[index]),
+    ];
+    if (_sortKey == _HistorySortKey.latest) {
+      return [for (final item in indexedRuns) item.run];
+    }
+    indexedRuns.sort((left, right) {
+      final compared = _compareRuns(
+        left.run,
+        right.run,
+        _sortKey,
+        descending: _sortDescending,
+      );
+      if (compared == 0) return left.index.compareTo(right.index);
+      return compared;
+    });
+    return [for (final item in indexedRuns) item.run];
+  }
+}
+
+class _IndexedBacktestRun {
+  const _IndexedBacktestRun({required this.index, required this.run});
+
+  final int index;
+  final BacktestRun run;
 }
 
 class _HistoryFilters extends StatelessWidget {
@@ -213,6 +275,83 @@ class _HistoryFilters extends StatelessWidget {
   }
 }
 
+enum _HistorySortKey {
+  latest,
+  stock,
+  returnRate,
+  winRate,
+  tradeCount,
+  successRate,
+}
+
+class _HistorySortBar extends StatelessWidget {
+  const _HistorySortBar({
+    required this.sortKey,
+    required this.descending,
+    required this.isLoading,
+    required this.onSortKeyChanged,
+    required this.onToggleDirection,
+  });
+
+  final _HistorySortKey sortKey;
+  final bool descending;
+  final bool isLoading;
+  final ValueChanged<_HistorySortKey?> onSortKeyChanged;
+  final VoidCallback onToggleDirection;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: DropdownButtonFormField<_HistorySortKey>(
+            initialValue: sortKey,
+            isExpanded: true,
+            menuMaxHeight: _dropdownMenuMaxHeight,
+            decoration: const InputDecoration(labelText: '排序'),
+            items: const [
+              DropdownMenuItem(
+                value: _HistorySortKey.latest,
+                child: Text('最新记录'),
+              ),
+              DropdownMenuItem(
+                value: _HistorySortKey.stock,
+                child: Text('股票名称'),
+              ),
+              DropdownMenuItem(
+                value: _HistorySortKey.returnRate,
+                child: Text('收益率'),
+              ),
+              DropdownMenuItem(
+                value: _HistorySortKey.winRate,
+                child: Text('胜率'),
+              ),
+              DropdownMenuItem(
+                value: _HistorySortKey.tradeCount,
+                child: Text('操作次数'),
+              ),
+              DropdownMenuItem(
+                value: _HistorySortKey.successRate,
+                child: Text('成功率'),
+              ),
+            ],
+            onChanged: isLoading ? null : onSortKeyChanged,
+          ),
+        ),
+        const SizedBox(width: 10),
+        SizedBox(
+          width: 52,
+          height: 52,
+          child: OutlinedButton(
+            onPressed: isLoading ? null : onToggleDirection,
+            child: Icon(descending ? Icons.south_rounded : Icons.north_rounded),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _BacktestHistoryTile extends StatelessWidget {
   const _BacktestHistoryTile({
     required this.run,
@@ -231,7 +370,13 @@ class _BacktestHistoryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final totalReturn = run.summaryDouble('total_return') * 100;
+    final winRate = run.summaryDouble('win_rate') * 100;
+    final successRate = _successRate(run) * 100;
+    final tradeCount = run.summaryDouble('trade_count').round();
     final hasReturn = run.summary.containsKey('total_return');
+    final hasWinRate = run.summary.containsKey('win_rate');
+    final hasSuccessRate = _hasSuccessRate(run);
+    final hasTradeCount = run.summary.containsKey('trade_count');
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: onTap,
@@ -282,6 +427,18 @@ class _BacktestHistoryTile extends StatelessWidget {
                       _HistoryMetaChip(
                         text:
                             '${quantDateText(run.startDate)}-${quantDateText(run.endDate)}',
+                      ),
+                      _HistoryMetaChip(
+                        text:
+                            '胜率 ${hasWinRate ? formatPercent(winRate) : '--'}',
+                      ),
+                      _HistoryMetaChip(
+                        text:
+                            '操作 ${hasTradeCount ? tradeCount.toString() : '--'}',
+                      ),
+                      _HistoryMetaChip(
+                        text:
+                            '成功 ${hasSuccessRate ? formatPercent(successRate) : '--'}',
                       ),
                     ],
                   ),
@@ -347,6 +504,97 @@ class _HistoryMetaChip extends StatelessWidget {
       ),
     );
   }
+}
+
+int _compareRuns(
+  BacktestRun left,
+  BacktestRun right,
+  _HistorySortKey sortKey, {
+  required bool descending,
+}) {
+  return switch (sortKey) {
+    _HistorySortKey.latest => 0,
+    _HistorySortKey.stock => _compareStringMetric(
+      _historyStockText(left),
+      _historyStockText(right),
+      descending: descending,
+    ),
+    _HistorySortKey.returnRate => _compareNumericMetric(
+      left,
+      right,
+      hasValue: (run) => run.summary.containsKey('total_return'),
+      value: (run) => run.summaryDouble('total_return'),
+      descending: descending,
+    ),
+    _HistorySortKey.winRate => _compareNumericMetric(
+      left,
+      right,
+      hasValue: (run) => run.summary.containsKey('win_rate'),
+      value: (run) => run.summaryDouble('win_rate'),
+      descending: descending,
+    ),
+    _HistorySortKey.tradeCount => _compareNumericMetric(
+      left,
+      right,
+      hasValue: (run) => run.summary.containsKey('trade_count'),
+      value: (run) => run.summaryDouble('trade_count'),
+      descending: descending,
+    ),
+    _HistorySortKey.successRate => _compareNumericMetric(
+      left,
+      right,
+      hasValue: _hasSuccessRate,
+      value: _successRate,
+      descending: descending,
+    ),
+  };
+}
+
+int _compareStringMetric(
+  String left,
+  String right, {
+  required bool descending,
+}) {
+  final compared = left.compareTo(right);
+  return descending ? -compared : compared;
+}
+
+int _compareNumericMetric(
+  BacktestRun left,
+  BacktestRun right, {
+  required bool Function(BacktestRun run) hasValue,
+  required double Function(BacktestRun run) value,
+  required bool descending,
+}) {
+  final leftHasValue = hasValue(left);
+  final rightHasValue = hasValue(right);
+  if (leftHasValue != rightHasValue) return leftHasValue ? -1 : 1;
+  if (!leftHasValue) return 0;
+  final compared = value(left).compareTo(value(right));
+  return descending ? -compared : compared;
+}
+
+String _historyStockText(BacktestRun run) {
+  final name = run.name.trim();
+  return name.isEmpty ? run.stockCode : name;
+}
+
+bool _hasSuccessRate(BacktestRun run) {
+  return run.summary.containsKey('success_rate') ||
+      run.summary.containsKey('win_rate') ||
+      (run.summary.containsKey('win_count') &&
+          run.summary.containsKey('round_trip_count'));
+}
+
+double _successRate(BacktestRun run) {
+  if (run.summary.containsKey('success_rate')) {
+    return run.summaryDouble('success_rate');
+  }
+  final roundTrips = run.summaryDouble('round_trip_count');
+  if (roundTrips > 0) {
+    return run.summaryDouble('win_count') / roundTrips;
+  }
+  return run.summaryDouble('win_rate');
 }
 
 Color _statusColor(String status) {
