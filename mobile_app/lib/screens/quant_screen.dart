@@ -44,6 +44,7 @@ class _QuantScreenState extends State<QuantScreen> {
   final _resultPanelKey = GlobalKey();
   final _stockCodeController = TextEditingController(text: 'HK.02628');
   final _batchStockCodesController = TextEditingController();
+  final _batchStockSearchController = TextEditingController();
   final _initialCashController = TextEditingController(text: '100000');
   final _feeRateController = TextEditingController(text: '0.0003');
   final _slippageRateController = TextEditingController(text: '0.0005');
@@ -52,11 +53,14 @@ class _QuantScreenState extends State<QuantScreen> {
   final _historyStockCodeController = TextEditingController();
   late final StockSearchApiService _stockSearchService;
   Timer? _stockSearchDebounce;
+  Timer? _batchStockSearchDebounce;
   int _stockSearchRequestId = 0;
+  int _batchStockSearchRequestId = 0;
   DateTime _startDate = DateTime(2025, 1, 1);
   DateTime _endDate = _todayDate();
   List<StrategyDefinition> _strategies = const [];
   List<StockSuggestion> _stockSuggestions = const [];
+  List<StockSuggestion> _batchStockSuggestions = const [];
   List<BacktestRun> _recentRuns = const [];
   StrategyDefinition? _selectedStrategy;
   String? _historyStrategyFilter;
@@ -70,9 +74,11 @@ class _QuantScreenState extends State<QuantScreen> {
   bool _isLoadingStrategies = true;
   bool _isLoadingHistory = true;
   bool _isSearchingStocks = false;
+  bool _isSearchingBatchStocks = false;
   bool _isRunning = false;
   bool _isBatchRunning = false;
   bool _isApplyingStockSuggestion = false;
+  bool _isApplyingBatchStockSuggestion = false;
 
   @override
   void initState() {
@@ -88,6 +94,7 @@ class _QuantScreenState extends State<QuantScreen> {
     _batchStockCodesController.text = _defaultBatchStockCodes();
     _stockSearchService = StockSearchApiService(ApiClient());
     _stockCodeController.addListener(_updateStockSuggestions);
+    _batchStockSearchController.addListener(_updateBatchStockSuggestions);
     _loadStrategies();
     _loadHistory();
     _updateStockSuggestions();
@@ -106,9 +113,12 @@ class _QuantScreenState extends State<QuantScreen> {
   void dispose() {
     _scrollController.dispose();
     _stockCodeController.removeListener(_updateStockSuggestions);
+    _batchStockSearchController.removeListener(_updateBatchStockSuggestions);
     _stockSearchDebounce?.cancel();
+    _batchStockSearchDebounce?.cancel();
     _stockCodeController.dispose();
     _batchStockCodesController.dispose();
+    _batchStockSearchController.dispose();
     _initialCashController.dispose();
     _feeRateController.dispose();
     _slippageRateController.dispose();
@@ -175,11 +185,16 @@ class _QuantScreenState extends State<QuantScreen> {
         const SizedBox(height: 12),
         QuantBatchPanel(
           stockCodesController: _batchStockCodesController,
+          stockSearchController: _batchStockSearchController,
           parameterControllers: _batchParameterControllers,
           selectedStrategy: _selectedStrategy,
+          stockSuggestions: _batchStockSuggestions,
+          isSearchingStocks: _isSearchingBatchStocks,
           isRunning: _isBatchRunning,
           result: _batchResult,
           onFillPositions: _fillBatchStocksFromPositions,
+          onStockSuggestionSelected: _applyBatchStockSuggestion,
+          onAddStockSearchText: _addBatchStockSearchText,
           onRun: _runBatch,
           onOpenRun: _loadHistoryResult,
         ),
@@ -271,6 +286,26 @@ class _QuantScreenState extends State<QuantScreen> {
         spec,
         base,
       );
+    }
+    if (strategy.code == 'composite_factor') {
+      for (final factorCode in compositeFactorCodes) {
+        for (final spec in strategyParameterSpecsFor(factorCode)) {
+          final base = compositeFactorParameterDefaultText(
+            strategy,
+            factorCode,
+            spec,
+          );
+          _batchParameterControllers[compositeFactorParameterKey(
+                factorCode,
+                spec.key,
+              )]
+              ?.text = _batchDefaultText(
+            factorCode,
+            spec,
+            base,
+          );
+        }
+      }
     }
   }
 
@@ -739,9 +774,7 @@ class _QuantScreenState extends State<QuantScreen> {
 
   Object _buildBatchParameterVariants(StrategyDefinition strategy) {
     if (strategy.code == 'composite_factor') {
-      final parametersOrError = _buildStrategyParameters(strategy);
-      if (parametersOrError is _QuantValidationError) return parametersOrError;
-      return [parametersOrError as Map<String, Object?>];
+      return _buildCompositeBatchParameterVariants(strategy);
     }
 
     final specs = strategyParameterSpecsFor(strategy.code);
@@ -769,9 +802,118 @@ class _QuantScreenState extends State<QuantScreen> {
     return variants;
   }
 
-  Object _parseBatchParameterValues(StrategyParameterSpec spec) {
-    final text = (_batchParameterControllers[spec.key]?.text ?? spec.fallback)
-        .trim();
+  Object _buildCompositeBatchParameterVariants(StrategyDefinition strategy) {
+    var topVariants = <Map<String, Object?>>[<String, Object?>{}];
+    for (final spec in strategyParameterSpecsFor(strategy.code)) {
+      final valuesOrError = _parseBatchParameterValues(spec);
+      if (valuesOrError is _QuantValidationError) return valuesOrError;
+      final values = valuesOrError as List<Object?>;
+      topVariants = [
+        for (final variant in topVariants)
+          for (final value in values) {...variant, spec.key: value},
+      ];
+      if (topVariants.length > 50) {
+        return const _QuantValidationError('参数组合过多，请缩小参数列表');
+      }
+    }
+
+    final variants = <Map<String, Object?>>[];
+    for (final topParameters in topVariants) {
+      final relationError = _validateStrategyParameterRelations(
+        strategy.code,
+        topParameters,
+      );
+      if (relationError != null) return relationError;
+
+      final nestedOrError = _buildCompositeBatchFactorParameterVariants(
+        topParameters,
+      );
+      if (nestedOrError is _QuantValidationError) return nestedOrError;
+      final nestedVariants =
+          nestedOrError as List<Map<String, Map<String, Object?>>>;
+      for (final factorParameters in nestedVariants) {
+        variants.add({...topParameters, 'factor_parameters': factorParameters});
+        if (variants.length > 50) {
+          return const _QuantValidationError('参数组合过多，请缩小参数列表');
+        }
+      }
+    }
+    return variants;
+  }
+
+  Object _buildCompositeBatchFactorParameterVariants(
+    Map<String, Object?> parameters,
+  ) {
+    final rawFactorCodes = parameters['factor_codes'];
+    if (rawFactorCodes is! List) {
+      return const _QuantValidationError('组合因子至少选择两个');
+    }
+    final factorCodes = rawFactorCodes.cast<String>();
+    var factorVariants = <Map<String, Map<String, Object?>>>[
+      <String, Map<String, Object?>>{},
+    ];
+    for (final factorCode in factorCodes) {
+      var parameterVariants = <Map<String, Object?>>[<String, Object?>{}];
+      for (final spec in strategyParameterSpecsFor(factorCode)) {
+        final valuesOrError = _parseBatchParameterValues(
+          spec,
+          controllerKey: compositeFactorParameterKey(factorCode, spec.key),
+        );
+        if (valuesOrError is _QuantValidationError) {
+          return _QuantValidationError(
+            '${strategyDisplayNameForCode(factorCode)}：${valuesOrError.message}',
+          );
+        }
+        final values = valuesOrError as List<Object?>;
+        parameterVariants = [
+          for (final variant in parameterVariants)
+            for (final value in values) {...variant, spec.key: value},
+        ];
+        if (parameterVariants.length > 50) {
+          return _QuantValidationError(
+            '${strategyDisplayNameForCode(factorCode)}：参数组合过多',
+          );
+        }
+      }
+
+      for (final childParameters in parameterVariants) {
+        final relationError = _validateStrategyParameterRelations(
+          factorCode,
+          childParameters,
+        );
+        if (relationError != null) {
+          return _QuantValidationError(
+            '${strategyDisplayNameForCode(factorCode)}：${relationError.message}',
+          );
+        }
+      }
+
+      factorVariants = [
+        for (final existing in factorVariants)
+          for (final childParameters in parameterVariants)
+            {...existing, factorCode: childParameters},
+      ];
+      if (factorVariants.length > 50) {
+        return const _QuantValidationError('组合因子参数组合过多，请缩小参数列表');
+      }
+    }
+    return factorVariants;
+  }
+
+  Object _parseBatchParameterValues(
+    StrategyParameterSpec spec, {
+    String? controllerKey,
+  }) {
+    final text =
+        (_batchParameterControllers[controllerKey ?? spec.key]?.text ??
+                spec.fallback)
+            .trim();
+    if (spec.valueType == StrategyParameterValueType.multiOption) {
+      final value = _parseMultiOption(text, spec);
+      if (value is _QuantValidationError) return value;
+      return [value];
+    }
+
     final parts = text
         .split(RegExp(r'[,，;；\s]+'))
         .map((item) => item.trim())
@@ -885,7 +1027,7 @@ class _QuantScreenState extends State<QuantScreen> {
   Object _parseMultiOption(String text, StrategyParameterSpec spec) {
     final allowed = {for (final option in spec.options) option.value};
     final values = text
-        .split(',')
+        .split(RegExp(r'[,\uff0c;\uff1b\s]+'))
         .map((item) => item.trim())
         .where((item) => item.isNotEmpty)
         .toSet()
@@ -1115,6 +1257,127 @@ class _QuantScreenState extends State<QuantScreen> {
     });
   }
 
+  void _updateBatchStockSuggestions() {
+    if (_isApplyingBatchStockSuggestion) return;
+    final query = _batchStockSearchController.text.trim();
+    final normalizedQuery = normalizedStockSearchQuery(query);
+    final localSuggestions = _uniqueStockSuggestions([
+      ..._findPositionSuggestions(query),
+      ...searchStockSuggestions(query),
+    ]);
+
+    _batchStockSearchDebounce?.cancel();
+    setState(() {
+      _batchStockSuggestions = localSuggestions.take(5).toList();
+      _isSearchingBatchStocks = normalizedQuery.isNotEmpty;
+    });
+
+    if (normalizedQuery.isEmpty) {
+      setState(() => _isSearchingBatchStocks = false);
+      return;
+    }
+
+    _batchStockSearchDebounce = Timer(
+      const Duration(milliseconds: 350),
+      () => _searchRemoteBatchStocks(query),
+    );
+  }
+
+  Future<void> _searchRemoteBatchStocks(String query) async {
+    final requestId = ++_batchStockSearchRequestId;
+    try {
+      final results = await _stockSearchService.search(
+        normalizedStockSearchQuery(query),
+        limit: 8,
+        includeDerivatives: shouldIncludeStockDerivatives(query),
+      );
+      if (!mounted || requestId != _batchStockSearchRequestId) return;
+      final remoteSuggestions = results
+          .map(
+            (result) => StockSuggestion(
+              code: result.code,
+              name: result.name,
+              market: result.market,
+              stockType: result.stockType,
+              lotSize: result.lotSize,
+            ),
+          )
+          .toList();
+      final suggestions = _uniqueStockSuggestions([
+        ..._findPositionSuggestions(query),
+        ...remoteSuggestions,
+        ...searchStockSuggestions(query),
+      ]);
+      setState(() {
+        _batchStockSuggestions = suggestions.take(5).toList();
+        _isSearchingBatchStocks = false;
+      });
+    } catch (_) {
+      if (!mounted || requestId != _batchStockSearchRequestId) return;
+      setState(() => _isSearchingBatchStocks = false);
+    }
+  }
+
+  void _applyBatchStockSuggestion(StockSuggestion suggestion) {
+    _isApplyingBatchStockSuggestion = true;
+    _batchStockSearchController.clear();
+    _isApplyingBatchStockSuggestion = false;
+    _batchStockSearchDebounce?.cancel();
+    _batchStockSearchRequestId++;
+    _addBatchStockCode(suggestion.code);
+    setState(() {
+      _batchStockSuggestions = const [];
+      _isSearchingBatchStocks = false;
+    });
+  }
+
+  void _addBatchStockSearchText() {
+    final query = _batchStockSearchController.text.trim();
+    if (query.isEmpty) return;
+    final suggestion =
+        _findExactSuggestion(query, _batchStockSuggestions) ??
+        _findPositionSuggestion(query) ??
+        (_batchStockSuggestions.isEmpty ? null : _batchStockSuggestions.first);
+    if (suggestion != null) {
+      _applyBatchStockSuggestion(suggestion);
+      return;
+    }
+    final code = query.toUpperCase();
+    if (!code.contains('.') || code.length < 4) {
+      setState(() {
+        _error = const _QuantValidationError('请先从搜索结果选择股票');
+      });
+      return;
+    }
+    _isApplyingBatchStockSuggestion = true;
+    _batchStockSearchController.clear();
+    _isApplyingBatchStockSuggestion = false;
+    _batchStockSearchDebounce?.cancel();
+    _batchStockSearchRequestId++;
+    _addBatchStockCode(code);
+    setState(() {
+      _batchStockSuggestions = const [];
+      _isSearchingBatchStocks = false;
+    });
+  }
+
+  void _addBatchStockCode(String code) {
+    final normalizedCode = code.trim().toUpperCase();
+    if (normalizedCode.isEmpty) return;
+    final currentCodes = _batchStockCodesController.text
+        .split(RegExp(r'[\s,\uff0c;\uff1b]+'))
+        .map((item) => item.trim().toUpperCase())
+        .where((item) => item.isNotEmpty)
+        .toList();
+    final uniqueCodes = <String>[];
+    final seen = <String>{};
+    for (final currentCode in currentCodes) {
+      if (seen.add(currentCode)) uniqueCodes.add(currentCode);
+    }
+    if (seen.add(normalizedCode)) uniqueCodes.add(normalizedCode);
+    _batchStockCodesController.text = uniqueCodes.join(', ');
+  }
+
   StockSuggestion? _findExactSuggestion(
     String query,
     List<StockSuggestion> suggestions,
@@ -1125,6 +1388,30 @@ class _QuantScreenState extends State<QuantScreen> {
       if (suggestion.code.toUpperCase() == normalized) return suggestion;
     }
     return null;
+  }
+
+  List<StockSuggestion> _findPositionSuggestions(String query) {
+    final raw = query.trim();
+    final normalized = raw.toUpperCase();
+    if (normalized.isEmpty) return const [];
+    final digitQuery = normalized.replaceAll(RegExp(r'[^0-9]'), '');
+    final suggestions = <StockSuggestion>[];
+    for (final position in widget.positions) {
+      final code = position.code.toUpperCase();
+      final codeDigits = code.replaceAll(RegExp(r'[^0-9]'), '');
+      if (code.contains(normalized) ||
+          (digitQuery.isNotEmpty && codeDigits.contains(digitQuery)) ||
+          position.name.contains(raw)) {
+        suggestions.add(
+          StockSuggestion(
+            code: position.code,
+            name: position.name,
+            market: position.market.name.toUpperCase(),
+          ),
+        );
+      }
+    }
+    return suggestions;
   }
 
   StockSuggestion? _findPositionSuggestion(String query) {
@@ -1140,6 +1427,17 @@ class _QuantScreenState extends State<QuantScreen> {
       }
     }
     return null;
+  }
+
+  List<StockSuggestion> _uniqueStockSuggestions(
+    List<StockSuggestion> suggestions,
+  ) {
+    final unique = <StockSuggestion>[];
+    final seen = <String>{};
+    for (final suggestion in suggestions) {
+      if (seen.add(suggestion.code.toUpperCase())) unique.add(suggestion);
+    }
+    return unique;
   }
 
   void _fillBatchStocksFromPositions() {

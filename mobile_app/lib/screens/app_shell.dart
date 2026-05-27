@@ -168,7 +168,7 @@ class _AppShellState extends State<AppShell> {
         onOpenStrategyMonitor: _openStrategyMonitorForPosition,
       ),
       QuantScreen(
-        positions: visible,
+        positions: _positions,
         repository: _backtestRepository,
         onLoadBacktestCandles: _loadBacktestCandles,
       ),

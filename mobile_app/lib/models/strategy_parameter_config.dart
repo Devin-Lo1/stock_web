@@ -361,7 +361,7 @@ String compositeFactorParameterKey(String factorCode, String parameterKey) {
 List<String> compositeFactorCodesFromText(String text) {
   final allowed = compositeFactorCodes.toSet();
   final selected = text
-      .split(',')
+      .split(RegExp(r'[,\uFF0C;\uFF1B\s]+'))
       .map((item) => item.trim())
       .where((item) => item.isNotEmpty && allowed.contains(item))
       .toList();

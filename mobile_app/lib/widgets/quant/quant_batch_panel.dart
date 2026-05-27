@@ -1,31 +1,43 @@
 import 'package:flutter/material.dart';
 
 import '../../models/backtest_models.dart';
+import '../../models/stock_suggestion.dart';
 import '../../models/strategy_definition.dart';
 import '../../models/strategy_parameter_config.dart';
 import '../../utils/formatters.dart';
 import '../../utils/theme_helpers.dart';
 import 'quant_common_widgets.dart';
+import 'quant_stock_suggestion_list.dart';
 
 class QuantBatchPanel extends StatelessWidget {
   const QuantBatchPanel({
     super.key,
     required this.stockCodesController,
+    required this.stockSearchController,
     required this.parameterControllers,
     required this.selectedStrategy,
+    required this.stockSuggestions,
+    required this.isSearchingStocks,
     required this.isRunning,
     required this.result,
     required this.onFillPositions,
+    required this.onStockSuggestionSelected,
+    required this.onAddStockSearchText,
     required this.onRun,
     required this.onOpenRun,
   });
 
   final TextEditingController stockCodesController;
+  final TextEditingController stockSearchController;
   final Map<String, TextEditingController> parameterControllers;
   final StrategyDefinition? selectedStrategy;
+  final List<StockSuggestion> stockSuggestions;
+  final bool isSearchingStocks;
   final bool isRunning;
   final BacktestBatchResult? result;
   final VoidCallback onFillPositions;
+  final ValueChanged<StockSuggestion> onStockSuggestionSelected;
+  final VoidCallback onAddStockSearchText;
   final VoidCallback onRun;
   final ValueChanged<BacktestRun> onOpenRun;
 
@@ -46,6 +58,38 @@ class QuantBatchPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
+          Text(
+            '股票可用代码或中文名称搜索加入；参数列表用逗号、空格或分号分隔，最终最多 50 组。',
+            style: TextStyle(
+              color: secondaryTextColor(context),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: stockSearchController,
+            textInputAction: TextInputAction.search,
+            onSubmitted: (_) => onAddStockSearchText(),
+            decoration: InputDecoration(
+              labelText: '搜索股票/名称',
+              hintText: '比音勒芬、NVDA、01398',
+              suffixIcon: IconButton(
+                tooltip: '加入股票池',
+                onPressed: isRunning ? null : onAddStockSearchText,
+                icon: const Icon(Icons.add_circle_outline_rounded),
+              ),
+            ),
+          ),
+          if (isSearchingStocks || stockSuggestions.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            QuantStockSuggestionList(
+              suggestions: stockSuggestions,
+              isSearching: isSearchingStocks,
+              onSelected: onStockSuggestionSelected,
+            ),
+          ],
+          const SizedBox(height: 10),
           TextField(
             controller: stockCodesController,
             minLines: 2,
@@ -63,14 +107,7 @@ class QuantBatchPanel extends StatelessWidget {
               style: TextStyle(color: secondaryTextColor(context)),
             )
           else if (strategy.code == 'composite_factor')
-            Text(
-              '组合因子批量回测会沿用当前参数，只批量切换股票池。',
-              style: TextStyle(
-                color: secondaryTextColor(context),
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
-            )
+            _CompositeBatchParameterSection(controllers: parameterControllers)
           else
             _BatchParameterGrid(
               strategyCode: strategy.code,
@@ -108,10 +145,12 @@ class _BatchParameterGrid extends StatelessWidget {
   const _BatchParameterGrid({
     required this.strategyCode,
     required this.controllers,
+    this.keyPrefix,
   });
 
   final String strategyCode;
   final Map<String, TextEditingController> controllers;
+  final String? keyPrefix;
 
   @override
   Widget build(BuildContext context) {
@@ -132,7 +171,7 @@ class _BatchParameterGrid extends StatelessWidget {
                     ? constraints.maxWidth
                     : itemWidth,
                 child: TextField(
-                  controller: controllers[spec.key],
+                  controller: controllers[_controllerKey(spec.key)],
                   decoration: InputDecoration(
                     labelText: '${spec.label}列表',
                     hintText: spec.fallback,
@@ -142,6 +181,86 @@ class _BatchParameterGrid extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+
+  String _controllerKey(String parameterKey) {
+    final prefix = keyPrefix;
+    if (prefix == null) return parameterKey;
+    return compositeFactorParameterKey(prefix, parameterKey);
+  }
+}
+
+class _CompositeBatchParameterSection extends StatelessWidget {
+  const _CompositeBatchParameterSection({required this.controllers});
+
+  final Map<String, TextEditingController> controllers;
+
+  @override
+  Widget build(BuildContext context) {
+    final factorController = controllers['factor_codes'];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _BatchParameterGrid(
+          strategyCode: 'composite_factor',
+          controllers: controllers,
+        ),
+        if (factorController != null)
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: factorController,
+            builder: (context, value, _) {
+              final factorCodes = compositeFactorCodesFromText(value.text);
+              if (factorCodes.isEmpty) return const SizedBox.shrink();
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 12),
+                  for (final factorCode in factorCodes) ...[
+                    _CompositeBatchFactorGroup(
+                      factorCode: factorCode,
+                      controllers: controllers,
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                ],
+              );
+            },
+          ),
+      ],
+    );
+  }
+}
+
+class _CompositeBatchFactorGroup extends StatelessWidget {
+  const _CompositeBatchFactorGroup({
+    required this.factorCode,
+    required this.controllers,
+  });
+
+  final String factorCode;
+  final Map<String, TextEditingController> controllers;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          strategyDisplayNameForCode(factorCode),
+          style: TextStyle(
+            color: primaryTextColor(context),
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 8),
+        _BatchParameterGrid(
+          strategyCode: factorCode,
+          keyPrefix: factorCode,
+          controllers: controllers,
+        ),
+      ],
     );
   }
 }
