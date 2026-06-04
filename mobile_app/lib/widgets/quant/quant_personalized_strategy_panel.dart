@@ -105,18 +105,32 @@ class _QuantPersonalizedStrategyPanelState
               style: TextStyle(color: secondaryTextColor(context)),
             )
           else
-            Column(
-              children: [
-                for (var index = 0; index < groups.length; index++) ...[
-                  _PersonalizedStrategySymbolSection(
-                    group: groups[index],
-                    scanResults: widget.scanResults,
-                    scanningTemplateCodes: widget.scanningTemplateCodes,
-                    onScan: widget.onScan,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final groupWidth = constraints.maxWidth;
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (var index = 0; index < groups.length; index++) ...[
+                        SizedBox(
+                          width: groupWidth,
+                          child: _PersonalizedStrategySymbolSection(
+                            group: groups[index],
+                            scanResults: widget.scanResults,
+                            scanningTemplateCodes: widget.scanningTemplateCodes,
+                            onScan: widget.onScan,
+                          ),
+                        ),
+                        if (index != groups.length - 1)
+                          const SizedBox(width: 12),
+                      ],
+                    ],
                   ),
-                  if (index != groups.length - 1) const SizedBox(height: 14),
-                ],
-              ],
+                );
+              },
             ),
         ],
       ),
