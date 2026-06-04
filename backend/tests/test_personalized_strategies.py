@@ -106,27 +106,61 @@ def test_amd_personalized_templates_include_aggressive_and_steady() -> None:
     assert "exit_ma" not in aggressive.parameters
 
 
-def test_mu_personalized_template_uses_channel18_top1() -> None:
+def test_mu_personalized_templates_include_aggressive_and_steady() -> None:
+    templates = service.list_personalized_strategy_templates()
+    mu_templates = [item for item in templates if item.symbol == "US.MU"]
     template = service.get_personalized_strategy_template("US.MU")
 
+    assert {item.code for item in mu_templates} >= {
+        "personal_mu_sma24_40_steady",
+        "personal_mu_channel48_aggressive",
+    }
     assert template is not None
-    assert template.code == "personal_mu_channel18_top1"
+    assert template.code == "personal_mu_sma24_40_steady"
     assert template.symbol == "US.MU"
-    assert template.risk_level == "aggressive"
-    assert template.parameters["engine"] == "channel"
-    assert template.parameters["entry_channel_days"] == 18
-    assert template.parameters["exit_channel_days"] == 75
-    assert template.parameters["trend_ma"] == 120
-    assert template.parameters["benchmark_roc_days"] == 120
-    assert template.parameters["benchmark_roc_min"] == 0.08
-    assert template.parameters["own_roc_days"] == 120
-    assert template.parameters["own_roc_min"] == 0.02
-    assert template.parameters["relative_strength_days"] == 60
-    assert template.parameters["relative_strength_min"] == -0.10
-    assert template.parameters["fixed_stop"] == 0.20
-    assert template.parameters["trailing_stop"] == 0.24
-    assert template.parameters["take_profit"] == 0.08
-    assert template.parameters["max_hold_days"] == 30
+    assert template.risk_level == "steady"
+
+    steady = service.get_personalized_strategy_template(
+        "personal_mu_sma24_40_steady"
+    )
+    aggressive = service.get_personalized_strategy_template(
+        "personal_mu_channel48_aggressive"
+    )
+
+    assert steady is not None
+    assert aggressive is not None
+    assert steady.parameters["engine"] == "ma_cross"
+    assert steady.parameters["short_window"] == 24
+    assert steady.parameters["long_window"] == 40
+    assert steady.parameters["trend_ma"] == 150
+    assert steady.parameters["benchmark_ma"] == 120
+    assert steady.parameters["own_roc_days"] == 120
+    assert steady.parameters["own_roc_min"] == 0.02
+    assert steady.parameters["relative_strength_days"] == 80
+    assert steady.parameters["relative_strength_min"] == 0.06
+    assert steady.parameters["exit_ma"] == 150
+    assert steady.parameters["trailing_stop"] == 0.10
+    assert steady.parameters["take_profit"] == 0.16
+    assert "fixed_stop" not in steady.parameters
+    assert "max_hold_days" not in steady.parameters
+
+    assert aggressive.risk_level == "aggressive"
+    assert aggressive.parameters["engine"] == "channel"
+    assert aggressive.parameters["entry_channel_days"] == 48
+    assert aggressive.parameters["exit_channel_days"] == 25
+    assert aggressive.parameters["trend_ma"] == 100
+    assert aggressive.parameters["benchmark_ma"] == 150
+    assert aggressive.parameters["benchmark_roc_days"] == 120
+    assert aggressive.parameters["benchmark_roc_min"] == 0.08
+    assert aggressive.parameters["own_roc_days"] == 20
+    assert aggressive.parameters["own_roc_min"] == -0.08
+    assert aggressive.parameters["relative_strength_days"] == 20
+    assert aggressive.parameters["relative_strength_min"] == -0.06
+    assert aggressive.parameters["exit_ma"] == 100
+    assert aggressive.parameters["trailing_stop"] == 0.24
+    assert aggressive.parameters["take_profit"] == 0.08
+    assert "fixed_stop" not in aggressive.parameters
+    assert "max_hold_days" not in aggressive.parameters
 
 
 def test_ma_cross_entry_uses_momentum_and_relative_strength_filters() -> None:
