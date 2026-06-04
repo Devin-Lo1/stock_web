@@ -163,6 +163,58 @@ def test_mu_personalized_templates_include_aggressive_and_steady() -> None:
     assert "max_hold_days" not in aggressive.parameters
 
 
+def test_dell_personalized_templates_include_long_only_aggressive_and_steady() -> None:
+    templates = service.list_personalized_strategy_templates()
+    dell_templates = [item for item in templates if item.symbol == "US.DELL"]
+    template = service.get_personalized_strategy_template("US.DELL")
+
+    assert {item.code for item in dell_templates} >= {
+        "personal_dell_channel19_steady",
+        "personal_dell_channel42_aggressive",
+    }
+    assert template is not None
+    assert template.code == "personal_dell_channel19_steady"
+    assert template.direction_mode == "long_only"
+    assert template.risk_level == "steady"
+
+    steady = service.get_personalized_strategy_template(
+        "personal_dell_channel19_steady"
+    )
+    aggressive = service.get_personalized_strategy_template(
+        "personal_dell_channel42_aggressive"
+    )
+
+    assert steady is not None
+    assert aggressive is not None
+    assert steady.direction_mode == "long_only"
+    assert steady.parameters["engine"] == "channel"
+    assert steady.parameters["entry_channel_days"] == 19
+    assert steady.parameters["exit_channel_days"] == 73
+    assert steady.parameters["trend_ma"] == 100
+    assert steady.parameters["benchmark_roc_days"] == 20
+    assert steady.parameters["benchmark_roc_min"] == 0.06
+    assert steady.parameters["own_roc_days"] == 20
+    assert steady.parameters["own_roc_min"] == 0.06
+    assert steady.parameters["relative_strength_days"] == 20
+    assert steady.parameters["relative_strength_min"] == 0.02
+    assert steady.parameters["trailing_stop"] == 0.10
+    assert steady.parameters["take_profit"] == 0.16
+    assert steady.parameters["max_hold_days"] == 20
+
+    assert aggressive.direction_mode == "long_only"
+    assert aggressive.risk_level == "aggressive"
+    assert aggressive.parameters["engine"] == "channel"
+    assert aggressive.parameters["entry_channel_days"] == 42
+    assert aggressive.parameters["exit_channel_days"] == 70
+    assert aggressive.parameters["benchmark_roc_days"] == 20
+    assert aggressive.parameters["benchmark_roc_min"] == 0.0
+    assert aggressive.parameters["fixed_stop"] == 0.16
+    assert aggressive.parameters["trailing_stop"] == 0.16
+    assert aggressive.parameters["take_profit"] == 0.12
+    assert aggressive.parameters["max_hold_days"] == 50
+    assert "trend_ma" not in aggressive.parameters
+
+
 def test_ma_cross_entry_uses_momentum_and_relative_strength_filters() -> None:
     candles = _candles("US.NVDA", [10, 10, 9, 12])
     benchmark_candles = _candles("US.QQQ", [10, 10, 10, 11])
@@ -201,6 +253,32 @@ def test_ma_cross_entry_uses_momentum_and_relative_strength_filters() -> None:
 
     assert blocked is None
     assert allowed == ("long", "ma_cross_up_with_filters")
+
+
+def test_long_only_channel_template_blocks_short_entry() -> None:
+    candles = _candles("US.DELL", [10, 9, 8, 7])
+    benchmark_candles = _candles("US.QQQ", [10, 9, 8, 7])
+    closes = [item.close for item in candles]
+    benchmark_closes = [item.close for item in benchmark_candles]
+    config = {
+        "direction_mode": "long_only",
+        "parameters": {
+            "engine": "channel",
+            "entry_channel_days": 2,
+        },
+    }
+
+    blocked = service._entry_reason(
+        config,
+        candles,
+        closes,
+        benchmark_candles,
+        benchmark_closes,
+        3,
+        3,
+    )
+
+    assert blocked is None
 
 
 def test_filtered_reverse_exit_requires_reverse_filters_to_pass() -> None:

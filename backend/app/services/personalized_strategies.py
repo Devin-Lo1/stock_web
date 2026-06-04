@@ -30,6 +30,7 @@ _DATA_START = date(2021, 1, 1)
 _US_EASTERN = ZoneInfo("America/New_York")
 _DEFAULT_TEMPLATE_CODES_BY_SYMBOL = {
     "US.AMD": "personal_amd_ma10_20_steady",
+    "US.DELL": "personal_dell_channel19_steady",
     "US.GOOGL": "personal_googl_sma5_113_steady",
     "US.MU": "personal_mu_sma24_40_steady",
     "US.NVDA": "personal_nvda_ma30_40_steady",
@@ -503,7 +504,7 @@ def _entry_reason(
     index: int,
     benchmark_index: int,
 ) -> tuple[str, str] | None:
-    params = config["parameters"]
+    params = {**config["parameters"], "_direction_mode": config.get("direction_mode")}
     engine = params["engine"]
     if engine == "ma_cross":
         return _ma_cross_entry_reason(
@@ -550,14 +551,18 @@ def _ma_cross_entry_reason(
         benchmark_index,
     ):
         return "long", "ma_cross_up_with_filters"
-    if _cross_below(closes, index, short_window, long_window) and _passes_short_filters(
-        params,
-        candles,
-        closes,
-        benchmark_candles,
-        benchmark_closes,
-        index,
-        benchmark_index,
+    if (
+        params.get("_direction_mode") != "long_only"
+        and _cross_below(closes, index, short_window, long_window)
+        and _passes_short_filters(
+            params,
+            candles,
+            closes,
+            benchmark_candles,
+            benchmark_closes,
+            index,
+            benchmark_index,
+        )
     ):
         return "short", "ma_cross_down_with_filters"
     return None
@@ -589,14 +594,18 @@ def _channel_entry_reason(
         benchmark_index,
     ):
         return "long", "channel_breakout_with_filters"
-    if close < prior_low and _passes_short_filters(
-        params,
-        candles,
-        closes,
-        benchmark_candles,
-        benchmark_closes,
-        index,
-        benchmark_index,
+    if (
+        params.get("_direction_mode") != "long_only"
+        and close < prior_low
+        and _passes_short_filters(
+            params,
+            candles,
+            closes,
+            benchmark_candles,
+            benchmark_closes,
+            index,
+            benchmark_index,
+        )
     ):
         return "short", "channel_breakdown_with_filters"
     return None
@@ -1571,45 +1580,131 @@ _TEMPLATES: list[dict[str, Any]] = [
         ],
     },
     {
-        "code": "personal_dell_channel100",
+        "code": "personal_dell_channel19_steady",
         "symbol": "US.DELL",
-        "name": "DELL 100 日通道长趋势",
-        "description": "适合 DELL 的长趋势通道模板，叠加 SMA120、QQQ 长趋势和短止盈。",
+        "name": "DELL 19 日通道稳健型",
+        "description": "DELL 做多专属稳健候选，使用 19 日通道突破，叠加 SMA100、QQQ 20 日动量、DELL 20 日动量和相对 QQQ 强弱过滤。",
         "benchmark_symbol": "US.QQQ",
-        "direction_mode": "long_short",
-        "risk_level": "balanced",
-        "position_ratio": 1.0,
+        "direction_mode": "long_only",
+        "risk_level": "steady",
+        "position_ratio": 0.8,
         "parameters": {
             "engine": "channel",
-            "entry_channel_days": 100,
-            "exit_channel_days": 60,
-            "trend_ma": 120,
-            "benchmark_ma": 150,
-            "benchmark_roc_days": 60,
-            "benchmark_roc_min": 0.03,
-            "own_roc_days": 40,
-            "own_roc_min": -0.04,
-            "relative_strength_days": 60,
-            "relative_strength_min": 0.04,
-            "take_profit": 0.06,
-            "trailing_stop": 0.20,
-            "max_hold_days": 40,
+            "entry_channel_days": 19,
+            "exit_channel_days": 73,
+            "trend_ma": 100,
+            "benchmark_roc_days": 20,
+            "benchmark_roc_min": 0.06,
+            "own_roc_days": 20,
+            "own_roc_min": 0.06,
+            "relative_strength_days": 20,
+            "relative_strength_min": 0.02,
+            "trailing_stop": 0.10,
+            "take_profit": 0.16,
+            "max_hold_days": 20,
         },
         "entry_rules": [
-            "收盘突破过去 100 日高点，且 DELL 高于 SMA120。",
-            "QQQ 高于 SMA150，QQQ 60 日动量大于 3%，DELL 60 日相对强于 QQQ 4%。",
+            "做多：DELL 收盘价突破过去 19 日高点，且 DELL 高于 SMA100。",
+            "QQQ 20 日动量大于 6%，DELL 20 日动量大于 6%，且 DELL 20 日相对 QQQ 强弱大于 2%。",
+            "该模板只做多，不生成做空信号。",
         ],
         "exit_rules": [
-            "反向 60 日通道突破。",
-            "止盈 6%，移动止损 20%，或持仓满 40 个交易日。",
+            "跌破过去 73 日低点。",
+            "移动止损 10%，止盈 16%，或虚拟持仓满 20 个交易日。",
         ],
         "segments": [
+            {
+                "label": "2022",
+                "start_date": date(2022, 1, 1),
+                "end_date": date(2022, 12, 31),
+                "total_return": 0.0476,
+                "max_drawdown": -0.0555,
+                "win_rate": 1.0,
+                "round_trip_count": 1,
+            },
             {
                 "label": "2023",
                 "start_date": date(2023, 1, 1),
                 "end_date": date(2023, 12, 31),
-                "total_return": 0.4238,
-                "max_drawdown": -0.1088,
+                "total_return": 0.1309,
+                "max_drawdown": -0.0622,
+                "win_rate": 1.0,
+                "round_trip_count": 2,
+            },
+            {
+                "label": "2024",
+                "start_date": date(2024, 1, 1),
+                "end_date": date(2024, 12, 31),
+                "total_return": 0.1470,
+                "max_drawdown": -0.0283,
+                "win_rate": 1.0,
+                "round_trip_count": 1,
+            },
+            {
+                "label": "2025",
+                "start_date": date(2025, 1, 1),
+                "end_date": date(2025, 12, 31),
+                "total_return": 0.2748,
+                "max_drawdown": -0.0484,
+                "win_rate": 1.0,
+                "round_trip_count": 3,
+            },
+            {
+                "label": "2026YTD",
+                "start_date": date(2026, 1, 1),
+                "end_date": date(2026, 6, 3),
+                "total_return": 0.6140,
+                "max_drawdown": -0.0801,
+                "win_rate": 0.75,
+                "round_trip_count": 4,
+            },
+        ],
+    },
+    {
+        "code": "personal_dell_channel42_aggressive",
+        "symbol": "US.DELL",
+        "name": "DELL 42 日通道进取型",
+        "description": "DELL 做多专属进取模板，使用 42 日通道突破，叠加 QQQ 20 日动量过滤，并通过通道、止损、移动止损、止盈和持仓天数退出。",
+        "benchmark_symbol": "US.QQQ",
+        "direction_mode": "long_only",
+        "risk_level": "aggressive",
+        "position_ratio": 0.9,
+        "parameters": {
+            "engine": "channel",
+            "entry_channel_days": 42,
+            "exit_channel_days": 70,
+            "benchmark_roc_days": 20,
+            "benchmark_roc_min": 0.0,
+            "fixed_stop": 0.16,
+            "trailing_stop": 0.16,
+            "take_profit": 0.12,
+            "max_hold_days": 50,
+        },
+        "entry_rules": [
+            "做多：DELL 收盘价突破过去 42 日高点。",
+            "QQQ 20 日动量大于 0%。",
+            "该模板只做多，不生成做空信号。",
+        ],
+        "exit_rules": [
+            "跌破过去 70 日低点。",
+            "固定止损 16%，移动止损 16%，止盈 12%，或虚拟持仓满 50 个交易日。",
+        ],
+        "segments": [
+            {
+                "label": "2022",
+                "start_date": date(2022, 1, 1),
+                "end_date": date(2022, 12, 31),
+                "total_return": 0.1116,
+                "max_drawdown": -0.0342,
+                "win_rate": 1.0,
+                "round_trip_count": 1,
+            },
+            {
+                "label": "2023",
+                "start_date": date(2023, 1, 1),
+                "end_date": date(2023, 12, 31),
+                "total_return": 0.3920,
+                "max_drawdown": -0.0980,
                 "win_rate": 1.0,
                 "round_trip_count": 4,
             },
@@ -1617,19 +1712,28 @@ _TEMPLATES: list[dict[str, Any]] = [
                 "label": "2024",
                 "start_date": date(2024, 1, 1),
                 "end_date": date(2024, 12, 31),
-                "total_return": 0.7717,
-                "max_drawdown": -0.1433,
-                "win_rate": 1.0,
-                "round_trip_count": 4,
+                "total_return": 0.6549,
+                "max_drawdown": -0.1530,
+                "win_rate": 0.8,
+                "round_trip_count": 5,
             },
             {
-                "label": "2025-2026",
+                "label": "2025",
                 "start_date": date(2025, 1, 1),
-                "end_date": date(2026, 6, 1),
-                "total_return": 1.5895,
-                "max_drawdown": -0.1462,
-                "win_rate": 0.8571,
-                "round_trip_count": 7,
+                "end_date": date(2025, 12, 31),
+                "total_return": 0.4693,
+                "max_drawdown": -0.1319,
+                "win_rate": 1.0,
+                "round_trip_count": 3,
+            },
+            {
+                "label": "2026YTD",
+                "start_date": date(2026, 1, 1),
+                "end_date": date(2026, 6, 3),
+                "total_return": 0.6558,
+                "max_drawdown": -0.0886,
+                "win_rate": 0.75,
+                "round_trip_count": 4,
             },
         ],
     },
