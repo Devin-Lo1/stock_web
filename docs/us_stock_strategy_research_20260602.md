@@ -1,10 +1,10 @@
 # App 个股专属策略记录
 
-最后更新：2026-06-04
+最后更新：2026-06-05
 
 范围：记录当前 App 后端 `backend/app/services/personalized_strategies.py` 中的美股个股专属策略模板。本文档用于对照 App 里的“个股专属策略”，不是交易建议，也不写入 App 回测历史。
 
-当前覆盖标的：`US.GOOGL`、`US.QQQ`、`US.NVDA`、`US.AMD`、`US.MU`、`US.DELL`。
+当前覆盖标的：`US.GOOGL`、`US.QQQ`、`US.NVDA`、`US.AMD`、`US.MU`、`US.DELL`、`US.AAOI`。
 
 统一口径：
 
@@ -25,6 +25,7 @@
 | `US.AMD` | `personal_amd_ma10_20_steady` | `AMD SMA10/20 稳健型` | `AMD 66 日通道进取型` |
 | `US.MU` | `personal_mu_sma24_40_steady` | `MU SMA24/40 稳健型` | `MU 48 日通道进取型` |
 | `US.DELL` | `personal_dell_channel19_steady` | `DELL 19 日通道稳健型` | `DELL 42 日通道进取型` |
+| `US.AAOI` | `personal_aaoi_sma37_53_steady` | `AAOI SMA37/53 稳健型` | `AAOI SMA5/30 进取型` |
 
 ## GOOGL
 
@@ -646,6 +647,104 @@ QQQ 20 日动量大于 0%。
 | 2024 | +65.49% | -15.30% | 80.00% | 5 |
 | 2025 | +46.93% | -13.19% | 100.00% | 3 |
 | 2026YTD | +65.58% | -8.86% | 75.00% | 4 |
+
+## AAOI
+
+### `personal_aaoi_sma37_53_steady`
+
+名称：AAOI SMA37/53 稳健型
+
+方向：`long_only`
+仓位：`1.0`
+引擎：`ma_cross`
+
+参数：
+
+```text
+short_window = 37
+long_window = 53
+trend_ma = 50
+benchmark_ma = 80
+relative_strength_days = 40
+relative_strength_min = 0.0
+exit_ma = 120
+fixed_stop = 0.08
+take_profit = 0.08
+max_hold_days = 60
+```
+
+入场规则：
+
+```text
+做多：SMA37 上穿 SMA53。
+AAOI 高于 SMA50，QQQ 高于 SMA80，AAOI 40 日相对 QQQ 强弱大于 0。
+该模板只做多，不生成做空信号。
+```
+
+退出规则：
+
+```text
+SMA37 下穿 SMA53。
+跌破 SMA120，固定止损 8%，止盈 8%，或虚拟持仓满 60 个交易日。
+```
+
+分段记录：
+
+| 年度 | 收益 | 最大回撤 | 胜率 | 回合 |
+|---|---:|---:|---:|---:|
+| 2022 | +12.47% | 0.00% | 100.00% | 1 |
+| 2023 | +44.25% | -4.99% | 100.00% | 3 |
+| 2024 | +12.61% | 0.00% | 100.00% | 1 |
+| 2025 | +11.43% | -2.39% | 50.00% | 2 |
+| 2026YTD | +14.50% | 0.00% | 100.00% | 1 |
+
+### `personal_aaoi_sma5_30_aggressive`
+
+名称：AAOI SMA5/30 进取型
+
+方向：`long_only`
+仓位：`1.0`
+引擎：`ma_cross`
+
+参数：
+
+```text
+short_window = 5
+long_window = 30
+trend_ma = 100
+own_roc_days = 60
+own_roc_min = 0.0
+exit_ma = 120
+fixed_stop = 0.12
+trailing_stop = 0.16
+take_profit = 0.20
+max_hold_days = 60
+```
+
+入场规则：
+
+```text
+做多：SMA5 上穿 SMA30。
+AAOI 高于 SMA100，AAOI 60 日动量大于 0。
+该模板只做多，不生成做空信号。
+```
+
+退出规则：
+
+```text
+SMA5 下穿 SMA30。
+跌破 SMA120，固定止损 12%，移动止损 16%，止盈 20%，或虚拟持仓满 60 个交易日。
+```
+
+分段记录：
+
+| 年度 | 收益 | 最大回撤 | 胜率 | 回合 |
+|---|---:|---:|---:|---:|
+| 2022 | +38.92% | -5.65% | 100.00% | 1 |
+| 2023 | +25.99% | -3.23% | 100.00% | 1 |
+| 2024 | +48.40% | -10.66% | 66.67% | 3 |
+| 2025 | +45.27% | -9.69% | 100.00% | 2 |
+| 2026YTD | +18.26% | -1.56% | 100.00% | 1 |
 
 ## 维护要求
 

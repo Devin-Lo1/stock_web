@@ -275,6 +275,60 @@ def test_dell_personalized_templates_include_long_only_aggressive_and_steady() -
     assert "trend_ma" not in aggressive.parameters
 
 
+def test_aaoi_personalized_templates_include_long_only_aggressive_and_steady() -> None:
+    templates = service.list_personalized_strategy_templates()
+    aaoi_templates = [item for item in templates if item.symbol == "US.AAOI"]
+    template = service.get_personalized_strategy_template("US.AAOI")
+
+    assert {item.code for item in aaoi_templates} >= {
+        "personal_aaoi_sma37_53_steady",
+        "personal_aaoi_sma5_30_aggressive",
+    }
+    assert template is not None
+    assert template.code == "personal_aaoi_sma37_53_steady"
+    assert template.direction_mode == "long_only"
+    assert template.risk_level == "steady"
+
+    steady = service.get_personalized_strategy_template(
+        "personal_aaoi_sma37_53_steady"
+    )
+    aggressive = service.get_personalized_strategy_template(
+        "personal_aaoi_sma5_30_aggressive"
+    )
+
+    assert steady is not None
+    assert aggressive is not None
+    assert steady.direction_mode == "long_only"
+    assert steady.parameters["engine"] == "ma_cross"
+    assert steady.parameters["short_window"] == 37
+    assert steady.parameters["long_window"] == 53
+    assert steady.parameters["trend_ma"] == 50
+    assert steady.parameters["benchmark_ma"] == 80
+    assert steady.parameters["relative_strength_days"] == 40
+    assert steady.parameters["relative_strength_min"] == 0.0
+    assert steady.parameters["exit_ma"] == 120
+    assert steady.parameters["fixed_stop"] == 0.08
+    assert steady.parameters["take_profit"] == 0.08
+    assert steady.parameters["max_hold_days"] == 60
+    assert "trailing_stop" not in steady.parameters
+    assert "filtered_reverse_exit" not in steady.parameters
+
+    assert aggressive.direction_mode == "long_only"
+    assert aggressive.risk_level == "aggressive"
+    assert aggressive.parameters["engine"] == "ma_cross"
+    assert aggressive.parameters["short_window"] == 5
+    assert aggressive.parameters["long_window"] == 30
+    assert aggressive.parameters["trend_ma"] == 100
+    assert aggressive.parameters["own_roc_days"] == 60
+    assert aggressive.parameters["own_roc_min"] == 0.0
+    assert aggressive.parameters["exit_ma"] == 120
+    assert aggressive.parameters["fixed_stop"] == 0.12
+    assert aggressive.parameters["trailing_stop"] == 0.16
+    assert aggressive.parameters["take_profit"] == 0.20
+    assert aggressive.parameters["max_hold_days"] == 60
+    assert "filtered_reverse_exit" not in aggressive.parameters
+
+
 def test_ma_cross_entry_uses_momentum_and_relative_strength_filters() -> None:
     candles = _candles("US.NVDA", [10, 10, 9, 12])
     benchmark_candles = _candles("US.QQQ", [10, 10, 10, 11])
