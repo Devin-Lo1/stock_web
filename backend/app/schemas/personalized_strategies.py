@@ -73,3 +73,26 @@ class PersonalizedStrategyScanResult(BaseModel):
     today_signal: PersonalizedStrategyDecision | None = None
     previous_close_signal: PersonalizedStrategyDecision | None = None
     detail: dict[str, Any] = Field(default_factory=dict)
+
+
+class PersonalizedStrategyRecommendation(BaseModel):
+    symbol: str = Field(min_length=1)
+    template_code: str = Field(min_length=1)
+    template_name: str = Field(min_length=1)
+    risk_level: PersonalizedRiskLevel = "balanced"
+    action: str
+    action_label: str
+    score: float
+    latest_date: date | None = None
+    latest_price: float | None = None
+    signal_date: date | None = None
+    reason: str = ""
+    summary: str = ""
+    result: PersonalizedStrategyScanResult
+
+
+class PersonalizedStrategyBulkScanResult(BaseModel):
+    results: list[PersonalizedStrategyScanResult] = Field(default_factory=list)
+    recommendations: list[PersonalizedStrategyRecommendation] = Field(
+        default_factory=list,
+    )

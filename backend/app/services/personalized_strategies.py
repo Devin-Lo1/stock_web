@@ -13,7 +13,9 @@ from ..repositories.market_data import (
 )
 from ..schemas import Candle, QuoteSnapshot
 from ..schemas.personalized_strategies import (
+    PersonalizedStrategyBulkScanResult,
     PersonalizedStrategyDecision,
+    PersonalizedStrategyRecommendation,
     PersonalizedStrategyScanResult,
     PersonalizedStrategySegment,
     PersonalizedStrategyTemplate,
@@ -213,6 +215,23 @@ def scan_personalized_strategy(
     )
 
 
+def scan_all_personalized_strategies(
+    *,
+    refresh: bool = False,
+    limit: int = 3,
+) -> PersonalizedStrategyBulkScanResult:
+    results: list[PersonalizedStrategyScanResult] = []
+    for config in _TEMPLATES:
+        result = scan_personalized_strategy(config["code"], refresh=refresh)
+        if result is not None:
+            results.append(result)
+    recommendations = _rank_personalized_recommendations(results)[: max(1, limit)]
+    return PersonalizedStrategyBulkScanResult(
+        results=results,
+        recommendations=recommendations,
+    )
+
+
 def _template_from_config(config: dict[str, Any]) -> PersonalizedStrategyTemplate:
     return PersonalizedStrategyTemplate(
         code=config["code"],
@@ -249,6 +268,83 @@ def _find_config(symbol: str) -> dict[str, Any] | None:
         if config["symbol"].upper() == symbol:
             return config
     return None
+
+
+def _rank_personalized_recommendations(
+    results: list[PersonalizedStrategyScanResult],
+) -> list[PersonalizedStrategyRecommendation]:
+    best_by_symbol: dict[str, PersonalizedStrategyRecommendation] = {}
+    for result in results:
+        recommendation = _recommendation_from_result(result)
+        if recommendation is None:
+            continue
+        current = best_by_symbol.get(recommendation.symbol)
+        if current is None or recommendation.score > current.score:
+            best_by_symbol[recommendation.symbol] = recommendation
+    return sorted(
+        best_by_symbol.values(),
+        key=lambda item: (
+            item.score,
+            item.signal_date or date.min,
+            item.latest_date or date.min,
+        ),
+        reverse=True,
+    )
+
+
+def _recommendation_from_result(
+    result: PersonalizedStrategyScanResult,
+) -> PersonalizedStrategyRecommendation | None:
+    if result.status != "completed":
+        return None
+    decision = result.today_signal or result.previous_close_signal
+    if decision is None:
+        return None
+    if decision.action not in {"long_entry", "hold_long"}:
+        return None
+
+    template = result.template
+    score = _recommendation_score(template, decision)
+    summary = (
+        "空仓优先观察买入"
+        if decision.action == "long_entry"
+        else "策略虚拟仓位仍在多头"
+    )
+    return PersonalizedStrategyRecommendation(
+        symbol=template.symbol,
+        template_code=template.code,
+        template_name=template.name,
+        risk_level=template.risk_level,
+        action=decision.action,
+        action_label=decision.action_label,
+        score=score,
+        latest_date=decision.latest_date,
+        latest_price=decision.latest_price,
+        signal_date=decision.signal_date,
+        reason=decision.reason,
+        summary=summary,
+        result=result,
+    )
+
+
+def _recommendation_score(
+    template: PersonalizedStrategyTemplate,
+    decision: PersonalizedStrategyDecision,
+) -> float:
+    action_score = 100.0 if decision.action == "long_entry" else 72.0
+    risk_score = 6.0 if template.risk_level == "steady" else 0.0
+    segment_score = _segment_quality_score(template.segments)
+    confirmed_score = 4.0 if decision.is_confirmed else 0.0
+    return action_score + risk_score + segment_score + confirmed_score
+
+
+def _segment_quality_score(segments: list[PersonalizedStrategySegment]) -> float:
+    if not segments:
+        return 0.0
+    average_return = sum(segment.total_return for segment in segments) / len(segments)
+    average_win_rate = sum(segment.win_rate for segment in segments) / len(segments)
+    worst_drawdown = min(segment.max_drawdown for segment in segments)
+    return average_return * 10 + average_win_rate * 8 + max(worst_drawdown, -0.3) * 6
 
 
 def _load_day_candles(

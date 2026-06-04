@@ -77,6 +77,8 @@ class _QuantScreenState extends State<QuantScreen> {
   List<BacktestRun> _recentRuns = const [];
   Map<String, PersonalizedStrategyScanResult> _personalizedScanResults =
       const {};
+  List<PersonalizedStrategyRecommendation> _personalizedRecommendations =
+      const [];
   Set<String> _scanningPersonalizedTemplateCodes = const {};
   StrategyDefinition? _selectedStrategy;
   String? _historyStrategyFilter;
@@ -87,6 +89,7 @@ class _QuantScreenState extends State<QuantScreen> {
   bool _isLoadingStrategies = true;
   bool _isLoadingPersonalizedStrategies = true;
   bool _isLoadingHistory = true;
+  bool _isScanningAllPersonalizedStrategies = false;
   bool _isSearchingStocks = false;
   bool _isSearchingBatchStocks = false;
   bool _isRunning = false;
@@ -247,10 +250,13 @@ class _QuantScreenState extends State<QuantScreen> {
         QuantPersonalizedStrategyPanel(
           templates: _personalizedStrategies,
           scanResults: _personalizedScanResults,
+          recommendations: _personalizedRecommendations,
           scanningTemplateCodes: _scanningPersonalizedTemplateCodes,
           isLoading: _isLoadingPersonalizedStrategies,
+          isScanningAll: _isScanningAllPersonalizedStrategies,
           onReload: _loadPersonalizedStrategies,
           onScan: _scanPersonalizedStrategy,
+          onScanAll: _scanAllPersonalizedStrategies,
         ),
       ],
       _QuantSection.strategyConfig => [
@@ -453,6 +459,48 @@ class _QuantScreenState extends State<QuantScreen> {
         final next = {..._scanningPersonalizedTemplateCodes};
         next.remove(templateCode);
         setState(() => _scanningPersonalizedTemplateCodes = next);
+      }
+    }
+  }
+
+  Future<void> _scanAllPersonalizedStrategies() async {
+    final templateCodes = {
+      for (final template in _personalizedStrategies)
+        template.code.toUpperCase(),
+    };
+    setState(() {
+      _error = null;
+      _isScanningAllPersonalizedStrategies = true;
+      _scanningPersonalizedTemplateCodes = {
+        ..._scanningPersonalizedTemplateCodes,
+        ...templateCodes,
+      };
+    });
+    try {
+      final result = await widget.repository.scanAllPersonalizedStrategies(
+        refresh: true,
+        limit: 3,
+      );
+      if (!mounted) return;
+      final nextResults = {..._personalizedScanResults};
+      for (final scanResult in result.results) {
+        nextResults[scanResult.template.code.toUpperCase()] = scanResult;
+      }
+      setState(() {
+        _personalizedScanResults = nextResults;
+        _personalizedRecommendations = result.recommendations;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error);
+    } finally {
+      if (mounted) {
+        final next = {..._scanningPersonalizedTemplateCodes};
+        next.removeAll(templateCodes);
+        setState(() {
+          _isScanningAllPersonalizedStrategies = false;
+          _scanningPersonalizedTemplateCodes = next;
+        });
       }
     }
   }

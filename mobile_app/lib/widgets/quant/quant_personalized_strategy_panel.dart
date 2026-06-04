@@ -5,9 +5,519 @@ import '../../utils/formatters.dart';
 import '../../utils/theme_helpers.dart';
 import 'quant_common_widgets.dart';
 
-class QuantPersonalizedStrategyPanel extends StatelessWidget {
+class QuantPersonalizedStrategyPanel extends StatefulWidget {
   const QuantPersonalizedStrategyPanel({
     super.key,
+    required this.templates,
+    required this.scanResults,
+    required this.recommendations,
+    required this.scanningTemplateCodes,
+    required this.isLoading,
+    required this.isScanningAll,
+    required this.onReload,
+    required this.onScan,
+    required this.onScanAll,
+  });
+
+  final List<PersonalizedStrategyTemplate> templates;
+  final Map<String, PersonalizedStrategyScanResult> scanResults;
+  final List<PersonalizedStrategyRecommendation> recommendations;
+  final Set<String> scanningTemplateCodes;
+  final bool isLoading;
+  final bool isScanningAll;
+  final VoidCallback onReload;
+  final ValueChanged<PersonalizedStrategyTemplate> onScan;
+  final VoidCallback onScanAll;
+
+  @override
+  State<QuantPersonalizedStrategyPanel> createState() =>
+      _QuantPersonalizedStrategyPanelState();
+}
+
+class _QuantPersonalizedStrategyPanelState
+    extends State<QuantPersonalizedStrategyPanel> {
+  final TextEditingController _filterController = TextEditingController();
+  String _filterText = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _filterController.addListener(() {
+      setState(() => _filterText = _filterController.text.trim());
+    });
+  }
+
+  @override
+  void dispose() {
+    _filterController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final groups = _groupTemplates(
+      widget.templates,
+    ).where((group) => _matchesFilter(group, _filterText)).toList();
+    return QuantPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          QuantPanelHeader(
+            title: '个股专属策略',
+            icon: Icons.psychology_alt_rounded,
+            trailing: IconButton(
+              onPressed: widget.isLoading ? null : widget.onReload,
+              icon: const Icon(Icons.refresh_rounded),
+              tooltip: '刷新专属策略',
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '每个模板只对应自己的股票，用于研究回测和单次扫描；暂不作为直接交易指令。',
+            style: TextStyle(
+              color: secondaryTextColor(context),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _PersonalizedStrategyToolbar(
+            controller: _filterController,
+            isScanningAll: widget.isScanningAll,
+            onClear: () => _filterController.clear(),
+            onScanAll: widget.templates.isEmpty ? null : widget.onScanAll,
+          ),
+          if (widget.recommendations.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _RecommendationPanel(recommendations: widget.recommendations),
+          ],
+          const SizedBox(height: 12),
+          if (widget.isLoading)
+            const LinearProgressIndicator()
+          else if (widget.templates.isEmpty)
+            Text(
+              '暂无专属策略模板',
+              style: TextStyle(color: secondaryTextColor(context)),
+            )
+          else if (groups.isEmpty)
+            Text(
+              '没有匹配的股票',
+              style: TextStyle(color: secondaryTextColor(context)),
+            )
+          else
+            Column(
+              children: [
+                for (var index = 0; index < groups.length; index++) ...[
+                  _PersonalizedStrategySymbolSection(
+                    group: groups[index],
+                    scanResults: widget.scanResults,
+                    scanningTemplateCodes: widget.scanningTemplateCodes,
+                    onScan: widget.onScan,
+                  ),
+                  if (index != groups.length - 1) const SizedBox(height: 14),
+                ],
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  List<_PersonalizedStrategySymbolGroup> _groupTemplates(
+    List<PersonalizedStrategyTemplate> templates,
+  ) {
+    final grouped = <String, List<PersonalizedStrategyTemplate>>{};
+    for (final template in templates) {
+      final key = template.symbol.toUpperCase();
+      grouped.putIfAbsent(key, () => []).add(template);
+    }
+    final groups = grouped.entries.map((entry) {
+      final sorted = [...entry.value]
+        ..sort((a, b) {
+          final riskCompare = _riskOrder(
+            a.riskLevel,
+          ).compareTo(_riskOrder(b.riskLevel));
+          if (riskCompare != 0) return riskCompare;
+          return a.name.compareTo(b.name);
+        });
+      return _PersonalizedStrategySymbolGroup(
+        symbol: entry.key,
+        templates: sorted,
+      );
+    }).toList()..sort((a, b) => a.symbol.compareTo(b.symbol));
+    return groups;
+  }
+
+  bool _matchesFilter(
+    _PersonalizedStrategySymbolGroup group,
+    String filterText,
+  ) {
+    final query = filterText.trim().toLowerCase();
+    if (query.isEmpty) return true;
+    if (group.symbol.toLowerCase().contains(query)) return true;
+    return group.templates.any((template) {
+      return template.name.toLowerCase().contains(query) ||
+          template.code.toLowerCase().contains(query) ||
+          template.description.toLowerCase().contains(query);
+    });
+  }
+
+  int _riskOrder(String value) {
+    return switch (value) {
+      'steady' => 0,
+      'aggressive' => 1,
+      _ => 2,
+    };
+  }
+}
+
+class _PersonalizedStrategySymbolGroup {
+  const _PersonalizedStrategySymbolGroup({
+    required this.symbol,
+    required this.templates,
+  });
+
+  final String symbol;
+  final List<PersonalizedStrategyTemplate> templates;
+}
+
+class _PersonalizedStrategyToolbar extends StatelessWidget {
+  const _PersonalizedStrategyToolbar({
+    required this.controller,
+    required this.isScanningAll,
+    required this.onClear,
+    required this.onScanAll,
+  });
+
+  final TextEditingController controller;
+  final bool isScanningAll;
+  final VoidCallback onClear;
+  final VoidCallback? onScanAll;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        SizedBox(
+          width: 210,
+          child: TextField(
+            controller: controller,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              isDense: true,
+              labelText: '筛选股票',
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: controller.text.trim().isEmpty
+                  ? null
+                  : IconButton(
+                      onPressed: onClear,
+                      icon: const Icon(Icons.close_rounded),
+                      tooltip: '清空筛选',
+                    ),
+            ),
+          ),
+        ),
+        FilledButton.icon(
+          onPressed: isScanningAll ? null : onScanAll,
+          icon: isScanningAll
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.manage_search_rounded, size: 18),
+          label: Text(isScanningAll ? '扫描中' : '集体扫描'),
+        ),
+      ],
+    );
+  }
+}
+
+class _RecommendationPanel extends StatelessWidget {
+  const _RecommendationPanel({required this.recommendations});
+
+  final List<PersonalizedStrategyRecommendation> recommendations;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: softCardColor(context),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.workspace_premium_rounded,
+                color: appAccentColor(context),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '当前买入/持仓 Top 3',
+                  style: TextStyle(
+                    color: primaryTextColor(context),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          for (var index = 0; index < recommendations.length; index++)
+            _RecommendationTile(
+              rank: index + 1,
+              recommendation: recommendations[index],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecommendationTile extends StatelessWidget {
+  const _RecommendationTile({required this.rank, required this.recommendation});
+
+  final int rank;
+  final PersonalizedStrategyRecommendation recommendation;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _actionColor(recommendation.action, context);
+    final latestText = recommendation.latestPrice == null
+        ? '--'
+        : recommendation.latestPrice!.toStringAsFixed(2);
+    final signalDate = recommendation.signalDate == null
+        ? '--'
+        : quantDateText(recommendation.signalDate);
+    return Container(
+      margin: EdgeInsets.only(top: rank == 1 ? 0 : 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: cardColor(context),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '$rank',
+              style: TextStyle(
+                color: color,
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        recommendation.symbol,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: primaryTextColor(context),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    _Chip(text: recommendation.riskText),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  recommendation.templateName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: secondaryTextColor(context),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    Text(
+                      recommendation.actionLabel,
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      '现价 $latestText',
+                      style: TextStyle(
+                        color: secondaryTextColor(context),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      '信号 $signalDate',
+                      style: TextStyle(
+                        color: secondaryTextColor(context),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+                if (recommendation.summary.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    recommendation.summary,
+                    style: TextStyle(
+                      color: secondaryTextColor(context),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PersonalizedStrategySymbolSection extends StatelessWidget {
+  const _PersonalizedStrategySymbolSection({
+    required this.group,
+    required this.scanResults,
+    required this.scanningTemplateCodes,
+    required this.onScan,
+  });
+
+  final _PersonalizedStrategySymbolGroup group;
+  final Map<String, PersonalizedStrategyScanResult> scanResults;
+  final Set<String> scanningTemplateCodes;
+  final ValueChanged<PersonalizedStrategyTemplate> onScan;
+
+  @override
+  Widget build(BuildContext context) {
+    final steady = group.templates
+        .where((template) => template.riskLevel == 'steady')
+        .toList();
+    final aggressive = group.templates
+        .where((template) => template.riskLevel == 'aggressive')
+        .toList();
+    final others = group.templates
+        .where(
+          (template) =>
+              template.riskLevel != 'steady' &&
+              template.riskLevel != 'aggressive',
+        )
+        .toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                group.symbol,
+                style: TextStyle(
+                  color: primaryTextColor(context),
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            Text(
+              '${group.templates.length} 个模板',
+              style: TextStyle(
+                color: secondaryTextColor(context),
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ..._cardsFor(context, '稳健型', steady),
+        ..._cardsFor(context, '进取型', aggressive),
+        ..._cardsFor(context, '其它', others),
+      ],
+    );
+  }
+
+  List<Widget> _cardsFor(
+    BuildContext context,
+    String title,
+    List<PersonalizedStrategyTemplate> templates,
+  ) {
+    if (templates.isEmpty) return const [];
+    return [
+      _RiskSectionLabel(title: title),
+      const SizedBox(height: 6),
+      for (final template in templates) ...[
+        _PersonalizedStrategyCard(
+          template: template,
+          result: scanResults[template.code.toUpperCase()],
+          isScanning: scanningTemplateCodes.contains(
+            template.code.toUpperCase(),
+          ),
+          onScan: () => onScan(template),
+        ),
+        const SizedBox(height: 10),
+      ],
+    ];
+  }
+}
+
+class _RiskSectionLabel extends StatelessWidget {
+  const _RiskSectionLabel({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: TextStyle(
+        color: appAccentColor(context),
+        fontSize: 12,
+        fontWeight: FontWeight.w900,
+      ),
+    );
+  }
+}
+
+// ignore: unused_element
+class _LegacyQuantPersonalizedStrategyPanel extends StatelessWidget {
+  const _LegacyQuantPersonalizedStrategyPanel({
     required this.templates,
     required this.scanResults,
     required this.scanningTemplateCodes,

@@ -95,6 +95,25 @@ class BacktestApiService {
     );
   }
 
+  Future<PersonalizedStrategyBulkScanResult> scanAllPersonalizedStrategies({
+    bool refresh = false,
+    int limit = 3,
+  }) async {
+    final decoded = await _apiClient.post(
+      '/api/v1/personalized-strategies/scan-all',
+      const {},
+      query: {'refresh': refresh ? 'true' : 'false', 'limit': '$limit'},
+    );
+    if (decoded is Map<String, dynamic>) {
+      return PersonalizedStrategyBulkScanResult.fromJson(decoded);
+    }
+    throw const ApiException(
+      statusCode: 0,
+      code: 'INVALID_PERSONALIZED_STRATEGY_BULK_RESPONSE',
+      message: '专属策略集体扫描结果格式不正确',
+    );
+  }
+
   Future<List<BacktestRun>> fetchBacktestRuns({
     String? stockCode,
     String? strategyCode,

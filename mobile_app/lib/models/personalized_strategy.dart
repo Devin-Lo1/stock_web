@@ -206,6 +206,94 @@ class PersonalizedStrategyScanResult {
   }
 }
 
+class PersonalizedStrategyRecommendation {
+  const PersonalizedStrategyRecommendation({
+    required this.symbol,
+    required this.templateCode,
+    required this.templateName,
+    required this.riskLevel,
+    required this.action,
+    required this.actionLabel,
+    required this.score,
+    required this.latestDate,
+    required this.latestPrice,
+    required this.signalDate,
+    required this.reason,
+    required this.summary,
+    required this.result,
+  });
+
+  final String symbol;
+  final String templateCode;
+  final String templateName;
+  final String riskLevel;
+  final String action;
+  final String actionLabel;
+  final double score;
+  final DateTime? latestDate;
+  final double? latestPrice;
+  final DateTime? signalDate;
+  final String reason;
+  final String summary;
+  final PersonalizedStrategyScanResult result;
+
+  String get riskText {
+    return switch (riskLevel) {
+      'steady' => '稳健',
+      'aggressive' => '进攻',
+      _ => '均衡',
+    };
+  }
+
+  factory PersonalizedStrategyRecommendation.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final resultJson = json['result'];
+    return PersonalizedStrategyRecommendation(
+      symbol: json['symbol'] as String? ?? '',
+      templateCode: json['template_code'] as String? ?? '',
+      templateName: json['template_name'] as String? ?? '',
+      riskLevel: json['risk_level'] as String? ?? '',
+      action: json['action'] as String? ?? '',
+      actionLabel: json['action_label'] as String? ?? '',
+      score: _readDouble(json['score']),
+      latestDate: _readDate(json['latest_date']),
+      latestPrice: _readNullableDouble(json['latest_price']),
+      signalDate: _readDate(json['signal_date']),
+      reason: json['reason'] as String? ?? '',
+      summary: json['summary'] as String? ?? '',
+      result: resultJson is Map<String, dynamic>
+          ? PersonalizedStrategyScanResult.fromJson(resultJson)
+          : PersonalizedStrategyScanResult.fromJson(const {}),
+    );
+  }
+}
+
+class PersonalizedStrategyBulkScanResult {
+  const PersonalizedStrategyBulkScanResult({
+    required this.results,
+    required this.recommendations,
+  });
+
+  final List<PersonalizedStrategyScanResult> results;
+  final List<PersonalizedStrategyRecommendation> recommendations;
+
+  factory PersonalizedStrategyBulkScanResult.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return PersonalizedStrategyBulkScanResult(
+      results: (json['results'] as List? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(PersonalizedStrategyScanResult.fromJson)
+          .toList(),
+      recommendations: (json['recommendations'] as List? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(PersonalizedStrategyRecommendation.fromJson)
+          .toList(),
+    );
+  }
+}
+
 PersonalizedStrategyDecision? _readDecision(Object? value) {
   if (value is Map<String, dynamic>) {
     return PersonalizedStrategyDecision.fromJson(value);

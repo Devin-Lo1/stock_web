@@ -37,6 +37,16 @@ class BacktestRepository {
     return _apiService.scanPersonalizedStrategy(symbol, refresh: refresh);
   }
 
+  Future<PersonalizedStrategyBulkScanResult> scanAllPersonalizedStrategies({
+    bool refresh = false,
+    int limit = 3,
+  }) {
+    return _apiService.scanAllPersonalizedStrategies(
+      refresh: refresh,
+      limit: limit,
+    );
+  }
+
   Future<List<BacktestRun>> loadBacktestRuns({
     String? stockCode,
     String? strategyCode,

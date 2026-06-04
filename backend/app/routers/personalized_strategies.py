@@ -1,10 +1,15 @@
 from fastapi import APIRouter, Query, status
 
 from ..errors import api_error
-from ..schemas import PersonalizedStrategyScanResult, PersonalizedStrategyTemplate
+from ..schemas import (
+    PersonalizedStrategyBulkScanResult,
+    PersonalizedStrategyScanResult,
+    PersonalizedStrategyTemplate,
+)
 from ..services.personalized_strategies import (
     get_personalized_strategy_template,
     list_personalized_strategy_templates,
+    scan_all_personalized_strategies,
     scan_personalized_strategy,
 )
 
@@ -17,6 +22,14 @@ router = APIRouter(
 @router.get("", response_model=list[PersonalizedStrategyTemplate])
 def api_list_personalized_strategy_templates() -> list[PersonalizedStrategyTemplate]:
     return list_personalized_strategy_templates()
+
+
+@router.post("/scan-all", response_model=PersonalizedStrategyBulkScanResult)
+def api_scan_all_personalized_strategies(
+    refresh: bool = Query(default=False),
+    limit: int = Query(default=3, ge=1, le=10),
+) -> PersonalizedStrategyBulkScanResult:
+    return scan_all_personalized_strategies(refresh=refresh, limit=limit)
 
 
 @router.get("/{symbol}", response_model=PersonalizedStrategyTemplate)

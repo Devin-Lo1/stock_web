@@ -1,6 +1,10 @@
 from datetime import UTC, date, datetime, timedelta
 
-from app.schemas import Candle
+from app.schemas import (
+    Candle,
+    PersonalizedStrategyDecision,
+    PersonalizedStrategyScanResult,
+)
 from app.services import personalized_strategies as service
 
 
@@ -386,6 +390,78 @@ def test_filtered_reverse_exit_requires_reverse_filters_to_pass() -> None:
 
     assert blocked is None
     assert unfiltered == "reverse_ma_cross"
+
+
+def test_personalized_recommendations_keep_best_long_candidate_per_symbol() -> None:
+    googl_steady = service.get_personalized_strategy_template(
+        "personal_googl_sma5_113_steady"
+    )
+    googl_aggressive = service.get_personalized_strategy_template(
+        "personal_googl_sma5_113_aggressive"
+    )
+    nvda_steady = service.get_personalized_strategy_template(
+        "personal_nvda_ma30_40_steady"
+    )
+
+    assert googl_steady is not None
+    assert googl_aggressive is not None
+    assert nvda_steady is not None
+
+    recommendations = service._rank_personalized_recommendations(
+        [
+            _scan_result(googl_aggressive, "long_entry"),
+            _scan_result(googl_steady, "hold_long"),
+            _scan_result(nvda_steady, "short_entry"),
+        ]
+    )
+
+    assert len(recommendations) == 1
+    assert recommendations[0].symbol == "US.GOOGL"
+    assert recommendations[0].template_code == "personal_googl_sma5_113_aggressive"
+    assert recommendations[0].action == "long_entry"
+
+
+def _scan_result(
+    template,
+    action: str,
+) -> PersonalizedStrategyScanResult:
+    action_label = {
+        "long_entry": "做多观察",
+        "hold_long": "持有多头",
+        "short_entry": "做空观察",
+    }.get(action, "无信号")
+    decision = PersonalizedStrategyDecision(
+        kind="strategy_signal",
+        title="测试信号",
+        action=action,
+        action_label=action_label,
+        current_position="flat",
+        latest_date=date(2026, 6, 3),
+        latest_price=100,
+        signal_date=date(2026, 6, 3),
+        reason="unit_test",
+        flat_decision=action,
+        long_decision=action,
+        short_decision=action,
+        is_realtime=False,
+        is_confirmed=True,
+        detail={},
+    )
+    return PersonalizedStrategyScanResult(
+        template=template,
+        status="completed",
+        action=action,
+        action_label=action_label,
+        current_position="flat",
+        latest_date=date(2026, 6, 3),
+        latest_close=100,
+        signal_date=date(2026, 6, 3),
+        reason="unit_test",
+        refresh_error=None,
+        today_signal=decision,
+        previous_close_signal=decision,
+        detail={},
+    )
 
 
 def _candles(code: str, closes: list[float]) -> list[Candle]:

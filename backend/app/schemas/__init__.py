@@ -72,7 +72,9 @@ from .notifications import (
     SignalReadStatus,
 )
 from .personalized_strategies import (
+    PersonalizedStrategyBulkScanResult,
     PersonalizedStrategyDecision,
+    PersonalizedStrategyRecommendation,
     PersonalizedStrategyScanResult,
     PersonalizedStrategySegment,
     PersonalizedStrategyTemplate,
