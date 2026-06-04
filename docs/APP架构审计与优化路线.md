@@ -1,21 +1,39 @@
 # App 架构审计与优化路线
 
-最后更新：2026-05-25
+最后更新：2026-05-26
 
 当前 Git 基线：
 
 ```text
-dcdce44 feat: protect public api with token
+a92a987 fix: make kline query postgres compatible
 ```
 
 本文档记录项目代码和 docs 的结构扫描结论，用于后续一步步优化项目框架结构。后续新增功能前，应先阅读：
 
 1. `docs/APP开发强约束规范.md`
 2. `docs/APP新开发者接手指南.md`
-3. `docs/APP项目结构说明.md`
-4. `docs/APP马上解决任务顺序.md`
-5. `docs/APP服务器部署与Futu交接说明.md`
-6. `docs/APP架构审计与优化路线.md`
+3. `docs/APP下一位开发者交接清单.md`
+4. `docs/APP项目结构说明.md`
+5. `docs/APP马上解决任务顺序.md`
+6. `docs/APP服务器部署与Futu交接说明.md`
+7. `docs/APP架构审计与优化路线.md`
+
+## 0. 2026-05-26 云端架构新增结论
+
+当前项目云端形态继续推进：
+
+- App 当前仍连接 `http://119.91.47.141`。
+- 域名 `devinstock.cloud`、`www.devinstock.cloud` 已解析到云服务器，服务器侧 HTTPS 已配置；App 切域名前要完成真机 HTTPS 验证。
+- 云端 PostgreSQL 是事实数据源，本地旧库只作开发/备份参考。
+- FutuOpenD 已在云服务器本机运行，并必须只监听本机/内网地址。
+- 最新云端量化回测 500 修复点是 PostgreSQL SQL 兼容性：K 线查询中的子查询必须带别名。
+
+新增架构风险：
+
+1. HTTPS 服务器侧可用不等于 App 真机链路可用，还要验证证书链、Android 网络安全配置和 token 注入。
+2. 数据库层改动必须在 PostgreSQL 上验证，不能只按 SQLite 习惯写 SQL。
+3. 量化历史详情依赖 K 线缓存查询，任何 K 线 repository 改动都要回归回测历史详情和买卖点图。
+4. 基金业绩走势和我的收益是两套曲线，不能在架构上混用同一份现金流计算。
 
 ## 0. 2026-05-25 云端架构新增结论
 
@@ -29,7 +47,7 @@ dcdce44 feat: protect public api with token
 新增架构风险：
 
 1. 公网 API 已启用 `API_ACCESS_TOKEN` 简单 token 保护，但还不是完整登录态；后续要补账号体系、限流和更细权限。
-2. HTTP 暂未上 HTTPS，token 仍可能在不可信网络中被抓包；后续绑定域名后配置证书。
+2. 服务器侧 HTTPS 已配置，但 App 暂未切换；切换前必须完成真机验证。
 3. FutuOpenD 不应直接暴露公网，若放在家用电脑，应通过 Tailscale/WireGuard/SSH 隧道让云服务器访问。
 4. 数据库密码曾在调试聊天中出现，生产使用前建议轮换。
 
@@ -54,7 +72,7 @@ D:\flutter\bin\flutter.bat test
 - Flutter test 56 passed。
 - `fund_api_service_test` 7 passed。
 - 后端 pytest 88 passed。
-- 局域网 debug APK 已打包并安装成功。
+- 云端 debug APK 已打包并安装成功，历史局域网包只作旧调试记录。
 - 当前工作区在文档更新前干净。
 
 已知警告：
@@ -187,7 +205,7 @@ docs 当前入口已经校准到 2026-05-24 的基金模块基线。后续维护
    - 顶部“最新交接快照”必须优先于后面历史章节。
 
 3. `docs/APP马上解决任务顺序.md`
-   - 顶部 2026-05-24 当前马上任务是短期权威入口。
+   - 顶部 2026-05-26 当前马上任务是短期权威入口。
    - 旧日期章节只作为历史背景。
 
 4. `docs/APP项目结构说明.md`

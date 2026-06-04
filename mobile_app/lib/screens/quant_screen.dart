@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/backtest_models.dart';
 import '../models/candle.dart';
+import '../models/personalized_strategy.dart';
 import '../models/stock_suggestion.dart';
 import '../models/stock_position.dart';
 import '../models/strategy_definition.dart';
@@ -12,7 +13,9 @@ import '../repositories/backtest_repository.dart';
 import '../services/api_client.dart';
 import '../services/stock_search_api_service.dart';
 import '../utils/stock_suggestion_search.dart';
+import '../utils/theme_helpers.dart';
 import '../widgets/common/page_title.dart';
+import '../widgets/quant/quant_common_widgets.dart';
 import '../widgets/quant/quant_panels.dart';
 import 'backtest_result_screen.dart';
 import 'volume_profile_result_screen.dart';
@@ -43,6 +46,7 @@ class QuantScreen extends StatefulWidget {
 
 class _QuantScreenState extends State<QuantScreen> {
   final _scrollController = ScrollController();
+  _QuantSection? _activeSection;
   final _stockCodeController = TextEditingController(text: 'HK.02628');
   final _batchStockCodesController = TextEditingController();
   final _batchStockSearchController = TextEditingController();
@@ -67,9 +71,13 @@ class _QuantScreenState extends State<QuantScreen> {
   DateTime _volumeProfileStartDate = DateTime(2025, 1, 1);
   DateTime _volumeProfileEndDate = _todayDate();
   List<StrategyDefinition> _strategies = const [];
+  List<PersonalizedStrategyTemplate> _personalizedStrategies = const [];
   List<StockSuggestion> _stockSuggestions = const [];
   List<StockSuggestion> _batchStockSuggestions = const [];
   List<BacktestRun> _recentRuns = const [];
+  Map<String, PersonalizedStrategyScanResult> _personalizedScanResults =
+      const {};
+  Set<String> _scanningPersonalizedTemplateCodes = const {};
   StrategyDefinition? _selectedStrategy;
   String? _historyStrategyFilter;
   String? _historyStatusFilter;
@@ -77,6 +85,7 @@ class _QuantScreenState extends State<QuantScreen> {
   String _selectedStockName = '';
   Object? _error;
   bool _isLoadingStrategies = true;
+  bool _isLoadingPersonalizedStrategies = true;
   bool _isLoadingHistory = true;
   bool _isSearchingStocks = false;
   bool _isSearchingBatchStocks = false;
@@ -102,6 +111,7 @@ class _QuantScreenState extends State<QuantScreen> {
     _stockCodeController.addListener(_updateStockSuggestions);
     _batchStockSearchController.addListener(_updateBatchStockSuggestions);
     _loadStrategies();
+    _loadPersonalizedStrategies();
     _loadHistory();
     _updateStockSuggestions();
   }
@@ -143,36 +153,113 @@ class _QuantScreenState extends State<QuantScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: _activeSection == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _activeSection != null) _closeSection();
+      },
+      child: _activeSection == null
+          ? _buildSectionHub(context)
+          : _buildSectionPage(context, _activeSection!),
+    );
+  }
+
+  Widget _buildSectionHub(BuildContext context) {
     return ListView(
       controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 120),
       children: [
-        const PageTitle(title: '量化', subtitle: '策略回测和参数验证'),
+        const PageTitle(title: '量化', subtitle: '选择一个板块进入，减少长页滚动'),
+        const SizedBox(height: 14),
+        _QuantSectionTile(
+          title: '个股专属策略',
+          subtitle: '查看专属模板、实时参考、昨日收盘信号和策略细节',
+          meta: _isLoadingPersonalizedStrategies
+              ? '加载中'
+              : '${_personalizedStrategies.length} 个模板',
+          icon: Icons.psychology_alt_rounded,
+          onTap: () => _openSection(_QuantSection.personalized),
+        ),
+        const SizedBox(height: 10),
+        _QuantSectionTile(
+          title: '策略及参数设置',
+          subtitle: '选择策略、股票、时间、资金参数，并启动单票回测',
+          meta: _selectedStrategy?.displayName ?? '未选择策略',
+          icon: Icons.tune_rounded,
+          onTap: () => _openSection(_QuantSection.strategyConfig),
+        ),
+        const SizedBox(height: 10),
+        _QuantSectionTile(
+          title: '历史回测',
+          subtitle: '筛选、排序、查看详情、重命名或删除历史回测',
+          meta: _isLoadingHistory ? '加载中' : '${_recentRuns.length} 条记录',
+          icon: Icons.history_rounded,
+          onTap: () => _openSection(_QuantSection.history),
+        ),
+        const SizedBox(height: 10),
+        _QuantSectionTile(
+          title: '批量回测',
+          subtitle: '批量股票池、参数列表组合、排序查看批量结果',
+          meta: '${widget.positions.length} 个持仓可填入',
+          icon: Icons.grid_view_rounded,
+          onTap: () => _openSection(_QuantSection.batch),
+        ),
+        const SizedBox(height: 10),
+        _QuantSectionTile(
+          title: '价值区回归',
+          subtitle: '用 1 分钟 K 线近似成交量剖面，回测 VAH / VAL / POC',
+          meta: _volumeProfileStockCodeController.text.trim().toUpperCase(),
+          icon: Icons.bar_chart_rounded,
+          onTap: () => _openSection(_QuantSection.volumeProfile),
+        ),
         const SizedBox(height: 12),
+        if (_error != null) QuantErrorPanel(error: _error!),
+      ],
+    );
+  }
+
+  Widget _buildSectionPage(BuildContext context, _QuantSection section) {
+    final config = _QuantSectionConfig.of(section);
+    return ListView(
+      controller: _scrollController,
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 120),
+      children: [
+        PageTitle(
+          title: config.title,
+          subtitle: config.subtitle,
+          action: IconButton.filledTonal(
+            onPressed: _closeSection,
+            icon: const Icon(Icons.arrow_back_rounded),
+            tooltip: '返回量化板块',
+          ),
+        ),
+        const SizedBox(height: 12),
+        ..._sectionWidgets(section),
+        const SizedBox(height: 12),
+        if (_error != null) QuantErrorPanel(error: _error!),
+      ],
+    );
+  }
+
+  List<Widget> _sectionWidgets(_QuantSection section) {
+    return switch (section) {
+      _QuantSection.personalized => [
+        QuantPersonalizedStrategyPanel(
+          templates: _personalizedStrategies,
+          scanResults: _personalizedScanResults,
+          scanningTemplateCodes: _scanningPersonalizedTemplateCodes,
+          isLoading: _isLoadingPersonalizedStrategies,
+          onReload: _loadPersonalizedStrategies,
+          onScan: _scanPersonalizedStrategy,
+        ),
+      ],
+      _QuantSection.strategyConfig => [
         QuantStrategyPanel(
           strategies: _strategies,
           selectedStrategy: _selectedStrategy,
           isLoading: _isLoadingStrategies,
           onChanged: _selectStrategy,
           onReload: _loadStrategies,
-        ),
-        const SizedBox(height: 12),
-        QuantHistoryPanel(
-          runs: _recentRuns,
-          strategies: _strategies,
-          stockCodeController: _historyStockCodeController,
-          strategyFilter: _historyStrategyFilter,
-          statusFilter: _historyStatusFilter,
-          isLoading: _isLoadingHistory,
-          onReload: _loadHistory,
-          onApplyFilters: _loadHistory,
-          onClearFilters: _clearHistoryFilters,
-          onStrategyFilterChanged: _setHistoryStrategyFilter,
-          onStatusFilterChanged: _setHistoryStatusFilter,
-          onSelected: _loadHistoryResult,
-          onDelete: _confirmDeleteHistory,
-          onRename: _confirmRenameHistory,
-          onDeleteAll: _confirmDeleteAllHistory,
         ),
         const SizedBox(height: 12),
         QuantConfigPanel(
@@ -192,6 +279,56 @@ class _QuantScreenState extends State<QuantScreen> {
           onSuggestionSelected: _applyStockSuggestion,
         ),
         const SizedBox(height: 12),
+        FilledButton.icon(
+          onPressed: _isRunning || _selectedStrategy == null ? null : _run,
+          icon: _isRunning
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.play_arrow_rounded),
+          label: Text(_isRunning ? '回测中' : '启动回测'),
+        ),
+      ],
+      _QuantSection.history => [
+        QuantHistoryPanel(
+          runs: _recentRuns,
+          strategies: _strategies,
+          stockCodeController: _historyStockCodeController,
+          strategyFilter: _historyStrategyFilter,
+          statusFilter: _historyStatusFilter,
+          isLoading: _isLoadingHistory,
+          onReload: _loadHistory,
+          onApplyFilters: _loadHistory,
+          onClearFilters: _clearHistoryFilters,
+          onStrategyFilterChanged: _setHistoryStrategyFilter,
+          onStatusFilterChanged: _setHistoryStatusFilter,
+          onSelected: _loadHistoryResult,
+          onDelete: _confirmDeleteHistory,
+          onRename: _confirmRenameHistory,
+          onDeleteAll: _confirmDeleteAllHistory,
+        ),
+      ],
+      _QuantSection.batch => [
+        QuantStrategyPanel(
+          strategies: _strategies,
+          selectedStrategy: _selectedStrategy,
+          isLoading: _isLoadingStrategies,
+          onChanged: _selectStrategy,
+          onReload: _loadStrategies,
+        ),
+        const SizedBox(height: 12),
+        _CommonBacktestSettingsPanel(
+          initialCashController: _initialCashController,
+          feeRateController: _feeRateController,
+          slippageRateController: _slippageRateController,
+          startDate: _startDate,
+          endDate: _endDate,
+          onStartDateChanged: (value) => setState(() => _startDate = value),
+          onEndDateChanged: (value) => setState(() => _endDate = value),
+        ),
+        const SizedBox(height: 12),
         QuantBatchPanel(
           stockCodesController: _batchStockCodesController,
           stockSearchController: _batchStockSearchController,
@@ -207,7 +344,8 @@ class _QuantScreenState extends State<QuantScreen> {
           onRun: _runBatch,
           onOpenRun: _loadHistoryResult,
         ),
-        const SizedBox(height: 12),
+      ],
+      _QuantSection.volumeProfile => [
         QuantVolumeProfilePanel(
           stockCodeController: _volumeProfileStockCodeController,
           deviationThresholdController: _volumeProfileDeviationController,
@@ -223,22 +361,25 @@ class _QuantScreenState extends State<QuantScreen> {
           },
           onRun: _runVolumeProfileBacktest,
         ),
-        const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: _isRunning || _selectedStrategy == null ? null : _run,
-          icon: _isRunning
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.play_arrow_rounded),
-          label: Text(_isRunning ? '回测中' : '启动回测'),
-        ),
-        const SizedBox(height: 12),
-        if (_error != null) QuantErrorPanel(error: _error!),
       ],
-    );
+    };
+  }
+
+  void _openSection(_QuantSection section) {
+    setState(() => _activeSection = section);
+    _scrollToTopAfterBuild();
+  }
+
+  void _closeSection() {
+    setState(() => _activeSection = null);
+    _scrollToTopAfterBuild();
+  }
+
+  void _scrollToTopAfterBuild() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.jumpTo(0);
+    });
   }
 
   Future<void> _loadStrategies() async {
@@ -261,6 +402,58 @@ class _QuantScreenState extends State<QuantScreen> {
       setState(() => _error = error);
     } finally {
       if (mounted) setState(() => _isLoadingStrategies = false);
+    }
+  }
+
+  Future<void> _loadPersonalizedStrategies({bool showError = true}) async {
+    setState(() {
+      _isLoadingPersonalizedStrategies = true;
+      if (showError) _error = null;
+    });
+    try {
+      final templates = await widget.repository.loadPersonalizedStrategies();
+      if (!mounted) return;
+      setState(() => _personalizedStrategies = templates);
+    } catch (error) {
+      if (!mounted) return;
+      if (showError) setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _isLoadingPersonalizedStrategies = false);
+    }
+  }
+
+  Future<void> _scanPersonalizedStrategy(
+    PersonalizedStrategyTemplate template,
+  ) async {
+    final templateCode = template.code.toUpperCase();
+    setState(() {
+      _error = null;
+      _scanningPersonalizedTemplateCodes = {
+        ..._scanningPersonalizedTemplateCodes,
+        templateCode,
+      };
+    });
+    try {
+      final result = await widget.repository.scanPersonalizedStrategy(
+        templateCode,
+        refresh: true,
+      );
+      if (!mounted) return;
+      setState(() {
+        _personalizedScanResults = {
+          ..._personalizedScanResults,
+          templateCode: result,
+        };
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error);
+    } finally {
+      if (mounted) {
+        final next = {..._scanningPersonalizedTemplateCodes};
+        next.remove(templateCode);
+        setState(() => _scanningPersonalizedTemplateCodes = next);
+      }
     }
   }
 
@@ -1513,6 +1706,219 @@ class _QuantScreenState extends State<QuantScreen> {
     ];
     if (codes.isEmpty) return _stockCodeController.text.trim().toUpperCase();
     return codes.toSet().join(', ');
+  }
+}
+
+enum _QuantSection {
+  personalized,
+  strategyConfig,
+  history,
+  batch,
+  volumeProfile,
+}
+
+class _QuantSectionConfig {
+  const _QuantSectionConfig({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  static _QuantSectionConfig of(_QuantSection section) {
+    return switch (section) {
+      _QuantSection.personalized => const _QuantSectionConfig(
+        title: '个股专属策略',
+        subtitle: '按股票查看专属策略模板、实时参考和昨日收盘信号',
+      ),
+      _QuantSection.strategyConfig => const _QuantSectionConfig(
+        title: '策略及参数设置',
+        subtitle: '配置单只股票回测参数，并启动一次普通回测',
+      ),
+      _QuantSection.history => const _QuantSectionConfig(
+        title: '历史回测',
+        subtitle: '筛选、排序和查看已保存的回测结果',
+      ),
+      _QuantSection.batch => const _QuantSectionConfig(
+        title: '批量回测',
+        subtitle: '批量股票池和参数组合验证，适合筛选策略参数',
+      ),
+      _QuantSection.volumeProfile => const _QuantSectionConfig(
+        title: '价值区回归',
+        subtitle: '基于成交量剖面近似计算 VAH / VAL / POC',
+      ),
+    };
+  }
+}
+
+class _QuantSectionTile extends StatelessWidget {
+  const _QuantSectionTile({
+    required this.title,
+    required this.subtitle,
+    required this.meta,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final String meta;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Ink(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: cardColor(context),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: borderColor(context)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: appAccentContainerColor(context),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: appAccentColor(context), size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: primaryTextColor(context),
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          meta.isEmpty ? '--' : meta,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: appAccentColor(context),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: secondaryTextColor(context),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        height: 1.25,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Icon(Icons.chevron_right_rounded, color: mutedIconColor(context)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CommonBacktestSettingsPanel extends StatelessWidget {
+  const _CommonBacktestSettingsPanel({
+    required this.initialCashController,
+    required this.feeRateController,
+    required this.slippageRateController,
+    required this.startDate,
+    required this.endDate,
+    required this.onStartDateChanged,
+    required this.onEndDateChanged,
+  });
+
+  final TextEditingController initialCashController;
+  final TextEditingController feeRateController;
+  final TextEditingController slippageRateController;
+  final DateTime startDate;
+  final DateTime endDate;
+  final ValueChanged<DateTime> onStartDateChanged;
+  final ValueChanged<DateTime> onEndDateChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return QuantPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const QuantPanelHeader(
+            title: '通用回测设置',
+            icon: Icons.settings_input_component_rounded,
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: QuantDateButton(
+                  label: '开始日期',
+                  value: startDate,
+                  onChanged: onStartDateChanged,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: QuantDateButton(
+                  label: '结束日期',
+                  value: endDate,
+                  onChanged: onEndDateChanged,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: QuantNumberField(
+                  controller: initialCashController,
+                  label: '初始资金',
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: QuantNumberField(
+                  controller: feeRateController,
+                  label: '手续费率',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          QuantNumberField(controller: slippageRateController, label: '滑点率'),
+        ],
+      ),
+    );
   }
 }
 

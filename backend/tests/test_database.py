@@ -302,6 +302,116 @@ def test_position_snapshot_capture_and_latest_endpoint() -> None:
     assert by_position_response.json()[0]["id"] == snapshot["id"]
 
 
+def test_position_snapshot_day_profit_uses_same_day_trade_price() -> None:
+    client = TestClient(app)
+    position_response = client.post(
+        "/api/v1/positions",
+        json={
+            "market": "US",
+            "code": "US.MRVU",
+            "name": "MRVU",
+            "quantity": 0,
+            "cost_price": 0,
+            "currency": "USD",
+        },
+    )
+    position_id = position_response.json()["id"]
+    client.post(
+        f"/api/v1/positions/{position_id}/trades",
+        json={
+            "action": "open",
+            "quantity": 100,
+            "price": 10,
+            "fee": 0,
+            "trade_time": "2026-05-20T14:00:00+00:00",
+        },
+    )
+    client.post(
+        f"/api/v1/positions/{position_id}/trades",
+        json={
+            "action": "add",
+            "quantity": 50,
+            "price": 12,
+            "fee": 0,
+            "trade_time": "2026-05-21T14:00:00+00:00",
+        },
+    )
+    database.upsert_quote(
+        QuoteSnapshot(
+            code="US.MRVU",
+            market="US",
+            currency="USD",
+            current_price=13,
+            previous_close=11,
+            open=11.5,
+            high=13.2,
+            low=11.2,
+            volume=1000,
+            turnover=13000,
+            change=2,
+            change_rate=18.18,
+            quote_time=datetime(2026, 5, 21, 21, 0, tzinfo=timezone.utc),
+        ),
+    )
+
+    snapshot = client.post("/api/v1/positions/snapshots/capture").json()[0]
+
+    assert snapshot["quantity"] == 150
+    assert snapshot["day_profit"] == 250
+    assert snapshot["day_profit_rate"] == pytest.approx(14.705882352941178)
+    assert snapshot["holding_profit"] == pytest.approx(350)
+
+
+def test_position_snapshot_same_day_open_day_profit_matches_holding_profit() -> None:
+    client = TestClient(app)
+    position_response = client.post(
+        "/api/v1/positions",
+        json={
+            "market": "US",
+            "code": "US.DLLL",
+            "name": "DLLL",
+            "quantity": 0,
+            "cost_price": 0,
+            "currency": "USD",
+        },
+    )
+    position_id = position_response.json()["id"]
+    client.post(
+        f"/api/v1/positions/{position_id}/trades",
+        json={
+            "action": "open",
+            "quantity": 10,
+            "price": 100,
+            "fee": 5,
+            "trade_time": "2026-05-21T14:00:00+00:00",
+        },
+    )
+    database.upsert_quote(
+        QuoteSnapshot(
+            code="US.DLLL",
+            market="US",
+            currency="USD",
+            current_price=98,
+            previous_close=50,
+            open=98,
+            high=99,
+            low=97,
+            volume=1000,
+            turnover=98000,
+            change=48,
+            change_rate=96,
+            quote_time=datetime(2026, 5, 21, 21, 0, tzinfo=timezone.utc),
+        ),
+    )
+
+    snapshot = client.post("/api/v1/positions/snapshots/capture").json()[0]
+
+    assert snapshot["quantity"] == 10
+    assert snapshot["day_profit"] == pytest.approx(-25)
+    assert snapshot["day_profit_rate"] == pytest.approx(-2.487562189054726)
+    assert snapshot["holding_profit"] == pytest.approx(-25)
+
+
 def test_position_snapshot_uses_adjusted_cost_and_realized_profit() -> None:
     client = TestClient(app)
     position_response = client.post(

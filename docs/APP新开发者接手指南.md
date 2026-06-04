@@ -1,14 +1,33 @@
 # App 新开发者接手指南
 
-最后更新：2026-05-25
+最后更新：2026-05-26
 
 当前代码功能基线：
 
 ```text
-dcdce44 feat: protect public api with token
+a92a987 fix: make kline query postgres compatible
 ```
 
 本文档给新开发者使用。目标是：读完 `docs/` 后能知道当前项目做到哪、不能做什么、下一步从哪里开始。
+
+## 0. 2026-05-26 最新交接快照
+
+当前最新事实：
+
+- App 当前仍使用云服务器公网 IP：`http://119.91.47.141`。
+- 域名 `devinstock.cloud`、`www.devinstock.cloud` 已解析到 `119.91.47.141`，服务器侧 HTTPS 已配置；App 暂不切域名，等真机 HTTPS 验证通过后再改 `API_BASE_URL`。
+- 云端 PostgreSQL 是当前事实数据源；不要再把本地旧库当主库。
+- FutuOpenD 已在云服务器本机运行，`11111` API 端口和 `22222` telnet 运维口必须只允许本机/内网访问，禁止暴露公网。
+- `/api/v1/*` 已启用 `API_ACCESS_TOKEN` 简单保护；`/`、`/health` 公开。
+- 最新云端量化回测 500 已修复：根因是 PostgreSQL 要求 K 线查询里的子查询必须有别名，修复提交为 `a92a987`。
+- 基金模块最近连续修复了交易记录、持仓修正日期、业绩走势/我的收益分离、估算收益“估”标识、下一次策略参考净值/日期显示。用户已明确基金历史以新建导入记录为准，旧历史不要恢复。
+
+下一位开发者优先做：
+
+1. 复测云端量化回测和回测历史详情，确认买卖操作与买卖 K 线图可显示。
+2. 复测基金交易记录、持仓修正、策略参考净值/日期、估算收益“估”标识。
+3. 完成域名 HTTPS 真机验证，稳定后再切 App API 地址。
+4. 如果要增强 ATR “仅止损”，新增明确的“初始持仓止损”模式，不要改变旧策略默认语义。
 
 ## 0. 2026-05-25 云服务器与 Futu 交接增量
 
@@ -29,9 +48,9 @@ docs/APP服务器部署与Futu交接说明.md
 1. 按 `docs/APP服务器部署与Futu交接说明.md` 检查服务器 systemd、Nginx、PostgreSQL、备份和防火墙。
 2. 确认 `futu-opend`、`stock-web-backend`、`nginx`、`postgresql` 均为 active。
 3. 继续保持 FutuOpenD 的 `11111` 和 `22222` 只监听 `127.0.0.1`，禁止暴露公网。
-4. 公网 API 已启用 `API_ACCESS_TOKEN` 简单访问保护；后续继续补域名、HTTPS、登录态和限流。
+4. 公网 API 已启用 `API_ACCESS_TOKEN` 简单访问保护；域名和服务器侧 HTTPS 已初配，后续继续补真机 HTTPS 验证、登录态和限流。
 
-注意：本文后面保留了局域网真机调试历史说明；现在若面向云服务器真机包，必须用 `--dart-define=API_BASE_URL=http://119.91.47.141` 重新构建 APK。
+注意：本文后面保留了局域网真机调试历史说明；现在若面向云服务器真机包，必须用 `API_BASE_URL=http://119.91.47.141` 并注入 `API_ACCESS_TOKEN` 重新构建 APK。
 
 ## 0. 最新交接快照
 
@@ -59,7 +78,7 @@ LAN debug APK build: Success
 debug APK install: Success
 ```
 
-当前真机 APK 使用局域网后端：
+历史记录：当时真机 APK 使用局域网后端。当前交接以云服务器包为准，不再使用这个地址作为默认值。
 
 ```text
 http://192.168.1.4:8000
@@ -85,17 +104,19 @@ http://192.168.1.4:8000
 
 1. `docs/APP开发强约束规范.md`
 2. `docs/APP新开发者接手指南.md`
-3. `docs/APP项目结构说明.md`
-4. `docs/APP马上解决任务顺序.md`
-5. `docs/APP架构审计与优化路线.md`
-6. `docs/APP后续开发方案.md`
-7. `docs/APP总体开发规划.md`
+3. `docs/APP下一位开发者交接清单.md`
+4. `docs/APP项目结构说明.md`
+5. `docs/APP马上解决任务顺序.md`
+6. `docs/APP架构审计与优化路线.md`
+7. `docs/APP后续开发方案.md`
+8. `docs/APP总体开发规划.md`
 
 如果这些文档出现冲突，优先级为：
 
 ```text
 APP开发强约束规范
 -> APP新开发者接手指南
+-> APP下一位开发者交接清单
 -> APP马上解决任务顺序
 -> APP架构审计与优化路线
 -> 其他历史规划文档
@@ -236,13 +257,13 @@ D:\Android\Sdk\platform-tools\adb.exe install -r -d mobile_app\build\app\outputs
 Success
 ```
 
-本次 APK 使用局域网地址：
+历史记录：本次 APK 当时使用局域网地址：
 
 ```text
 http://192.168.1.4:8000
 ```
 
-注意：这个 IP 只是当时网络下的示例。电脑换 Wi-Fi、热点、路由器或网卡后必须重新构建安装 APK，并在 App 设置页核对后端 API 地址。
+注意：这个 IP 只是历史局域网调试示例。当前云端调试包应使用 `http://119.91.47.141` 并注入 API token。
 
 ## 5. 下一位开发者马上要做
 
@@ -440,7 +461,9 @@ cd C:\Users\58229\Desktop\stock_web\backend
 
 ```powershell
 cd C:\Users\58229\Desktop\stock_web
-.\scripts\build_mobile_lan_debug.ps1
+$key=Join-Path $env:USERPROFILE '.ssh\id_ed25519_gitee_stock_web'
+$token=ssh -i $key -o BatchMode=yes ubuntu@119.91.47.141 'set -a; . /home/ubuntu/stock_web/backend/.env >/dev/null 2>&1; printf %s "$API_ACCESS_TOKEN"'
+.\scripts\build_mobile_lan_debug.ps1 -ApiBaseUrl 'http://119.91.47.141' -ApiAccessToken $token
 D:\Android\Sdk\platform-tools\adb.exe install -r mobile_app\build\app\outputs\flutter-apk\app-debug.apk
 ```
 
@@ -460,4 +483,4 @@ rg -n "\x{FFFD}" docs mobile_app\docs
 - 不要把完整持仓、成本、资金、策略参数放进远程推送 payload。
 - 不要把推送文案写成投资建议。
 - 不要基于终端里看到的乱码继续写中文文案。
-- 不要裸跑 `flutter build apk --debug` 给真机联调，必须带局域网 `API_BASE_URL` 或使用 `scripts/build_mobile_lan_debug.ps1`。
+- 不要裸跑 `flutter build apk --debug` 给真机联调，必须显式传入当前 API 地址和 `API_ACCESS_TOKEN`。云端包当前使用 `http://119.91.47.141`，域名 HTTPS 验证完成后再切换。

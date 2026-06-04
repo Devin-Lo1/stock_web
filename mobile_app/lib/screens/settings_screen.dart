@@ -8,9 +8,8 @@ import '../services/notification_service.dart';
 import '../utils/theme_helpers.dart';
 import '../widgets/common/app_tag.dart';
 import '../widgets/common/page_title.dart';
-import 'data_guide_screen.dart';
+import 'documentation_screen.dart';
 import 'display_settings_screen.dart';
-import 'factor_guide_screen.dart';
 import 'notification_settings_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -90,23 +89,12 @@ class SettingsScreen extends StatelessWidget {
           ),
           _SettingTile(
             icon: Icons.menu_book_outlined,
-            title: '因子说明',
-            subtitle: '策略因子、组合因子与使用注意',
+            title: '说明文档',
+            subtitle: '专属策略信号、因子和数据口径',
             status: '说明',
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
-                builder: (context) => const FactorGuideScreen(),
-              ),
-            ),
-          ),
-          _SettingTile(
-            icon: Icons.dataset_outlined,
-            title: '数据说明',
-            subtitle: '行情、收益、资金流和推送口径',
-            status: '说明',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (context) => const DataGuideScreen(),
+                builder: (context) => const DocumentationScreen(),
               ),
             ),
           ),

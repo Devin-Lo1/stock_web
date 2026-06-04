@@ -1,6 +1,6 @@
 # App 开发强约束规范
 
-最后更新：2026-05-25
+最后更新：2026-05-26
 
 本文档是本项目后续开发的强制规范，合并自：
 
@@ -274,8 +274,9 @@ mutedIconColor(context)
 - 每次切换后端连接方式后，必须重新构建或重新运行 App，确认 `API_BASE_URL` 已经生效。
 - 公网 API 启用访问保护后，构建 App 必须同时传入 `--dart-define=API_ACCESS_TOKEN=...`；该 token 只允许保存在服务器 `.env`、本机临时 shell 变量或构建机安全变量中，不得提交 Git、写入文档或聊天记录。
 - 每次重新插拔手机、重启 ADB、重启电脑后，若使用 USB reverse，必须重新检查端口转发。
-- 项目当前默认采用局域网真机调试。重新构建真机 APK 时禁止裸跑 `flutter build apk --debug`，必须运行 `.\scripts\build_mobile_lan_debug.ps1` 或显式传入 `--dart-define=API_BASE_URL=http://电脑当前局域网IP:8000`，否则 App 会回退到 `http://127.0.0.1:8000`，真机将无法通过局域网连接后端。
-- 若构建连接云服务器的 APK，必须显式传入 `--dart-define=API_BASE_URL=http://119.91.47.141` 或后续正式域名；不要混用局域网包和云服务器包。
+- 项目当前默认采用云服务器真机调试：`http://119.91.47.141`。重新构建真机 APK 时禁止裸跑 `flutter build apk --debug`，必须运行构建脚本并显式传入 `API_BASE_URL` 和 `API_ACCESS_TOKEN`。
+- 若临时构建局域网调试 APK，必须显式传入 `--dart-define=API_BASE_URL=http://电脑当前局域网IP:8000`，不要混用局域网包和云服务器包。
+- 域名 `devinstock.cloud` / `www.devinstock.cloud` 已配置服务器侧 HTTPS，但 App 切换到 `https://devinstock.cloud` 前必须完成真机验证。
 - 当前后端只在设置 `API_ACCESS_TOKEN` 时保护 `/api/v1/*`；`/` 和 `/health` 保持公开用于部署脚本、Nginx 和基础监控。App 端统一由 `services/api_client.dart` 添加 Bearer token，不要在页面或各 service 中手写鉴权 header。
 - 公网部署后，后端健康检查正常不等于 FutuOpenD 正常。FutuOpenD 默认由后端通过 `FUTU_HOST` / `FUTU_PORT` 访问，禁止让 Flutter 直连 FutuOpenD，禁止将 FutuOpenD 端口直接暴露公网。
 - 电脑切换 Wi-Fi、热点、路由器或网卡后，局域网 IP 可能变化；必须重新构建并安装 APK。`build_mobile_lan_debug.ps1` 默认会自动探测当前带默认网关的 IPv4 地址。
@@ -368,6 +369,7 @@ D:\flutter\bin\flutter.bat build apk --release --dart-define=API_BASE_URL=https:
 - 回测结果不得包装为投资建议。
 - 量化页默认结束日期不得硬编码为某个历史日期，必须默认使用当前日期或后端可识别的最新交易日期。
 - 回测和实时策略扫描不得只判断 K 线数量是否足够，还必须判断缓存数据是否覆盖到请求的结束日期；缓存过旧时必须先尝试刷新。
+- 涉及 K 线、回测历史详情或买卖点图的 SQL 改动必须在 PostgreSQL 上验证；PostgreSQL 子查询必须带别名，例如 `FROM (...) AS alias`。
 - 详情页 K 线、量化页买卖点图、后端策略信号扫描必须尽量使用同一份最新 K 线缓存，避免详情页已更新而量化信号仍滞后数日。
 - 量化页买卖点 K 线可以使用回测专用图表组件，但图中指标必须跟当前策略参数一致，不得硬编码为 MA5/MA20；例如 MA Cross 参数是 5/10 时，图表也必须显示 MA5/MA10。
 - 详情页“收盘价跌破某条均线”和 MA Cross “短均线下穿长均线”属于不同触发条件。若需要按价格跌破 MA 触发信号，必须新增独立策略或独立条件，不得混同为双均线死叉。
@@ -443,7 +445,9 @@ D:\flutter\bin\flutter.bat test
 
 ```powershell
 cd C:\Users\58229\Desktop\stock_web
-.\scripts\build_mobile_lan_debug.ps1
+$key=Join-Path $env:USERPROFILE '.ssh\id_ed25519_gitee_stock_web'
+$token=ssh -i $key -o BatchMode=yes ubuntu@119.91.47.141 'set -a; . /home/ubuntu/stock_web/backend/.env >/dev/null 2>&1; printf %s "$API_ACCESS_TOKEN"'
+.\scripts\build_mobile_lan_debug.ps1 -ApiBaseUrl 'http://119.91.47.141' -ApiAccessToken $token
 D:\Android\Sdk\platform-tools\adb.exe -s PQY0221B24008957 install -r mobile_app\build\app\outputs\flutter-apk\app-debug.apk
 ```
 

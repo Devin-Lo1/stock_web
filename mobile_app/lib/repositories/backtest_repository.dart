@@ -1,4 +1,5 @@
 import '../models/backtest_models.dart';
+import '../models/personalized_strategy.dart';
 import '../models/strategy_definition.dart';
 import '../services/backtest_api_service.dart';
 
@@ -23,6 +24,17 @@ class BacktestRepository {
     VolumeProfileBacktestRequest request,
   ) {
     return _apiService.runVolumeProfileBacktest(request);
+  }
+
+  Future<List<PersonalizedStrategyTemplate>> loadPersonalizedStrategies() {
+    return _apiService.fetchPersonalizedStrategies();
+  }
+
+  Future<PersonalizedStrategyScanResult> scanPersonalizedStrategy(
+    String symbol, {
+    bool refresh = false,
+  }) {
+    return _apiService.scanPersonalizedStrategy(symbol, refresh: refresh);
   }
 
   Future<List<BacktestRun>> loadBacktestRuns({

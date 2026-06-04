@@ -71,6 +71,12 @@ from .notifications import (
     SignalEventCreate,
     SignalReadStatus,
 )
+from .personalized_strategies import (
+    PersonalizedStrategyDecision,
+    PersonalizedStrategyScanResult,
+    PersonalizedStrategySegment,
+    PersonalizedStrategyTemplate,
+)
 from .strategies import (
     SignalScanConfig,
     SignalScanConfigCreate,
@@ -149,6 +155,10 @@ __all__ = [
     "PushRecord",
     "PushRecordCreate",
     "PushStatus",
+    "PersonalizedStrategyDecision",
+    "PersonalizedStrategyScanResult",
+    "PersonalizedStrategySegment",
+    "PersonalizedStrategyTemplate",
     "SignalEvent",
     "SignalEventCreate",
     "SignalReadStatus",

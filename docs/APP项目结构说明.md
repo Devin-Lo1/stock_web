@@ -1,19 +1,20 @@
 # App 项目结构说明
 
-最后更新：2026-05-25
+最后更新：2026-05-26
 
 最新功能基线：
 
 ```text
-dcdce44 feat: protect public api with token
+a92a987 fix: make kline query postgres compatible
 ```
 
-本次文档已同步持仓详情页、量化策略监控、推送记录、场外基金管理结构和云服务器部署交接。当前最新功能还包括：基金搜索、基金持仓、基金估算/正式净值、基金交易记录、基金阈值提醒、多个提醒时间 scheduler、基金详情页业绩走势、沪深300对比、成本价均线、区间切换、净值列表和买卖点标记，以及云服务器本机 FutuOpenD 安全接入。
+本次文档已同步持仓详情页、量化策略监控、推送记录、场外基金管理结构和云服务器部署交接。当前最新功能还包括：基金搜索、基金持仓、基金估算/正式净值、基金交易记录、基金阈值提醒、多个提醒时间 scheduler、基金详情页业绩走势、沪深300对比、成本价均线、区间切换、净值列表和买卖点标记、估算收益小圆圈“估”、下一参考净值/日期、云服务器本机 FutuOpenD 安全接入、域名 HTTPS 服务器侧初配，以及 PostgreSQL K 线查询兼容修复。
 
 云服务器、Gitee、部署脚本、PostgreSQL 备份和 FutuOpenD 可用性说明见：
 
 ```text
 docs/APP服务器部署与Futu交接说明.md
+docs/APP下一位开发者交接清单.md
 ```
 
 本文档用于说明当前项目每个主要代码文件的职责。新接手者看完后，应能判断某个功能应该在哪个目录、哪个文件下开发。
@@ -425,7 +426,7 @@ POST   /api/v1/funds/alerts/scan
 
 所有后端请求都应经过它。
 
-公网 API 启用 token 时，App 通过 `--dart-define=API_ACCESS_TOKEN=...` 注入 token，`ApiClient` 统一添加 `Authorization` header。页面和各业务 service 不要重复拼鉴权 header。
+公网 API 启用 token 时，App 通过 `--dart-define=API_ACCESS_TOKEN=...` 注入 token，`ApiClient` 统一添加 `Authorization` header。页面和各业务 service 不要重复拼鉴权 header。当前 App 仍使用 `http://119.91.47.141`，域名 HTTPS 真机验证完成后再切到 `https://devinstock.cloud`。
 
 ### `lib/services/position_api_service.dart`
 
@@ -1580,6 +1581,14 @@ backend/app/routers/backtests.py
 - 调度层只负责定时和状态记录，不写策略计算、不写 SQL。
 
 ### `backend/app/repositories/market_data.py`
+
+行情和 K 线 repository。
+
+当前特别注意：
+
+- 量化回测和回测历史详情会按股票、周期、日期区间读取 K 线。
+- PostgreSQL 子查询必须写成 `FROM (...) AS alias`，不能省略别名。
+- 最近一次云端回测 500 就是该兼容性问题导致，已在 `a92a987` 修复。
 
 行情和 K 线数据库读写。
 

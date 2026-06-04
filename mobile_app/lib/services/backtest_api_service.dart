@@ -1,4 +1,5 @@
 import '../models/backtest_models.dart';
+import '../models/personalized_strategy.dart';
 import '../models/strategy_definition.dart';
 import 'api_client.dart';
 
@@ -62,6 +63,35 @@ class BacktestApiService {
       statusCode: 0,
       code: 'INVALID_VOLUME_PROFILE_RESPONSE',
       message: '价值区回测结果格式不正确',
+    );
+  }
+
+  Future<List<PersonalizedStrategyTemplate>>
+  fetchPersonalizedStrategies() async {
+    final decoded = await _apiClient.get('/api/v1/personalized-strategies');
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(PersonalizedStrategyTemplate.fromJson)
+        .toList();
+  }
+
+  Future<PersonalizedStrategyScanResult> scanPersonalizedStrategy(
+    String symbol, {
+    bool refresh = false,
+  }) async {
+    final decoded = await _apiClient.post(
+      '/api/v1/personalized-strategies/${symbol.trim().toUpperCase()}/scan',
+      const {},
+      query: {'refresh': refresh ? 'true' : 'false'},
+    );
+    if (decoded is Map<String, dynamic>) {
+      return PersonalizedStrategyScanResult.fromJson(decoded);
+    }
+    throw const ApiException(
+      statusCode: 0,
+      code: 'INVALID_PERSONALIZED_STRATEGY_RESPONSE',
+      message: '专属策略扫描结果格式不正确',
     );
   }
 

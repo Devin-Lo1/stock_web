@@ -1,6 +1,6 @@
 # App 总体开发规划
 
-最后更新：2026-05-25
+最后更新：2026-05-26
 
 当前最新状态：
 
@@ -11,9 +11,10 @@
 - 推送记录支持按股票代码和状态筛选，支持删除和重试。
 - 核心持仓收益、市值、仓位占比以后端 `position_snapshots` 为权威来源。
 - 场外基金管理已加入：搜索添加、基金持仓、估算/正式净值、基金交易、阈值提醒、多个提醒时间 scheduler、基金详情页 50 日净值趋势和买卖点标记。
-- 云服务器部署已开始：Gitee 同步、腾讯云轻量服务器、Nginx、PostgreSQL、FastAPI systemd、公网 API、部署脚本和数据库备份脚本已建立。
-- 当前 FutuOpenD 尚未在云端可用，股票实时行情链路需先完成 FutuOpenD 安全接入方案。
-- 下一阶段重点是服务器安全与 FutuOpenD 接入、真机验收基金页面和提醒 scheduler，然后补基金数据源缓存、基金提醒推送联调、基金交易编辑/删除和组合资产总览。
+- 云服务器部署已建立：Gitee 同步、腾讯云轻量服务器、Nginx、PostgreSQL、FastAPI systemd、公网 API、部署脚本、数据库备份脚本和 FutuOpenD 本机服务已可用。
+- 域名 `devinstock.cloud` / `www.devinstock.cloud` 已解析到云服务器，服务器侧 HTTPS 已配置；App 暂仍使用 `http://119.91.47.141`，等真机 HTTPS 验证完成后再切换。
+- 最新量化回测云端 500 已修复：K 线查询在 PostgreSQL 下需要子查询别名，修复提交为 `a92a987`。
+- 下一阶段重点是量化回测历史详情真机复测、域名 HTTPS 真机验证、基金交易记录和策略参考口径继续验收，然后补登录态、限流、日志告警和备份恢复演练。
 
 本文档用于让新接手者快速理解项目目标、阶段路线、技术架构和长期方向。内容整合自：
 
@@ -207,6 +208,7 @@ POST   /api/v1/funds/alerts/scan
 ```text
 docs/APP开发强约束规范.md
 docs/APP新开发者接手指南.md
+docs/APP下一位开发者交接清单.md
 docs/APP项目结构说明.md
 docs/APP马上解决任务顺序.md
 docs/APP架构审计与优化路线.md
@@ -480,6 +482,13 @@ Backend
 - 日志和监控。
 - 备份策略。
 - 生产 API 域名和 HTTPS。
+
+当前状态：
+
+- PostgreSQL、Nginx、systemd 后端服务和备份脚本已在腾讯云落地。
+- 域名解析和服务器侧 HTTPS 已初配。
+- App 尚未切换到 HTTPS 域名，需完成真机验证后再改。
+- 仍需补登录鉴权、限流、日志告警和备份恢复演练。
 
 ## 6. 数据模型规划
 
@@ -878,11 +887,12 @@ D:\flutter\bin\flutter.bat config --jdk-dir="D:\java\jdk-17.0.19+10"
 
 1. `docs/APP开发强约束规范.md`
 2. `docs/APP新开发者接手指南.md`
-3. `docs/APP项目结构说明.md`
-4. `docs/APP马上解决任务顺序.md`
-5. `docs/APP架构审计与优化路线.md`
-6. `docs/APP后续开发方案.md`
-7. `docs/APP总体开发规划.md`
+3. `docs/APP下一位开发者交接清单.md`
+4. `docs/APP项目结构说明.md`
+5. `docs/APP马上解决任务顺序.md`
+6. `docs/APP架构审计与优化路线.md`
+7. `docs/APP后续开发方案.md`
+8. `docs/APP总体开发规划.md`
 
 旧历史文档若不存在，不再作为接手入口；以 `docs/README.md` 中列出的当前文档为准。
 
