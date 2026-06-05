@@ -4,7 +4,7 @@
 
 范围：记录当前 App 后端 `backend/app/services/personalized_strategies.py` 中的美股个股专属策略模板。本文档用于对照 App 里的“个股专属策略”，不是交易建议，也不写入 App 回测历史。
 
-当前覆盖标的：`US.GOOGL`、`US.QQQ`、`US.NVDA`、`US.AMD`、`US.MU`、`US.DELL`、`US.AAOI`。
+当前覆盖标的：`US.GOOGL`、`US.QQQ`、`US.NVDA`、`US.AMD`、`US.MU`、`US.DELL`、`US.AAOI`、`US.MSFT`。
 
 统一口径：
 
@@ -26,6 +26,7 @@
 | `US.MU` | `personal_mu_sma24_40_steady` | `MU SMA24/40 稳健型` | `MU 48 日通道进取型` |
 | `US.DELL` | `personal_dell_channel19_steady` | `DELL 19 日通道稳健型` | `DELL 42 日通道进取型` |
 | `US.AAOI` | `personal_aaoi_sma37_53_steady` | `AAOI SMA37/53 稳健型` | `AAOI SMA5/30 进取型` |
+| `US.MSFT` | `personal_msft_channel61_steady` | `MSFT 61 日通道稳健型` | `MSFT 59 日通道进取型` |
 
 ## GOOGL
 
@@ -745,6 +746,108 @@ SMA5 下穿 SMA30。
 | 2024 | +48.40% | -10.66% | 66.67% | 3 |
 | 2025 | +45.27% | -9.69% | 100.00% | 2 |
 | 2026YTD | +18.26% | -1.56% | 100.00% | 1 |
+
+## MSFT
+
+### `personal_msft_channel61_steady`
+
+名称：MSFT 61 日通道稳健型
+
+方向：`long_short`
+仓位：`1.0`
+引擎：`channel`
+
+参数：
+
+```text
+entry_channel_days = 61
+exit_channel_days = 62
+trend_ma = 80
+benchmark_roc_days = 60
+benchmark_roc_min = -0.08
+own_roc_days = 120
+own_roc_min = 0.04
+relative_strength_days = 20
+relative_strength_min = 0.04
+exit_ma = 120
+fixed_stop = 0.08
+trailing_stop = 0.16
+take_profit = 0.10
+max_hold_days = 50
+```
+
+入场规则：
+
+```text
+做多：MSFT 收盘价突破过去 61 日高点，且 MSFT 高于 SMA80。
+QQQ 60 日动量大于 -8%，MSFT 120 日动量大于 4%，MSFT 20 日相对 QQQ 强弱大于 4%。
+做空为对称条件：MSFT 跌破过去 61 日低点，且 MSFT 低于 SMA80，QQQ 60 日动量小于 8%，MSFT 120 日动量小于 -4%，MSFT 20 日相对 QQQ 强弱小于 -4%。
+```
+
+退出规则：
+
+```text
+反向 62 日通道突破，或价格跌破/站回 SMA120。
+固定止损 8%，移动止损 16%，止盈 10%，或虚拟持仓满 50 个交易日。
+```
+
+分段记录：
+
+| 年度 | 收益 | 最大回撤 | 胜率 | 回合 |
+|---|---:|---:|---:|---:|
+| 2022 | +10.58% | -9.62% | 100.00% | 1 |
+| 2023 | +37.73% | -5.54% | 100.00% | 3 |
+| 2024 | +10.54% | -4.21% | 100.00% | 1 |
+| 2025 | +11.97% | -8.15% | 66.67% | 3 |
+| 2026YTD | +20.84% | -7.77% | 100.00% | 2 |
+
+### `personal_msft_channel59_aggressive`
+
+名称：MSFT 59 日通道进取型
+
+方向：`long_short`
+仓位：`1.0`
+引擎：`channel`
+
+参数：
+
+```text
+entry_channel_days = 59
+exit_channel_days = 73
+trend_ma = 120
+own_roc_days = 40
+own_roc_min = 0.02
+relative_strength_days = 40
+relative_strength_min = 0.02
+exit_ma = 200
+trailing_stop = 0.20
+take_profit = 0.10
+```
+
+入场规则：
+
+```text
+做多：MSFT 收盘价突破过去 59 日高点，且 MSFT 高于 SMA120。
+MSFT 40 日动量大于 2%，MSFT 40 日相对 QQQ 强弱大于 2%。
+做空为对称条件：MSFT 跌破过去 59 日低点，且 MSFT 低于 SMA120，MSFT 40 日动量小于 -2%，MSFT 40 日相对 QQQ 强弱小于 -2%。
+```
+
+退出规则：
+
+```text
+反向 73 日通道突破，或价格跌破/站回 SMA200。
+移动止损 20%，或止盈 10%。
+```
+
+分段记录：
+
+| 年度 | 收益 | 最大回撤 | 胜率 | 回合 |
+|---|---:|---:|---:|---:|
+| 2022 | +17.03% | -9.62% | 40.00% | 5 |
+| 2023 | +35.75% | -5.55% | 75.00% | 4 |
+| 2024 | +10.92% | -9.33% | 100.00% | 1 |
+| 2025 | +31.90% | -9.76% | 83.33% | 6 |
+| 2026YTD | +21.32% | -7.69% | 100.00% | 2 |
 
 ## 维护要求
 
