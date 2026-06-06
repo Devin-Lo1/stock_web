@@ -1,6 +1,6 @@
 # App 个股专属策略记录
 
-最后更新：2026-06-05
+最后更新：2026-06-06
 
 范围：记录当前 App 后端 `backend/app/services/personalized_strategies.py` 中的美股个股专属策略模板。本文档用于对照 App 里的“个股专属策略”，不是交易建议，也不写入 App 回测历史。
 
@@ -20,7 +20,7 @@
 | 标的 | 默认模板 | 稳健型 | 进取型 |
 |---|---|---|---|
 | `US.GOOGL` | `personal_googl_sma5_113_steady` | `GOOGL SMA5/113 相对强弱（稳健型）` | `GOOGL SMA5/113 趋势交叉（进取型）` |
-| `US.QQQ` | `personal_qqq_sma34_77_steady` | `QQQ SMA34/77 稳健型` | `QQQ 41 日通道进取型` |
+| `US.QQQ` | `personal_qqq_sma12_98_steady` | `QQQ SMA12/98 稳健型` | `QQQ SMA12/98 进取型` |
 | `US.NVDA` | `personal_nvda_ma30_40_steady` | `NVDA MA30/40 稳定型` | `NVDA 35日通道趋势突破（进取型）` |
 | `US.AMD` | `personal_amd_ma10_20_steady` | `AMD SMA10/20 稳健型` | `AMD 66 日通道进取型` |
 | `US.MU` | `personal_mu_sma24_40_steady` | `MU SMA24/40 稳健型` | `MU 48 日通道进取型` |
@@ -132,9 +132,9 @@ GOOGL 80 日动量大于 2%，且 GOOGL 20 日相对 QQQ 强弱不弱于 -8%。
 
 ## QQQ
 
-### `personal_qqq_sma34_77_steady`
+### `personal_qqq_sma12_98_steady`
 
-名称：QQQ SMA34/77 稳健型
+名称：QQQ SMA12/98 稳健型
 
 方向：`long_short`
 仓位：`1.0`
@@ -143,26 +143,24 @@ GOOGL 80 日动量大于 2%，且 GOOGL 20 日相对 QQQ 强弱不弱于 -8%。
 参数：
 
 ```text
-short_window = 34
-long_window = 77
-trend_ma = 120
-benchmark_ma = 80
-benchmark_roc_days = 80
-benchmark_roc_min = 0.0
-relative_strength_days = 60
-relative_strength_min = -0.02
-exit_ma = 120
-trailing_stop = 0.20
-take_profit = 0.06
-max_hold_days = 60
+short_window = 12
+long_window = 98
+trend_ma = 100
+benchmark_ma = 150
+benchmark_roc_days = 120
+benchmark_roc_min = -0.08
+relative_strength_days = 80
+relative_strength_min = -0.08
+take_profit = 0.12
+filtered_reverse_exit = true
 ```
 
 入场规则：
 
 ```text
-做多：SMA34 上穿 SMA77，且 QQQ 高于 SMA120 与 SMA80。
-QQQ 80 日动量大于 0。
-做空为对称条件：SMA34 下穿 SMA77，且 QQQ 低于 SMA120 与 SMA80，QQQ 80 日动量转弱。
+做多：SMA12 上穿 SMA98，且 QQQ 高于 SMA100 与 SMA150。
+QQQ 120 日动量大于 -8%。
+做空为对称条件：SMA12 下穿 SMA98，且 QQQ 低于 SMA100 与 SMA150，QQQ 120 日动量低于 8%。
 ```
 
 说明：标的和基准同为 `US.QQQ`，相对强弱项只用于保留回测参数口径，不提供额外区分度。
@@ -170,54 +168,49 @@ QQQ 80 日动量大于 0。
 退出规则：
 
 ```text
-反向 SMA34/SMA77 均线交叉，或跌破/站回 SMA120。
-移动止损 20%，止盈 6%，或虚拟持仓满 60 个交易日。
+出现合格反向 SMA12/SMA98 均线交叉信号。
+止盈 12%；不启用固定止损、移动止损、退出均线或最大持仓天数。
 ```
 
 分段记录：
 
 | 年度 | 收益 | 最大回撤 | 胜率 | 回合 |
 |---|---:|---:|---:|---:|
-| 2022 | +11.16% | -7.68% | 100.00% | 2 |
-| 2023 | +10.97% | -6.89% | 100.00% | 2 |
-| 2024 | +12.89% | -3.27% | 100.00% | 2 |
-| 2025 | +13.72% | -5.35% | 100.00% | 1 |
-| 2026YTD | +10.93% | -2.61% | 100.00% | 2 |
+| 2022 | +22.50% | -13.36% | 100.00% | 2 |
+| 2023 | +19.12% | -7.43% | 100.00% | 2 |
+| 2024 | +24.91% | -7.01% | 100.00% | 2 |
+| 2025 | +30.63% | -5.11% | 100.00% | 2 |
+| 2026YTD | +12.68% | -2.54% | 100.00% | 1 |
 
-### `personal_qqq_channel41_aggressive`
+### `personal_qqq_sma12_98_aggressive`
 
-名称：QQQ 41 日通道进取型
+名称：QQQ SMA12/98 进取型
 
 方向：`long_short`
 仓位：`1.0`
-引擎：`channel`
+引擎：`ma_cross`
 
 参数：
 
 ```text
-entry_channel_days = 41
-exit_channel_days = 65
-trend_ma = 200
-benchmark_ma = 120
-benchmark_roc_days = 40
-benchmark_roc_min = 0.0
-own_roc_days = 40
-own_roc_min = 0.04
-relative_strength_days = 20
-relative_strength_min = -0.04
-exit_ma = 150
-fixed_stop = 0.06
-trailing_stop = 0.24
-take_profit = 0.08
-max_hold_days = 30
+short_window = 12
+long_window = 98
+trend_ma = 100
+benchmark_ma = 150
+benchmark_roc_days = 120
+benchmark_roc_min = -0.08
+relative_strength_days = 80
+relative_strength_min = -0.08
+take_profit = 0.12
+filtered_reverse_exit = true
 ```
 
 入场规则：
 
 ```text
-做多：QQQ 收盘价突破过去 41 日高点，且高于 SMA200 与 SMA120。
-QQQ 40 日动量大于 0 且大于 4%。
-做空为对称条件：跌破过去 41 日低点，且低于 SMA200 与 SMA120，QQQ 40 日动量小于 -4%。
+做多：SMA12 上穿 SMA98，且 QQQ 高于 SMA100 与 SMA150。
+QQQ 120 日动量大于 -8%。
+做空为对称条件：SMA12 下穿 SMA98，且 QQQ 低于 SMA100 与 SMA150，QQQ 120 日动量低于 8%。
 ```
 
 说明：标的和基准同为 `US.QQQ`，相对强弱项只用于保留回测参数口径，不提供额外区分度。
@@ -225,19 +218,19 @@ QQQ 40 日动量大于 0 且大于 4%。
 退出规则：
 
 ```text
-反向 65 日通道突破，或跌破/站回 SMA150。
-固定止损 6%，移动止损 24%，止盈 8%，或虚拟持仓满 30 个交易日。
+出现合格反向 SMA12/SMA98 均线交叉信号。
+止盈 12%；不启用固定止损、移动止损、退出均线或最大持仓天数。
 ```
 
 分段记录：
 
 | 年度 | 收益 | 最大回撤 | 胜率 | 回合 |
 |---|---:|---:|---:|---:|
-| 2022 | +15.06% | -10.83% | 60.00% | 5 |
-| 2023 | +24.43% | -7.71% | 100.00% | 5 |
-| 2024 | +18.98% | -5.34% | 100.00% | 4 |
-| 2025 | +29.27% | -5.44% | 100.00% | 5 |
-| 2026YTD | +12.53% | -7.85% | 66.67% | 3 |
+| 2022 | +22.50% | -13.36% | 100.00% | 2 |
+| 2023 | +19.12% | -7.43% | 100.00% | 2 |
+| 2024 | +24.91% | -7.01% | 100.00% | 2 |
+| 2025 | +30.63% | -5.11% | 100.00% | 2 |
+| 2026YTD | +12.68% | -2.54% | 100.00% | 1 |
 
 ## NVDA
 
