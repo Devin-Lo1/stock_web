@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from app.schemas import (
     Candle,
@@ -6,6 +6,8 @@ from app.schemas import (
     PersonalizedStrategyScanResult,
 )
 from app.services import personalized_strategies as service
+
+UTC = timezone.utc
 
 
 def test_nvda_personalized_templates_include_aggressive_and_steady() -> None:
