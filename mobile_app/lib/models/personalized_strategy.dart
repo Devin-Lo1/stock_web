@@ -95,6 +95,29 @@ class PersonalizedStrategyTemplate {
   }
 }
 
+class PersonalizedStrategyEvent {
+  const PersonalizedStrategyEvent({
+    required this.date,
+    required this.action,
+    required this.price,
+    required this.reason,
+  });
+
+  final DateTime? date;
+  final String action;
+  final double? price;
+  final String reason;
+
+  factory PersonalizedStrategyEvent.fromMap(Map<Object?, Object?> json) {
+    return PersonalizedStrategyEvent(
+      date: _readDate(json['date']),
+      action: json['action'] as String? ?? '',
+      price: _readNullableDouble(json['price']),
+      reason: json['reason'] as String? ?? '',
+    );
+  }
+}
+
 class PersonalizedStrategyDecision {
   const PersonalizedStrategyDecision({
     required this.kind,
@@ -129,6 +152,26 @@ class PersonalizedStrategyDecision {
   final bool isRealtime;
   final bool isConfirmed;
   final Map<String, Object?> detail;
+
+  PersonalizedStrategyEvent? get lastEvent {
+    final value = detail['last_event'];
+    if (value is Map) {
+      return PersonalizedStrategyEvent.fromMap(value.cast<Object?, Object?>());
+    }
+    return null;
+  }
+
+  DateTime? get positionEntryDate {
+    return _readDate(detail['position_entry_date']);
+  }
+
+  double? get positionEntryPrice {
+    return _readNullableDouble(detail['position_entry_price']);
+  }
+
+  int get positionHoldDays {
+    return _readInt(detail['position_hold_days']);
+  }
 
   factory PersonalizedStrategyDecision.fromJson(Map<String, dynamic> json) {
     return PersonalizedStrategyDecision(
@@ -315,6 +358,12 @@ double _readDouble(Object? value) {
 double? _readNullableDouble(Object? value) {
   if (value == null) return null;
   return _readDouble(value);
+}
+
+int _readInt(Object? value) {
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value) ?? 0;
+  return 0;
 }
 
 Map<String, Object?> _readMap(Object? value) {

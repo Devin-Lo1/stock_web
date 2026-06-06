@@ -509,6 +509,11 @@ def _decision_from_replay(
             "template_code": template.code,
             "event_count": len(replay["events"]),
             "last_event": _event_to_detail(latest_event),
+            "position_entry_date": replay["position_entry_date"].isoformat()
+            if replay["position_entry_date"] is not None
+            else None,
+            "position_entry_price": replay["position_entry_price"],
+            "position_hold_days": replay["position_hold_days"],
         },
     )
 
@@ -603,6 +608,8 @@ def _replay_strategy(
         "latest_candle": candles[-1],
         "current_position": position.side if position is not None else "flat",
         "position_entry_date": position.entry_date if position is not None else None,
+        "position_entry_price": position.entry_price if position is not None else None,
+        "position_hold_days": position.hold_days if position is not None else 0,
     }
 
 

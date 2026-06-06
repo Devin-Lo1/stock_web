@@ -702,6 +702,47 @@ def test_channel_strategy_can_use_entry_channel_as_reverse_exit() -> None:
     assert reason == "reverse_channel_breakdown"
 
 
+def test_decision_detail_includes_replay_position_metadata() -> None:
+    candles = _candles("US.NVDA", [10, 11, 13, 14])
+    benchmark_candles = _candles("US.QQQ", [10, 11, 12, 13])
+    replay = service._replay_strategy(
+        {
+            "parameters": {
+                "engine": "channel",
+                "entry_channel_days": 2,
+                "max_hold_days": 20,
+            },
+            "direction_mode": "long_only",
+        },
+        candles,
+        benchmark_candles,
+    )
+    template = service.get_personalized_strategy_template("personal_nvda_channel35")
+    assert template is not None
+
+    decision = service._decision_from_replay(
+        template,
+        replay,
+        kind="previous_close",
+        title="previous",
+        is_realtime=False,
+        is_confirmed=True,
+    )
+
+    assert decision.action == "hold_long"
+    assert decision.current_position == "long"
+    assert decision.signal_date == date(2026, 1, 3)
+    assert decision.detail["position_entry_date"] == "2026-01-03"
+    assert decision.detail["position_entry_price"] == 13
+    assert decision.detail["position_hold_days"] == 1
+    assert decision.detail["last_event"] == {
+        "date": "2026-01-03",
+        "action": "long_entry",
+        "price": 13,
+        "reason": "channel_breakout_with_filters",
+    }
+
+
 def test_personalized_recommendations_keep_best_long_candidate_per_symbol() -> None:
     googl_steady = service.get_personalized_strategy_template(
         "personal_googl_sma5_113_steady"

@@ -1341,11 +1341,66 @@ class _DecisionBlock extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 7),
-          _DecisionLine(label: '空仓', text: decision.flatDecision),
-          _DecisionLine(label: '持多', text: decision.longDecision),
-          _DecisionLine(label: '持空', text: decision.shortDecision),
+          _ReplayStageSummary(decision: decision),
+          const SizedBox(height: 7),
+          _DecisionLine(label: '若空仓', text: decision.flatDecision),
+          _DecisionLine(label: '若持多', text: decision.longDecision),
+          _DecisionLine(label: '若持空', text: decision.shortDecision),
         ],
       ),
+    );
+  }
+}
+
+class _ReplayStageSummary extends StatelessWidget {
+  const _ReplayStageSummary({required this.decision});
+
+  final PersonalizedStrategyDecision decision;
+
+  @override
+  Widget build(BuildContext context) {
+    final lines = <String>[
+      '回放状态：${_positionStageText(decision.currentPosition)}',
+    ];
+    final entryDate = decision.positionEntryDate;
+    final entryPrice = decision.positionEntryPrice;
+    if (entryDate != null && decision.currentPosition != 'flat') {
+      final price = entryPrice == null ? '--' : entryPrice.toStringAsFixed(2);
+      final holdDays = decision.positionHoldDays;
+      lines.add('本轮开仓：${quantDateText(entryDate)} 价 $price · 已持有 $holdDays 日');
+    }
+    final lastEvent = decision.lastEvent;
+    final eventDate = lastEvent?.date;
+    if (lastEvent != null && eventDate != null) {
+      final price = lastEvent.price == null
+          ? '--'
+          : lastEvent.price!.toStringAsFixed(2);
+      final reason = _eventReasonText(lastEvent.reason);
+      final suffix = reason.isEmpty ? '' : ' · $reason';
+      lines.add(
+        '上次触发：${quantDateText(eventDate)} '
+        '${_eventActionText(lastEvent.action)} 价 $price$suffix',
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final line in lines)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              line,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: secondaryTextColor(context),
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -1363,7 +1418,7 @@ class _DecisionLine extends StatelessWidget {
       child: Row(
         children: [
           SizedBox(
-            width: 34,
+            width: 44,
             child: Text(
               label,
               style: TextStyle(
@@ -1389,6 +1444,45 @@ class _DecisionLine extends StatelessWidget {
       ),
     );
   }
+}
+
+String _positionStageText(String value) {
+  return switch (value) {
+    'long' => '持有多头',
+    'short' => '持有空头',
+    _ => '空仓',
+  };
+}
+
+String _eventActionText(String value) {
+  return switch (value) {
+    'long_entry' => '开多',
+    'short_entry' => '开空',
+    'long_exit' => '平多',
+    'short_exit' => '平空',
+    _ => value,
+  };
+}
+
+String _eventReasonText(String value) {
+  return switch (value) {
+    'channel_breakout_with_filters' => '通道突破开多',
+    'channel_breakdown_with_filters' => '通道跌破开空',
+    'ma_cross_up_with_filters' => '均线金叉开多',
+    'ma_cross_down_with_filters' => '均线死叉开空',
+    'reverse_ma_cross' => '反向均线交叉',
+    'reverse_channel_breakdown' => '反向通道跌破',
+    'reverse_channel_breakout' => '反向通道突破',
+    'price_below_exit_ma' => '跌破退出均线',
+    'price_above_exit_ma' => '站回退出均线',
+    'fixed_stop' => '固定止损',
+    'trailing_stop' => '移动止损',
+    'take_profit' => '止盈',
+    'atr_stop' => 'ATR止损',
+    'atr_trailing_stop' => 'ATR移动止损',
+    'max_hold_days' => '持仓到期',
+    _ => value,
+  };
 }
 
 class _BannerText extends StatelessWidget {
