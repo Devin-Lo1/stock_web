@@ -25,6 +25,36 @@ def test_nvda_personalized_templates_include_aggressive_and_steady() -> None:
         "personal_nvda_channel35"
     ).risk_level == "aggressive"
 
+    aggressive = service.get_personalized_strategy_template(
+        "personal_nvda_channel35"
+    )
+    assert aggressive is not None
+    assert aggressive.parameters["engine"] == "channel"
+    assert aggressive.parameters["entry_channel_days"] == 15
+    assert aggressive.parameters["exit_channel_days"] == 57
+    assert aggressive.parameters["benchmark_ma"] == 80
+    assert aggressive.parameters["benchmark_ma_kind"] == "ema"
+    assert aggressive.parameters["benchmark_roc_days"] == 60
+    assert aggressive.parameters["own_roc_days"] == 80
+    assert aggressive.parameters["own_roc_min"] == -0.08
+    assert aggressive.parameters["relative_strength_days"] == 80
+    assert aggressive.parameters["own_slope_days"] == 20
+    assert aggressive.parameters["own_slope_min"] == 0.0015
+    assert aggressive.parameters["benchmark_slope_days"] == 20
+    assert aggressive.parameters["benchmark_slope_min"] == 0.0005
+    assert aggressive.parameters["atr_days"] == 50
+    assert aggressive.parameters["atr_pct_min"] == 0.01
+    assert aggressive.parameters["atr_pct_max"] == 0.06
+    assert aggressive.parameters["volume_window"] == 20
+    assert aggressive.parameters["volume_ratio_min"] == 0.8
+    assert aggressive.parameters["exit_ma"] == 40
+    assert aggressive.parameters["fixed_stop"] == 0.2
+    assert aggressive.parameters["trailing_stop"] == 0.24
+    assert aggressive.parameters["take_profit"] == 0.2
+    assert aggressive.parameters["atr_stop_mult"] == 2.0
+    assert aggressive.parameters["atr_trail_mult"] == 4.0
+    assert aggressive.parameters["filtered_reverse_exit"] is False
+
     steady = service.get_personalized_strategy_template(
         "personal_nvda_ma30_40_steady"
     )
@@ -500,6 +530,178 @@ def test_filtered_reverse_exit_requires_reverse_filters_to_pass() -> None:
     assert unfiltered == "reverse_ma_cross"
 
 
+def test_atr_percent_and_volume_filters_block_or_allow_entries() -> None:
+    candles = _candles("US.NVDA", [100, 101, 102])
+    benchmark_candles = _candles("US.QQQ", [100, 101, 102])
+    closes = [item.close for item in candles]
+    benchmark_closes = [item.close for item in benchmark_candles]
+    params = {
+        "atr_days": 2,
+        "atr_pct_min": 0.02,
+        "volume_window": 2,
+        "volume_ratio_min": 1.0,
+    }
+
+    blocked = service._passes_long_filters(
+        params,
+        candles,
+        closes,
+        benchmark_candles,
+        benchmark_closes,
+        2,
+        2,
+    )
+    params["atr_pct_min"] = 0.005
+    allowed = service._passes_long_filters(
+        params,
+        candles,
+        closes,
+        benchmark_candles,
+        benchmark_closes,
+        2,
+        2,
+    )
+    params["volume_ratio_min"] = 1.1
+    volume_blocked = service._passes_long_filters(
+        params,
+        candles,
+        closes,
+        benchmark_candles,
+        benchmark_closes,
+        2,
+        2,
+    )
+
+    assert blocked is False
+    assert allowed is True
+    assert volume_blocked is False
+
+
+def test_slope_filters_apply_to_symbol_and_benchmark() -> None:
+    candles = _candles("US.NVDA", [100, 101, 102, 104])
+    benchmark_candles = _candles("US.QQQ", [100, 101, 102, 103])
+    closes = [item.close for item in candles]
+    benchmark_closes = [item.close for item in benchmark_candles]
+    params = {
+        "own_slope_days": 3,
+        "own_slope_min": 0.001,
+        "benchmark_slope_days": 3,
+        "benchmark_slope_min": 0.001,
+    }
+
+    allowed = service._passes_long_filters(
+        params,
+        candles,
+        closes,
+        benchmark_candles,
+        benchmark_closes,
+        3,
+        3,
+    )
+    params["benchmark_slope_min"] = 0.02
+    blocked = service._passes_long_filters(
+        params,
+        candles,
+        closes,
+        benchmark_candles,
+        benchmark_closes,
+        3,
+        3,
+    )
+
+    assert allowed is True
+    assert blocked is False
+
+
+def test_atr_stop_and_atr_trailing_stop_exit_reasons() -> None:
+    candles = _candles_from_ohlc(
+        "US.NVDA",
+        [
+            (100, 100, 100),
+            (105, 105, 105),
+            (101, 93, 93),
+        ],
+    )
+    benchmark_candles = _candles("US.QQQ", [100, 101, 102])
+    closes = [item.close for item in candles]
+    benchmark_closes = [item.close for item in benchmark_candles]
+    position = service._Position(
+        side="long",
+        entry_price=100,
+        entry_date=date(2026, 1, 1),
+        high_since_entry=105,
+        low_since_entry=93,
+        highest_close_since_entry=105,
+        lowest_close_since_entry=93,
+    )
+
+    atr_stop = service._exit_reason(
+        {"parameters": {"engine": "channel", "atr_days": 1, "atr_stop_mult": 0.5}},
+        candles,
+        closes,
+        benchmark_candles,
+        benchmark_closes,
+        2,
+        2,
+        position,
+    )
+    atr_trailing = service._exit_reason(
+        {
+            "parameters": {
+                "engine": "channel",
+                "atr_days": 1,
+                "atr_trail_mult": 0.5,
+            }
+        },
+        candles,
+        closes,
+        benchmark_candles,
+        benchmark_closes,
+        2,
+        2,
+        position,
+    )
+
+    assert atr_stop == "atr_stop"
+    assert atr_trailing == "atr_trailing_stop"
+
+
+def test_channel_strategy_can_use_entry_channel_as_reverse_exit() -> None:
+    candles = _candles("US.NVDA", [10, 12, 8])
+    benchmark_candles = _candles("US.QQQ", [10, 12, 8])
+    closes = [item.close for item in candles]
+    benchmark_closes = [item.close for item in benchmark_candles]
+    position = service._Position(
+        side="long",
+        entry_price=12,
+        entry_date=date(2026, 1, 2),
+        high_since_entry=12,
+        low_since_entry=8,
+        highest_close_since_entry=12,
+        lowest_close_since_entry=8,
+    )
+
+    reason = service._exit_reason(
+        {
+            "parameters": {
+                "engine": "channel",
+                "entry_channel_days": 2,
+                "exit_channel_days": 5,
+                "filtered_reverse_exit": False,
+            }
+        },
+        candles,
+        closes,
+        benchmark_candles,
+        benchmark_closes,
+        2,
+        2,
+        position,
+    )
+
+    assert reason == "reverse_channel_breakdown"
+
+
 def test_personalized_recommendations_keep_best_long_candidate_per_symbol() -> None:
     googl_steady = service.get_personalized_strategy_template(
         "personal_googl_sma5_113_steady"
@@ -589,4 +791,27 @@ def _candles(code: str, closes: list[float]) -> list[Candle]:
             turnover=close * 1000,
         )
         for index, close in enumerate(closes)
+    ]
+
+
+def _candles_from_ohlc(
+    code: str,
+    values: list[tuple[float, float, float]],
+) -> list[Candle]:
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    market = code.split(".", 1)[0]
+    return [
+        Candle(
+            code=code,
+            market=market,
+            period="day",
+            time=start + timedelta(days=index),
+            open=close,
+            high=high,
+            low=low,
+            close=close,
+            volume=1000,
+            turnover=close * 1000,
+        )
+        for index, (high, low, close) in enumerate(values)
     ]

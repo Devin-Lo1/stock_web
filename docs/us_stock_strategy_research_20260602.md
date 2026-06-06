@@ -4,7 +4,7 @@
 
 当前文档记录的是 App 已写入的个股专属策略模板。下一步任务是把这些原有模板重新按统一口径回测一遍，再由用户决定是否替换。
 
-2026-06-06 更新：`US.QQQ` 已按统一研究口径替换稳健型和进取型 Top1。搜索只使用 `2021-2025`，`2026YTD` 仅作为最终验证段；本次同步更新后端模板、后端测试和本文档。
+2026-06-06 更新：`US.QQQ` 已按统一研究口径替换稳健型和进取型 Top1；`US.NVDA` 进取型已替换为无 SPY 的通道 + ATR Top1。搜索只使用 `2021-2025`，`2026YTD` 仅作为最终验证段；本次同步更新后端模板、后端测试和本文档。
 
 重测范围：
 
@@ -49,7 +49,7 @@
 |---|---|---|---|
 | `US.GOOGL` | `personal_googl_sma5_113_steady` | `GOOGL SMA5/113 相对强弱（稳健型）` | `GOOGL SMA5/113 趋势交叉（进取型）` |
 | `US.QQQ` | `personal_qqq_sma7_111_steady` | `QQQ SMA7/111 稳健型` | `QQQ SMA12/101 进取型` |
-| `US.NVDA` | `personal_nvda_ma30_40_steady` | `NVDA MA30/40 稳定型` | `NVDA 35日通道趋势突破（进取型）` |
+| `US.NVDA` | `personal_nvda_ma30_40_steady` | `NVDA MA30/40 稳定型` | `NVDA 15日通道 ATR 趋势突破（进取型）` |
 | `US.AMD` | `personal_amd_ma10_20_steady` | `AMD SMA10/20 稳健型` | `AMD 66 日通道进取型` |
 | `US.MU` | `personal_mu_sma24_40_steady` | `MU SMA24/40 稳健型` | `MU 48 日通道进取型` |
 | `US.DELL` | `personal_dell_channel19_steady` | `DELL 19 日通道稳健型` | `DELL 42 日通道进取型` |
@@ -267,7 +267,7 @@ QQQ 80 日动量大于 -12%。
 
 ### `personal_nvda_channel35`
 
-名称：NVDA 35日通道趋势突破（进取型）
+名称：NVDA 15日通道 ATR 趋势突破（进取型）
 
 方向：`long_short`
 仓位：`1.0`
@@ -276,44 +276,62 @@ QQQ 80 日动量大于 -12%。
 参数：
 
 ```text
-entry_channel_days = 35
-exit_channel_days = 50
-trend_ma = 200
+entry_channel_days = 15
+exit_channel_days = 57
 benchmark_ma = 80
-benchmark_roc_days = 40
-benchmark_roc_min = 0.03
+benchmark_ma_kind = ema
+benchmark_roc_days = 60
+benchmark_roc_min = 0.02
 own_roc_days = 80
-own_roc_min = 0.0
+own_roc_min = -0.08
 relative_strength_days = 80
 relative_strength_min = 0.0
-exit_ma = 120
-fixed_stop = 0.24
-trailing_stop = 0.12
+own_slope_days = 20
+own_slope_min = 0.0015
+benchmark_slope_days = 20
+benchmark_slope_min = 0.0005
+atr_days = 50
+atr_pct_min = 0.01
+atr_pct_max = 0.06
+volume_window = 20
+volume_ratio_min = 0.8
+exit_ma = 40
+exit_ma_kind = sma
+fixed_stop = 0.2
+trailing_stop = 0.24
+take_profit = 0.2
+atr_stop_mult = 2.0
+atr_trail_mult = 4.0
 max_hold_days = 20
+filtered_reverse_exit = false
 ```
 
 入场规则：
 
 ```text
-做多：收盘突破过去 35 日高点，且价格高于 SMA200。
-QQQ 高于 SMA80，QQQ 40 日动量大于 3%，NVDA 80 日强于 QQQ。
-做空为对称条件：跌破过去 35 日低点，且趋势、QQQ 动量和相对强弱均转弱。
+做多：收盘突破过去 15 日高点，NVDA 80 日动量不低于 -8%，且 20 日价格斜率不低于 0.15%。
+QQQ 高于 EMA80，QQQ 60 日动量大于 2%，20 日价格斜率不低于 0.05%，且 NVDA 80 日相对 QQQ 强弱不低于 0。
+ATR50/收盘价位于 1% 到 6%，成交量不低于 20 日均量的 80%；做空为对称条件。
 ```
 
 退出规则：
 
 ```text
-反向 50 日通道突破，或跌破/站回 SMA120。
-固定止损 24%，移动止损 12%，或持仓满 20 个交易日。
+反向 15 日通道突破、57 日退出通道、跌破/站回 SMA40，或持仓满 20 个交易日。
+固定止损 20%，移动止损 24%，止盈 20%，ATR 止损 2.0 倍，ATR 移动止损 4.0 倍。
 ```
 
 分段记录：
 
 | 年度 | 收益 | 最大回撤 | 胜率 | 回合 |
 |---|---:|---:|---:|---:|
-| 2023 | +89.03% | -10.10% | 80.00% | 5 |
-| 2024 | +92.94% | -12.90% | 100.00% | 4 |
-| 2025-2026 | +63.23% | -13.96% | 100.00% | 5 |
+| 2022 | +21.83% | -5.67% | 100.00% | 1 |
+| 2023 | +71.98% | -11.09% | 83.33% | 6 |
+| 2024 | +125.25% | -12.89% | 100.00% | 6 |
+| 2025 | +36.32% | -6.62% | 100.00% | 3 |
+| 2026YTD | +12.49% | -9.60% | 50.00% | 2 |
+
+研究记录：本策略来自 NVDA 进取型无 SPY 搜索，使用 `2021-2025` 搜索筛选，`2026YTD` 仅作最终验证。搜索实际唯一测试组数 1,006,175，进入年度复核 71,221，通过 2021-2025 训练约束 10,777，通过 2026YTD 最终验证 1,467，最终满足全部硬约束 1,236。全周期净收益 +802.68%，最大回撤 -13.69%，胜率 78.26%，完整买卖回合 23，多头 21 次、空头 2 次。当前 App 旧进取策略同口径复核全周期净收益 +439.19%、最大回撤 -34.72%，未满足本次进取型硬约束。
 
 ### `personal_nvda_ma30_40_steady`
 

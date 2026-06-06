@@ -58,6 +58,8 @@ class _Position:
     hold_days: int = 0
     high_since_entry: float = 0
     low_since_entry: float = 0
+    highest_close_since_entry: float = 0
+    lowest_close_since_entry: float = 0
 
 
 def list_personalized_strategy_templates() -> list[PersonalizedStrategyTemplate]:
@@ -533,6 +535,14 @@ def _replay_strategy(
             position.hold_days += 1
             position.high_since_entry = max(position.high_since_entry, candle.high)
             position.low_since_entry = min(position.low_since_entry, candle.low)
+            position.highest_close_since_entry = max(
+                position.highest_close_since_entry,
+                candle.close,
+            )
+            position.lowest_close_since_entry = min(
+                position.lowest_close_since_entry,
+                candle.close,
+            )
             exit_reason = _exit_reason(
                 config,
                 candles,
@@ -575,6 +585,8 @@ def _replay_strategy(
                 entry_date=candle.time.date(),
                 high_since_entry=candle.high,
                 low_since_entry=candle.low,
+                highest_close_since_entry=candle.close,
+                lowest_close_since_entry=candle.close,
             )
             events.append(
                 _StrategyEvent(
@@ -722,13 +734,18 @@ def _passes_long_filters(
     close = candles[index].close
     trend_ma = params.get("trend_ma")
     if trend_ma is not None:
-        value = _sma(closes, index, trend_ma)
+        value = _ma(closes, index, trend_ma, params.get("trend_ma_kind", "sma"))
         if value is None or close <= value:
             return False
 
     benchmark_ma = params.get("benchmark_ma")
     if benchmark_ma is not None:
-        value = _sma(benchmark_closes, benchmark_index, benchmark_ma)
+        value = _ma(
+            benchmark_closes,
+            benchmark_index,
+            benchmark_ma,
+            params.get("benchmark_ma_kind", "sma"),
+        )
         if value is None or benchmark_candles[benchmark_index].close <= value:
             return False
 
@@ -754,6 +771,28 @@ def _passes_long_filters(
         if own_value - benchmark_value <= minimum_spread:
             return False
 
+    own_slope_days = params.get("own_slope_days", params.get("qqq_slope_days"))
+    if own_slope_days is not None:
+        value = _linear_regression_slope(closes, index, own_slope_days)
+        if value is None or value < params.get("own_slope_min", params.get("qqq_slope_min", 0)):
+            return False
+
+    benchmark_slope_days = params.get("benchmark_slope_days")
+    if benchmark_slope_days is not None:
+        value = _linear_regression_slope(
+            benchmark_closes,
+            benchmark_index,
+            benchmark_slope_days,
+        )
+        if value is None or value < params.get("benchmark_slope_min", 0):
+            return False
+
+    if not _passes_atr_pct_filter(params, candles, index):
+        return False
+
+    if not _passes_volume_filter(params, candles, index):
+        return False
+
     return True
 
 
@@ -769,13 +808,18 @@ def _passes_short_filters(
     close = candles[index].close
     trend_ma = params.get("trend_ma")
     if trend_ma is not None:
-        value = _sma(closes, index, trend_ma)
+        value = _ma(closes, index, trend_ma, params.get("trend_ma_kind", "sma"))
         if value is None or close >= value:
             return False
 
     benchmark_ma = params.get("benchmark_ma")
     if benchmark_ma is not None:
-        value = _sma(benchmark_closes, benchmark_index, benchmark_ma)
+        value = _ma(
+            benchmark_closes,
+            benchmark_index,
+            benchmark_ma,
+            params.get("benchmark_ma_kind", "sma"),
+        )
         if value is None or benchmark_candles[benchmark_index].close >= value:
             return False
 
@@ -800,6 +844,28 @@ def _passes_short_filters(
         minimum_spread = params.get("relative_strength_min", 0)
         if own_value - benchmark_value >= -minimum_spread:
             return False
+
+    own_slope_days = params.get("own_slope_days", params.get("qqq_slope_days"))
+    if own_slope_days is not None:
+        value = _linear_regression_slope(closes, index, own_slope_days)
+        if value is None or value > -params.get("own_slope_min", params.get("qqq_slope_min", 0)):
+            return False
+
+    benchmark_slope_days = params.get("benchmark_slope_days")
+    if benchmark_slope_days is not None:
+        value = _linear_regression_slope(
+            benchmark_closes,
+            benchmark_index,
+            benchmark_slope_days,
+        )
+        if value is None or value > -params.get("benchmark_slope_min", 0):
+            return False
+
+    if not _passes_atr_pct_filter(params, candles, index):
+        return False
+
+    if not _passes_volume_filter(params, candles, index):
+        return False
 
     return True
 
@@ -842,6 +908,34 @@ def _exit_reason(
         if reverse:
             return "reverse_ma_cross"
 
+    if params["engine"] == "channel" and "filtered_reverse_exit" in params:
+        if params.get("filtered_reverse_exit"):
+            reverse_entry = _channel_entry_reason(
+                params,
+                candles,
+                closes,
+                benchmark_candles,
+                benchmark_closes,
+                index,
+                benchmark_index,
+            )
+            reverse = reverse_entry is not None and reverse_entry[0] != position.side
+            if reverse:
+                return (
+                    "reverse_channel_breakdown"
+                    if position.side == "long"
+                    else "reverse_channel_breakout"
+                )
+        else:
+            entry_channel_days = params.get("entry_channel_days")
+            if entry_channel_days is not None:
+                prior_high = _prior_high(candles, index, entry_channel_days)
+                prior_low = _prior_low(candles, index, entry_channel_days)
+                if position.side == "long" and prior_low is not None and close < prior_low:
+                    return "reverse_channel_breakdown"
+                if position.side == "short" and prior_high is not None and close > prior_high:
+                    return "reverse_channel_breakout"
+
     exit_channel_days = params.get("exit_channel_days")
     if exit_channel_days is not None:
         prior_high = _prior_high(candles, index, exit_channel_days)
@@ -855,7 +949,7 @@ def _exit_reason(
     if exit_ma is None and params.get("use_trend_ma_as_exit", True):
         exit_ma = params.get("trend_ma")
     if exit_ma is not None:
-        value = _sma(closes, index, exit_ma)
+        value = _ma(closes, index, exit_ma, params.get("exit_ma_kind", "sma"))
         if value is not None:
             if position.side == "long" and close < value:
                 return "price_below_exit_ma"
@@ -883,6 +977,29 @@ def _exit_reason(
         if position.side == "short" and close <= position.entry_price * (1 - take_profit):
             return "take_profit"
 
+    atr_days = params.get("atr_days")
+    atr_value = _atr(candles, index, atr_days) if atr_days is not None else None
+    if atr_value is not None:
+        atr_stop_mult = params.get("atr_stop_mult")
+        if atr_stop_mult is not None:
+            if position.side == "long" and close <= position.entry_price - atr_stop_mult * atr_value:
+                return "atr_stop"
+            if position.side == "short" and close >= position.entry_price + atr_stop_mult * atr_value:
+                return "atr_stop"
+
+        atr_trail_mult = params.get("atr_trail_mult")
+        if atr_trail_mult is not None:
+            if (
+                position.side == "long"
+                and close <= position.highest_close_since_entry - atr_trail_mult * atr_value
+            ):
+                return "atr_trailing_stop"
+            if (
+                position.side == "short"
+                and close >= position.lowest_close_since_entry + atr_trail_mult * atr_value
+            ):
+                return "atr_trailing_stop"
+
     max_hold_days = params.get("max_hold_days")
     if max_hold_days is not None and position.hold_days >= max_hold_days:
         return "max_hold_days"
@@ -890,11 +1007,32 @@ def _exit_reason(
     return None
 
 
+def _ma(
+    values: list[float],
+    index: int,
+    window: int,
+    kind: str | None = "sma",
+) -> float | None:
+    if str(kind).lower() == "ema":
+        return _ema(values, index, window)
+    return _sma(values, index, window)
+
+
 def _sma(values: list[float], index: int, window: int) -> float | None:
     if window <= 0 or index + 1 < window:
         return None
     window_values = values[index - window + 1 : index + 1]
     return sum(window_values) / window
+
+
+def _ema(values: list[float], index: int, window: int) -> float | None:
+    if window <= 0 or index + 1 < window:
+        return None
+    ema_value = sum(values[:window]) / window
+    alpha = 2 / (window + 1)
+    for value in values[window : index + 1]:
+        ema_value = alpha * value + (1 - alpha) * ema_value
+    return ema_value
 
 
 def _roc(values: list[float], index: int, window: int) -> float | None:
@@ -942,6 +1080,86 @@ def _prior_low(candles: list[Candle], index: int, window: int) -> float | None:
     return min(candle.low for candle in candles[index - window : index])
 
 
+def _linear_regression_slope(
+    values: list[float],
+    index: int,
+    window: int,
+) -> float | None:
+    if window <= 1 or index + 1 < window:
+        return None
+    sample = values[index - window + 1 : index + 1]
+    base = sample[-1]
+    if base == 0:
+        return None
+    x_values = [item - (window - 1) / 2 for item in range(window)]
+    y_mean = sum(sample) / window
+    denominator = sum(item * item for item in x_values)
+    if denominator == 0:
+        return None
+    slope = sum(x * (y - y_mean) for x, y in zip(x_values, sample)) / denominator
+    return slope / base
+
+
+def _true_range(candles: list[Candle], index: int) -> float:
+    candle = candles[index]
+    if index == 0:
+        return candle.high - candle.low
+    previous_close = candles[index - 1].close
+    return max(
+        candle.high - candle.low,
+        abs(candle.high - previous_close),
+        abs(candle.low - previous_close),
+    )
+
+
+def _atr(candles: list[Candle], index: int, window: int | None) -> float | None:
+    if window is None or window <= 0 or index + 1 < window:
+        return None
+    ranges = [_true_range(candles, item) for item in range(index - window + 1, index + 1)]
+    return sum(ranges) / window
+
+
+def _passes_atr_pct_filter(
+    params: dict[str, Any],
+    candles: list[Candle],
+    index: int,
+) -> bool:
+    atr_pct_min = params.get("atr_pct_min")
+    atr_pct_max = params.get("atr_pct_max")
+    if atr_pct_min is None and atr_pct_max is None:
+        return True
+    atr_value = _atr(candles, index, params.get("atr_days"))
+    close = candles[index].close
+    if atr_value is None or close == 0:
+        return False
+    atr_pct = atr_value / close
+    if atr_pct_min is not None and atr_pct < atr_pct_min:
+        return False
+    if atr_pct_max is not None and atr_pct > atr_pct_max:
+        return False
+    return True
+
+
+def _passes_volume_filter(
+    params: dict[str, Any],
+    candles: list[Candle],
+    index: int,
+) -> bool:
+    volume_window = params.get("volume_window")
+    volume_ratio_min = params.get("volume_ratio_min")
+    if volume_window is None or volume_ratio_min is None:
+        return True
+    if volume_window <= 0 or index + 1 < volume_window:
+        return False
+    volume_avg = (
+        sum(candle.volume for candle in candles[index - volume_window + 1 : index + 1])
+        / volume_window
+    )
+    if volume_avg <= 0:
+        return False
+    return candles[index].volume / volume_avg >= volume_ratio_min
+
+
 def _minimum_candle_count(config: dict[str, Any]) -> int:
     params = config["parameters"]
     windows = [
@@ -957,6 +1175,7 @@ def _minimum_benchmark_count(config: dict[str, Any]) -> int:
     windows = [
         params.get("benchmark_ma", 0),
         params.get("benchmark_roc_days", 0),
+        params.get("benchmark_slope_days", 0),
         params.get("relative_strength_days", 0),
     ]
     return max([value for value in windows if isinstance(value, int)] + [120]) + 5
@@ -1365,64 +1584,97 @@ _TEMPLATES: list[dict[str, Any]] = [
     {
         "code": "personal_nvda_channel35",
         "symbol": "US.NVDA",
-        "name": "NVDA 35日通道趋势突破（进取型）",
-        "description": "适合 NVDA 的强趋势突破策略，叠加 SMA200、QQQ 动量与相对强弱，定位为进取型参考。",
+        "name": "NVDA 15日通道 ATR 趋势突破（进取型）",
+        "description": "适合 NVDA 的进取型通道突破策略，叠加 EMA80、QQQ 动量、相对强弱、斜率、ATR% 与 ATR 止损过滤。",
         "benchmark_symbol": "US.QQQ",
         "direction_mode": "long_short",
         "risk_level": "aggressive",
         "position_ratio": 1.0,
         "parameters": {
             "engine": "channel",
-            "entry_channel_days": 35,
-            "exit_channel_days": 50,
-            "trend_ma": 200,
+            "entry_channel_days": 15,
+            "exit_channel_days": 57,
             "benchmark_ma": 80,
-            "benchmark_roc_days": 40,
-            "benchmark_roc_min": 0.03,
+            "benchmark_ma_kind": "ema",
+            "benchmark_roc_days": 60,
+            "benchmark_roc_min": 0.02,
             "own_roc_days": 80,
-            "own_roc_min": 0.0,
+            "own_roc_min": -0.08,
             "relative_strength_days": 80,
             "relative_strength_min": 0.0,
-            "exit_ma": 120,
-            "fixed_stop": 0.24,
-            "trailing_stop": 0.12,
+            "own_slope_days": 20,
+            "own_slope_min": 0.0015,
+            "benchmark_slope_days": 20,
+            "benchmark_slope_min": 0.0005,
+            "atr_days": 50,
+            "atr_pct_min": 0.01,
+            "atr_pct_max": 0.06,
+            "volume_window": 20,
+            "volume_ratio_min": 0.8,
+            "exit_ma": 40,
+            "exit_ma_kind": "sma",
+            "fixed_stop": 0.2,
+            "trailing_stop": 0.24,
+            "take_profit": 0.2,
+            "atr_stop_mult": 2.0,
+            "atr_trail_mult": 4.0,
             "max_hold_days": 20,
+            "filtered_reverse_exit": False,
         },
         "entry_rules": [
-            "收盘突破过去 35 日高点，且价格高于 SMA200。",
-            "QQQ 高于 SMA80，QQQ 40 日动量大于 3%，NVDA 80 日强于 QQQ。",
+            "做多：收盘突破过去 15 日高点，NVDA 80 日动量不低于 -8%，且 20 日价格斜率不低于 0.15%。",
+            "QQQ 高于 EMA80，QQQ 60 日动量大于 2%，20 日价格斜率不低于 0.05%，且 NVDA 80 日相对 QQQ 强弱不低于 0。",
+            "ATR50/收盘价位于 1% 到 6%，成交量不低于 20 日均量的 80%；做空为对称条件。",
         ],
         "exit_rules": [
-            "反向 50 日通道突破，或跌破/站回 SMA120。",
-            "固定止损 24%，移动止损 12%，或持仓满 20 个交易日。",
+            "反向 15 日通道突破、57 日退出通道、跌破/站回 SMA40，或持仓满 20 个交易日。",
+            "固定止损 20%，移动止损 24%，止盈 20%，ATR 止损 2.0 倍，ATR 移动止损 4.0 倍。",
         ],
         "segments": [
+            {
+                "label": "2022",
+                "start_date": date(2022, 1, 1),
+                "end_date": date(2022, 12, 31),
+                "total_return": 0.2183,
+                "max_drawdown": -0.0567,
+                "win_rate": 1.0,
+                "round_trip_count": 1,
+            },
             {
                 "label": "2023",
                 "start_date": date(2023, 1, 1),
                 "end_date": date(2023, 12, 31),
-                "total_return": 0.8903,
-                "max_drawdown": -0.1010,
-                "win_rate": 0.8,
-                "round_trip_count": 5,
+                "total_return": 0.7198,
+                "max_drawdown": -0.1109,
+                "win_rate": 0.8333,
+                "round_trip_count": 6,
             },
             {
                 "label": "2024",
                 "start_date": date(2024, 1, 1),
                 "end_date": date(2024, 12, 31),
-                "total_return": 0.9294,
-                "max_drawdown": -0.1290,
+                "total_return": 1.2525,
+                "max_drawdown": -0.1289,
                 "win_rate": 1.0,
-                "round_trip_count": 4,
+                "round_trip_count": 6,
             },
             {
-                "label": "2025-2026",
+                "label": "2025",
                 "start_date": date(2025, 1, 1),
-                "end_date": date(2026, 6, 1),
-                "total_return": 0.6323,
-                "max_drawdown": -0.1396,
+                "end_date": date(2025, 12, 31),
+                "total_return": 0.3632,
+                "max_drawdown": -0.0662,
                 "win_rate": 1.0,
-                "round_trip_count": 5,
+                "round_trip_count": 3,
+            },
+            {
+                "label": "2026YTD",
+                "start_date": date(2026, 1, 1),
+                "end_date": date(2026, 6, 3),
+                "total_return": 0.1249,
+                "max_drawdown": -0.0960,
+                "win_rate": 0.5,
+                "round_trip_count": 2,
             },
         ],
     },
