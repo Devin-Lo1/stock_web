@@ -38,6 +38,8 @@ if (-not [string]::IsNullOrWhiteSpace($ApiAccessToken)) {
 
 Push-Location $mobileDir
 try {
+    $previousDebug = $env:DEBUG
+    $env:DEBUG = $null
     $buildArgs = @(
         "build",
         "apk",
@@ -49,5 +51,6 @@ try {
     }
     & $flutter @buildArgs
 } finally {
+    $env:DEBUG = $previousDebug
     Pop-Location
 }
