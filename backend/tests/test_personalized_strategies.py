@@ -71,40 +71,51 @@ def test_qqq_personalized_templates_include_aggressive_and_steady() -> None:
     template = service.get_personalized_strategy_template("US.QQQ")
 
     assert {item.code for item in qqq_templates} >= {
-        "personal_qqq_sma12_98_steady",
-        "personal_qqq_sma12_98_aggressive",
+        "personal_qqq_sma7_111_steady",
+        "personal_qqq_sma12_101_aggressive",
     }
     assert template is not None
-    assert template.code == "personal_qqq_sma12_98_steady"
+    assert template.code == "personal_qqq_sma7_111_steady"
     assert template.risk_level == "steady"
 
     steady = service.get_personalized_strategy_template(
-        "personal_qqq_sma12_98_steady"
+        "personal_qqq_sma7_111_steady"
     )
     aggressive = service.get_personalized_strategy_template(
-        "personal_qqq_sma12_98_aggressive"
+        "personal_qqq_sma12_101_aggressive"
     )
 
     assert steady is not None
     assert aggressive is not None
     assert steady.parameters["engine"] == "ma_cross"
-    assert steady.parameters["short_window"] == 12
-    assert steady.parameters["long_window"] == 98
-    assert steady.parameters["trend_ma"] == 100
-    assert steady.parameters["benchmark_ma"] == 150
-    assert steady.parameters["benchmark_roc_days"] == 120
-    assert steady.parameters["benchmark_roc_min"] == -0.08
-    assert steady.parameters["relative_strength_days"] == 80
-    assert steady.parameters["relative_strength_min"] == -0.08
-    assert "exit_ma" not in steady.parameters
-    assert "fixed_stop" not in steady.parameters
-    assert "trailing_stop" not in steady.parameters
-    assert steady.parameters["take_profit"] == 0.12
+    assert steady.parameters["short_window"] == 7
+    assert steady.parameters["long_window"] == 111
+    assert "trend_ma" not in steady.parameters
+    assert steady.parameters["benchmark_ma"] == 120
+    assert steady.parameters["own_roc_days"] == 20
+    assert steady.parameters["own_roc_min"] == 0.02
+    assert steady.parameters["exit_ma"] == 150
+    assert steady.parameters["fixed_stop"] == 0.10
+    assert steady.parameters["trailing_stop"] == 0.10
+    assert steady.parameters["take_profit"] == 0.14
     assert "max_hold_days" not in steady.parameters
     assert steady.parameters["filtered_reverse_exit"] is True
 
     assert aggressive.risk_level == "aggressive"
-    assert aggressive.parameters == steady.parameters
+    assert aggressive.parameters["engine"] == "ma_cross"
+    assert aggressive.parameters["short_window"] == 12
+    assert aggressive.parameters["long_window"] == 101
+    assert aggressive.parameters["trend_ma"] == 50
+    assert aggressive.parameters["benchmark_ma"] == 150
+    assert aggressive.parameters["own_roc_days"] == 80
+    assert aggressive.parameters["own_roc_min"] == -0.12
+    assert "exit_ma" not in aggressive.parameters
+    assert "fixed_stop" not in aggressive.parameters
+    assert "trailing_stop" not in aggressive.parameters
+    assert "max_hold_days" not in aggressive.parameters
+    assert aggressive.parameters["take_profit"] == 0.12
+    assert aggressive.parameters["filtered_reverse_exit"] is True
+    assert aggressive.parameters["use_trend_ma_as_exit"] is False
 
 
 def test_msft_personalized_templates_include_aggressive_and_steady() -> None:
