@@ -303,22 +303,16 @@ def test_mu_personalized_templates_include_aggressive_and_steady() -> None:
     assert "max_hold_days" not in steady.parameters
 
     assert aggressive.risk_level == "aggressive"
-    assert aggressive.parameters["engine"] == "channel"
-    assert aggressive.parameters["entry_channel_days"] == 48
-    assert aggressive.parameters["exit_channel_days"] == 25
-    assert aggressive.parameters["trend_ma"] == 100
+    assert aggressive.name == "MU SMA22/30 进取型"
+    assert aggressive.parameters["engine"] == "ma_cross"
+    assert aggressive.parameters["short_window"] == 22
+    assert aggressive.parameters["long_window"] == 30
     assert aggressive.parameters["benchmark_ma"] == 150
-    assert aggressive.parameters["benchmark_roc_days"] == 120
-    assert aggressive.parameters["benchmark_roc_min"] == 0.08
-    assert aggressive.parameters["own_roc_days"] == 20
-    assert aggressive.parameters["own_roc_min"] == -0.08
-    assert aggressive.parameters["relative_strength_days"] == 20
-    assert aggressive.parameters["relative_strength_min"] == -0.06
-    assert aggressive.parameters["exit_ma"] == 100
-    assert aggressive.parameters["trailing_stop"] == 0.24
     assert aggressive.parameters["take_profit"] == 0.08
+    assert aggressive.parameters["filtered_reverse_exit"] is True
     assert "fixed_stop" not in aggressive.parameters
     assert "max_hold_days" not in aggressive.parameters
+    assert "exit_ma" not in aggressive.parameters
 
 
 def test_dell_personalized_templates_include_long_only_aggressive_and_steady() -> None:

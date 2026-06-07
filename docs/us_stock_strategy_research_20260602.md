@@ -51,7 +51,7 @@
 | `US.QQQ` | `personal_qqq_sma7_111_steady` | `QQQ SMA7/111 稳健型` | `QQQ SMA12/101 进取型` |
 | `US.NVDA` | `personal_nvda_ma30_40_steady` | `NVDA MA30/40 稳定型` | `NVDA 15日通道 ATR 趋势突破（进取型）` |
 | `US.AMD` | `personal_amd_ma10_20_steady` | `AMD SMA10/20 稳健型` | `AMD 66 日通道进取型` |
-| `US.MU` | `personal_mu_sma24_40_steady` | `MU SMA24/40 稳健型` | `MU 48 日通道进取型` |
+| `US.MU` | `personal_mu_sma24_40_steady` | `MU SMA24/40 稳健型` | `MU SMA22/30 进取型` |
 | `US.DELL` | `personal_dell_channel19_steady` | `DELL 19 日通道稳健型` | `DELL 42 日通道进取型` |
 | `US.AAOI` | `personal_aaoi_sma37_53_steady` | `AAOI SMA37/53 稳健型` | `AAOI SMA5/30 进取型` |
 | `US.MSFT` | `personal_msft_channel61_steady` | `MSFT 54 日通道稳健型（最接近）` | `MSFT 59 日通道 ATR 进取型` |
@@ -544,54 +544,45 @@ QQQ 高于 SMA120，MU 120 日动量大于 2%，且 MU 80 日相对 QQQ 强弱�
 
 ### `personal_mu_channel48_aggressive`
 
-名称：MU 48 日通道进取型
+名称：MU SMA22/30 进取型
 
 方向：`long_short`
 仓位：`1.0`
-引擎：`channel`
+引擎：`ma_cross`
 
 参数：
 
 ```text
-entry_channel_days = 48
-exit_channel_days = 25
-trend_ma = 100
+short_window = 22
+long_window = 30
 benchmark_ma = 150
-benchmark_roc_days = 120
-benchmark_roc_min = 0.08
-own_roc_days = 20
-own_roc_min = -0.08
-relative_strength_days = 20
-relative_strength_min = -0.06
-exit_ma = 100
-trailing_stop = 0.24
 take_profit = 0.08
+filtered_reverse_exit = true
 ```
 
 入场规则：
 
 ```text
-做多：收盘突破过去 48 日高点，且 MU 高于 SMA100。
-QQQ 高于 SMA150，QQQ 120 日动量大于 8%，MU 20 日动量不弱于 -8%，且 MU 20 日相对 QQQ 强弱不弱于 -6%。
-做空为对称条件：跌破过去 48 日低点，且趋势、QQQ 趋势/动量、MU 动量与相对强弱均转弱。
+做多：SMA22 上穿 SMA30，且 QQQ 高于 SMA150。
+做空为对称条件：SMA22 下穿 SMA30，且 QQQ 低于 SMA150。
 ```
 
 退出规则：
 
 ```text
-反向 25 日通道突破。
-跌破或站回 SMA100，移动止损 24%，或止盈 8%。
+出现合格反向 SMA22/SMA30 均线交叉信号。
+单笔达到 8% 止盈时退出；区间结束仍持仓则按最后收盘价强制平仓。
 ```
 
 分段记录：
 
 | 年度 | 收益 | 最大回撤 | 胜率 | 回合 |
 |---|---:|---:|---:|---:|
-| 2022 | +38.83% | -17.11% | 100.00% | 3 |
-| 2023 | +29.27% | -4.26% | 100.00% | 3 |
-| 2024 | +29.86% | -16.61% | 80.00% | 5 |
-| 2025 | +110.40% | -15.80% | 87.50% | 8 |
-| 2026YTD | +142.68% | -15.21% | 85.71% | 7 |
+| 2022 | +72.55% | -18.20% | 100.00% | 6 |
+| 2023 | +32.96% | -15.61% | 100.00% | 3 |
+| 2024 | +30.56% | -8.63% | 80.00% | 5 |
+| 2025 | +58.20% | -5.35% | 100.00% | 5 |
+| 2026YTD | +41.34% | -3.69% | 100.00% | 3 |
 
 ## DELL
 
