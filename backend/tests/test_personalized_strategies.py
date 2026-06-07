@@ -174,35 +174,42 @@ def test_msft_personalized_templates_include_aggressive_and_steady() -> None:
     assert steady is not None
     assert aggressive is not None
     assert steady.parameters["engine"] == "channel"
-    assert steady.parameters["entry_channel_days"] == 61
-    assert steady.parameters["exit_channel_days"] == 62
-    assert steady.parameters["trend_ma"] == 80
-    assert steady.parameters["benchmark_roc_days"] == 60
+    assert steady.parameters["entry_channel_days"] == 54
+    assert steady.parameters["exit_channel_days"] == 58
+    assert steady.parameters["trend_ma"] == 150
+    assert steady.parameters["trend_ma_kind"] == "ema"
+    assert steady.parameters["benchmark_roc_days"] == 80
     assert steady.parameters["benchmark_roc_min"] == -0.08
     assert steady.parameters["own_roc_days"] == 120
-    assert steady.parameters["own_roc_min"] == 0.04
-    assert steady.parameters["relative_strength_days"] == 20
-    assert steady.parameters["relative_strength_min"] == 0.04
-    assert steady.parameters["exit_ma"] == 120
+    assert steady.parameters["own_roc_min"] == -0.02
+    assert steady.parameters["relative_strength_days"] == 60
+    assert steady.parameters["relative_strength_min"] == 0.06
     assert steady.parameters["fixed_stop"] == 0.08
-    assert steady.parameters["trailing_stop"] == 0.16
     assert steady.parameters["take_profit"] == 0.10
-    assert steady.parameters["max_hold_days"] == 50
+    assert "exit_ma" not in steady.parameters
+    assert "trailing_stop" not in steady.parameters
+    assert "max_hold_days" not in steady.parameters
+    assert "filtered_reverse_exit" not in steady.parameters
 
     assert aggressive.risk_level == "aggressive"
     assert aggressive.parameters["engine"] == "channel"
     assert aggressive.parameters["entry_channel_days"] == 59
     assert aggressive.parameters["exit_channel_days"] == 73
-    assert aggressive.parameters["trend_ma"] == 120
-    assert aggressive.parameters["own_roc_days"] == 40
-    assert aggressive.parameters["own_roc_min"] == 0.02
-    assert aggressive.parameters["relative_strength_days"] == 40
-    assert aggressive.parameters["relative_strength_min"] == 0.02
+    assert aggressive.parameters["trend_ma"] == 200
+    assert aggressive.parameters["trend_ma_kind"] == "sma"
+    assert aggressive.parameters["own_roc_days"] == 120
+    assert aggressive.parameters["own_roc_min"] == -0.04
+    assert aggressive.parameters["relative_strength_days"] == 60
+    assert aggressive.parameters["relative_strength_min"] == 0.04
+    assert aggressive.parameters["atr_days"] == 50
+    assert aggressive.parameters["atr_pct_max"] == 0.03
     assert aggressive.parameters["exit_ma"] == 200
-    assert aggressive.parameters["trailing_stop"] == 0.20
+    assert aggressive.parameters["exit_ma_kind"] == "ema"
     assert aggressive.parameters["take_profit"] == 0.10
+    assert aggressive.parameters["max_hold_days"] == 60
     assert "fixed_stop" not in aggressive.parameters
-    assert "max_hold_days" not in aggressive.parameters
+    assert "trailing_stop" not in aggressive.parameters
+    assert "filtered_reverse_exit" not in aggressive.parameters
 
 
 def test_amd_personalized_templates_include_aggressive_and_steady() -> None:
