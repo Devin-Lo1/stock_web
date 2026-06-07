@@ -66,6 +66,76 @@ def test_nvda_personalized_templates_include_aggressive_and_steady() -> None:
     assert steady.parameters["filtered_reverse_exit"] is True
 
 
+def test_chinalife_hk_personalized_templates_include_aggressive_and_steady() -> None:
+    templates = service.list_personalized_strategy_templates()
+    hk_templates = [item for item in templates if item.symbol == "HK.02628"]
+    template = service.get_personalized_strategy_template("HK.02628")
+
+    assert {item.code for item in hk_templates} >= {
+        "personal_chinalife_hk_channel67_steady",
+        "personal_chinalife_hk_channel72_aggressive",
+    }
+    assert template is not None
+    assert template.code == "personal_chinalife_hk_channel67_steady"
+    assert template.benchmark_symbol == "HK.800000"
+    assert template.risk_level == "steady"
+
+    steady = service.get_personalized_strategy_template(
+        "personal_chinalife_hk_channel67_steady"
+    )
+    aggressive = service.get_personalized_strategy_template(
+        "personal_chinalife_hk_channel72_aggressive"
+    )
+
+    assert steady is not None
+    assert aggressive is not None
+    assert steady.symbol == "HK.02628"
+    assert aggressive.symbol == "HK.02628"
+    assert steady.benchmark_symbol == "HK.800000"
+    assert aggressive.benchmark_symbol == "HK.800000"
+    assert steady.parameters["engine"] == "channel"
+    assert steady.parameters["entry_channel_days"] == 67
+    assert steady.parameters["exit_channel_days"] == 42
+    assert steady.parameters["trend_ma"] == 80
+    assert steady.parameters["trend_ma_kind"] == "ema"
+    assert steady.parameters["benchmark_ma"] == 200
+    assert steady.parameters["benchmark_ma_kind"] == "ema"
+    assert steady.parameters["benchmark_roc_days"] == 80
+    assert steady.parameters["benchmark_roc_min"] == 0.02
+    assert steady.parameters["own_roc_days"] == 40
+    assert steady.parameters["own_roc_min"] == 0.08
+    assert steady.parameters["relative_strength_days"] == 20
+    assert steady.parameters["relative_strength_min"] == 0.02
+    assert steady.parameters["atr_days"] == 14
+    assert steady.parameters["atr_pct_max"] == 0.035
+    assert steady.parameters["exit_ma"] == 100
+    assert steady.parameters["take_profit"] == 0.12
+    assert steady.parameters["max_hold_days"] == 80
+    assert "fixed_stop" not in steady.parameters
+    assert "trailing_stop" not in steady.parameters
+
+    assert aggressive.risk_level == "aggressive"
+    assert aggressive.parameters["engine"] == "channel"
+    assert aggressive.parameters["entry_channel_days"] == 72
+    assert aggressive.parameters["exit_channel_days"] == 54
+    assert aggressive.parameters["trend_ma"] == 100
+    assert aggressive.parameters["trend_ma_kind"] == "ema"
+    assert "benchmark_ma" not in aggressive.parameters
+    assert aggressive.parameters["benchmark_roc_days"] == 80
+    assert aggressive.parameters["benchmark_roc_min"] == 0.02
+    assert aggressive.parameters["own_roc_days"] == 40
+    assert aggressive.parameters["own_roc_min"] == 0.08
+    assert aggressive.parameters["relative_strength_days"] == 40
+    assert aggressive.parameters["relative_strength_min"] == 0.0
+    assert aggressive.parameters["atr_days"] == 20
+    assert aggressive.parameters["atr_pct_max"] == 0.035
+    assert aggressive.parameters["exit_ma"] == 80
+    assert aggressive.parameters["fixed_stop"] == 0.12
+    assert aggressive.parameters["trailing_stop"] == 0.18
+    assert aggressive.parameters["take_profit"] == 0.12
+    assert "max_hold_days" not in aggressive.parameters
+
+
 def test_googl_personalized_templates_include_aggressive_and_steady() -> None:
     templates = service.list_personalized_strategy_templates()
     googl_templates = [item for item in templates if item.symbol == "US.GOOGL"]
