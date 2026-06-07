@@ -89,7 +89,14 @@ def test_googl_personalized_templates_include_aggressive_and_steady() -> None:
     assert steady is not None
     assert aggressive.risk_level == "aggressive"
     assert steady.risk_level == "steady"
+    assert aggressive.name == "GOOGL SMA5/116 样本增强进取型"
+    assert aggressive.parameters["short_window"] == 5
+    assert aggressive.parameters["long_window"] == 116
     assert aggressive.parameters["benchmark_roc_days"] == 120
+    assert aggressive.parameters["benchmark_roc_min"] == -0.02
+    assert aggressive.parameters["fixed_stop"] == 0.06
+    assert aggressive.parameters["trailing_stop"] == 0.16
+    assert aggressive.parameters["take_profit"] == 0.24
     assert aggressive.parameters["max_hold_days"] == 60
     assert aggressive.parameters["filtered_reverse_exit"] is True
     assert steady.parameters["own_roc_days"] == 80

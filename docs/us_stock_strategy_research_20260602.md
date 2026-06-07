@@ -47,7 +47,7 @@
 
 | 标的 | 默认模板 | 稳健型 | 进取型 |
 |---|---|---|---|
-| `US.GOOGL` | `personal_googl_sma5_113_steady` | `GOOGL SMA5/113 相对强弱（稳健型）` | `GOOGL SMA5/113 趋势交叉（进取型）` |
+| `US.GOOGL` | `personal_googl_sma5_113_steady` | `GOOGL SMA5/113 相对强弱（稳健型）` | `GOOGL SMA5/116 样本增强进取型` |
 | `US.QQQ` | `personal_qqq_sma7_111_steady` | `QQQ SMA7/111 稳健型` | `QQQ SMA12/101 进取型` |
 | `US.NVDA` | `personal_nvda_ma30_40_steady` | `NVDA MA30/40 稳定型` | `NVDA 15日通道 ATR 趋势突破（进取型）` |
 | `US.AMD` | `personal_amd_ma10_20_steady` | `AMD SMA10/20 稳健型` | `AMD 66 日通道进取型` |
@@ -60,7 +60,7 @@
 
 ### `personal_googl_sma5_113_aggressive`
 
-名称：GOOGL SMA5/113 趋势交叉（进取型）
+名称：GOOGL SMA5/116 样本增强进取型
 
 方向：`long_short`
 仓位：`1.0`
@@ -70,14 +70,14 @@
 
 ```text
 short_window = 5
-long_window = 113
+long_window = 116
 trend_ma = 100
 benchmark_ma = 200
 benchmark_roc_days = 120
-benchmark_roc_min = 0.0
-fixed_stop = 0.12
-trailing_stop = 0.12
-take_profit = 0.20
+benchmark_roc_min = -0.02
+fixed_stop = 0.06
+trailing_stop = 0.16
+take_profit = 0.24
 max_hold_days = 60
 filtered_reverse_exit = true
 ```
@@ -85,27 +85,27 @@ filtered_reverse_exit = true
 入场规则：
 
 ```text
-做多：SMA5 上穿 SMA113，且 GOOGL 高于 SMA100，QQQ 高于 SMA200。
-QQQ 120 日动量大于 0。
-做空为对称条件：SMA5 下穿 SMA113，趋势与 QQQ 动量均转弱。
+做多：SMA5 上穿 SMA116，且 GOOGL 高于 SMA100，QQQ 高于 SMA200。
+QQQ 120 日动量大于 -2%。
+做空为对称条件：SMA5 下穿 SMA116，趋势与 QQQ 动量均转弱。
 ```
 
 退出规则：
 
 ```text
 出现合格反向均线交叉信号。
-固定止损 12%，移动止损 12%，止盈 20%，或虚拟持仓满 60 个交易日。
+固定止损 6%，移动止损 16%，止盈 24%，或虚拟持仓满 60 个交易日。
 ```
 
 分段记录：
 
 | 年度 | 收益 | 最大回撤 | 胜率 | 回合 |
 |---|---:|---:|---:|---:|
-| 2022 | +46.41% | -6.74% | 100.00% | 2 |
-| 2023 | +26.96% | -6.67% | 100.00% | 2 |
-| 2024 | +31.25% | -9.30% | 100.00% | 2 |
-| 2025 | +27.30% | -8.29% | 100.00% | 1 |
-| 2026YTD | +10.25% | -14.01% | 50.00% | 2 |
+| 2022 | +44.81% | -7.45% | 100.00% | 2 |
+| 2023 | +31.34% | -6.66% | 100.00% | 2 |
+| 2024 | +37.36% | -9.28% | 100.00% | 2 |
+| 2025 | +23.00% | -6.62% | 50.00% | 2 |
+| 2026YTD | +14.61% | -14.59% | 50.00% | 2 |
 
 ### `personal_googl_sma5_113_steady`
 
