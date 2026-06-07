@@ -6,6 +6,8 @@
 
 2026-06-06 更新：`US.QQQ` 已按统一研究口径替换稳健型和进取型 Top1；`US.NVDA` 进取型已替换为无 SPY 的通道 + ATR Top1。搜索只使用 `2021-2025`，`2026YTD` 仅作为最终验证段；本次同步更新后端模板、后端测试和本文档。
 
+2026-06-07 更新：`US.AMD` 已按统一口径替换稳健型 Top2（`AMD SMA8/44 稳健型`）和进取型 Top1（`AMD 20 日通道进取型`）。本次搜索均只使用 `2021-2025` 筛选，`2026YTD` 仅做最终验证；同步更新后端模板、后端测试和本文档。
+
 重测范围：
 
 - `US.GOOGL`
@@ -50,7 +52,7 @@
 | `US.GOOGL` | `personal_googl_sma5_113_steady` | `GOOGL SMA5/113 相对强弱（稳健型）` | `GOOGL SMA5/116 样本增强进取型` |
 | `US.QQQ` | `personal_qqq_sma7_111_steady` | `QQQ SMA7/111 稳健型` | `QQQ SMA12/101 进取型` |
 | `US.NVDA` | `personal_nvda_ma30_40_steady` | `NVDA MA30/40 稳定型` | `NVDA 15日通道 ATR 趋势突破（进取型）` |
-| `US.AMD` | `personal_amd_ma10_20_steady` | `AMD SMA10/20 稳健型` | `AMD 66 日通道进取型` |
+| `US.AMD` | `personal_amd_ma10_20_steady` | `AMD SMA8/44 稳健型` | `AMD 20 日通道进取型` |
 | `US.MU` | `personal_mu_sma24_40_steady` | `MU SMA24/40 稳健型` | `MU SMA22/30 进取型` |
 | `US.DELL` | `personal_dell_channel19_steady` | `DELL 19 日通道稳健型` | `DELL 42 日通道进取型` |
 | `US.AAOI` | `personal_aaoi_sma37_53_steady` | `AAOI SMA37/53 稳健型` | `AAOI SMA5/30 进取型` |
@@ -389,60 +391,60 @@ NVDA 20 日动量大于 4%，且 NVDA 80 日动量相对 QQQ 不弱于 -2%。
 
 ### `personal_amd_ma10_20_steady`
 
-名称：AMD SMA10/20 稳健型
+名称：AMD SMA8/44 稳健型
 
 方向：`long_short`
-仓位：`0.8`
+仓位：`1.0`
 引擎：`ma_cross`
 
 参数：
 
 ```text
-short_window = 10
-long_window = 20
-trend_ma = 100
-benchmark_ma = 100
-benchmark_roc_days = 120
-benchmark_roc_min = 0.06
-own_roc_days = 20
-own_roc_min = -0.04
-relative_strength_days = 80
-relative_strength_min = -0.06
-exit_ma = 120
-fixed_stop = 0.10
-trailing_stop = 0.12
-take_profit = 0.08
+short_window = 8
+long_window = 44
+benchmark_roc_days = 60
+benchmark_roc_min = -0.04
+relative_strength_days = 40
+relative_strength_min = -0.03
+exit_ma = 30
+exit_ma_kind = sma
+trailing_stop = 0.10
+take_profit = 0.06
+atr_days = 10
+atr_stop_mult = 2.0
 filtered_reverse_exit = true
 ```
 
 入场规则：
 
 ```text
-做多：SMA10 上穿 SMA20，且 AMD 高于 SMA100，QQQ 高于 SMA100，QQQ 120 日动量大于 6%。
-AMD 20 日动量大于 -4%，且 AMD 80 日相对 QQQ 强弱大于 -6%。
-做空为对称条件：SMA10 下穿 SMA20，AMD 低于 SMA100，QQQ 低于 SMA100，QQQ 120 日动量小于 -6%。
+做多：SMA8 上穿 SMA44，且 QQQ 60 日动量大于 -4%。
+AMD 40 日相对 QQQ 强弱大于 -3%。
+做空为对称条件：SMA8 下穿 SMA44，且 QQQ 60 日动量小于 4%、AMD 相对 QQQ 强弱转弱。
 ```
 
 退出规则：
 
 ```text
-出现合格反向均线交叉信号，或价格跌破/站回 SMA120。
-固定止损 10%，移动止损 12%，止盈 8%。
+出现合格反向均线交叉信号，或价格跌破/站回 SMA30。
+移动止损 10%，止盈 6%，ATR10 止损 2.0 倍。
 ```
 
 分段记录：
 
 | 年度 | 收益 | 最大回撤 | 胜率 | 回合 |
 |---|---:|---:|---:|---:|
-| 2022 | +16.97% | -5.34% | 100.00% | 2 |
-| 2023 | +13.13% | -2.51% | 100.00% | 2 |
-| 2024 | +11.47% | -1.39% | 100.00% | 1 |
-| 2025 | +34.49% | -2.41% | 100.00% | 2 |
-| 2026YTD | +10.10% | -7.17% | 100.00% | 1 |
+| 2022 | +12.61% | -7.66% | 100.00% | 2 |
+| 2023 | +11.03% | -2.33% | 100.00% | 2 |
+| 2024 | +10.34% | -1.91% | 100.00% | 1 |
+| 2025 | +14.08% | -4.41% | 100.00% | 2 |
+| 2026YTD | +19.82% | -0.60% | 100.00% | 2 |
+
+研究记录：本策略来自 AMD 稳健型搜索 Top2。搜索使用 `2021-2025` 筛选，`2026YTD` 仅作最终验证。实际唯一测试组数 801,461，进入年度复核 18,601，通过 2021-2025 训练约束 30，通过 2026YTD 最终验证 13，最终满足全周期最大回撤 ≤15% 的策略 5 个；本策略全周期净收益 +113.20%，最大回撤 -7.66%，胜率 92.31%，完整买卖回合 13，多头 7 次、空头 6 次。选择 Top2 而非名义 Top1，是因为 Top2 交易样本更多，更适合作为 App 稳健型指引。
 
 ### `personal_amd_channel66_aggressive`
 
-名称：AMD 66 日通道进取型
+名称：AMD 20 日通道进取型
 
 方向：`long_short`
 仓位：`1.0`
@@ -451,45 +453,50 @@ AMD 20 日动量大于 -4%，且 AMD 80 日相对 QQQ 强弱大于 -6%。
 参数：
 
 ```text
-entry_channel_days = 66
-exit_channel_days = 43
-trend_ma = 80
-benchmark_ma = 50
+entry_channel_days = 20
+exit_channel_days = 16
+trend_ma = 200
+trend_ma_kind = sma
 benchmark_roc_days = 120
-benchmark_roc_min = 0.04
+benchmark_roc_min = 0.0
 own_roc_days = 60
-own_roc_min = 0.08
-relative_strength_days = 80
+own_roc_min = 0.04
+relative_strength_days = 60
 relative_strength_min = 0.06
-fixed_stop = 0.24
-trailing_stop = 0.10
-take_profit = 0.20
+atr_days = 20
+atr_pct_max = 0.06
+exit_ma = 200
+exit_ma_kind = ema
+fixed_stop = 0.10
+trailing_stop = 0.12
 ```
 
 入场规则：
 
 ```text
-做多：收盘突破过去 66 日高点，且 AMD 高于 SMA80，QQQ 高于 SMA50。
-QQQ 120 日动量大于 4%，AMD 60 日动量大于 8%，且 AMD 80 日相对 QQQ 强弱大于 6%。
-做空为对称条件：跌破过去 66 日低点，趋势、市场动量、AMD 动量与相对强弱均转弱。
+做多：收盘突破过去 20 日高点，且 AMD 高于 SMA200。
+QQQ 120 日动量大于 0%，AMD 60 日动量大于 4%，AMD 60 日相对 QQQ 强弱大于 6%，ATR20% 不高于 6%。
+做空为对称条件：跌破过去 20 日低点，且趋势、动量、相对强弱和 ATR% 过滤均转弱或可接受。
 ```
 
 退出规则：
 
 ```text
-反向 43 日通道突破。
-固定止损 24%，移动止损 10%，止盈 20%。
+反向 16 日通道突破，或价格跌破/站回 EMA200。
+固定止损 10%，移动止损 12%。
 ```
 
 分段记录：
 
 | 年度 | 收益 | 最大回撤 | 胜率 | 回合 |
 |---|---:|---:|---:|---:|
-| 2022 | +10.71% | -16.93% | 66.67% | 3 |
-| 2023 | +54.99% | -10.39% | 100.00% | 4 |
-| 2024 | +11.69% | -12.74% | 50.00% | 2 |
-| 2025 | +46.43% | -18.31% | 75.00% | 4 |
-| 2026YTD | +92.76% | -8.02% | 100.00% | 3 |
+| 2022 | +37.00% | -12.89% | 100.00% | 3 |
+| 2023 | +43.94% | -14.54% | 100.00% | 3 |
+| 2024 | +26.14% | -8.89% | 100.00% | 1 |
+| 2025 | +76.29% | -18.28% | 66.67% | 3 |
+| 2026YTD | +131.95% | -9.75% | 100.00% | 1 |
+
+研究记录：本策略来自 AMD 进取型搜索 Top1。搜索使用 `2021-2025` 筛选，`2026YTD` 仅作最终验证。实际唯一测试组数 801,480，进入年度复核 21,480，通过 2021-2025 训练约束 302，通过 2026YTD 最终验证 147，最终满足全部进取型硬约束 135。全周期净收益 +1158.38%，最大回撤 -18.28%，胜率 81.82%，完整买卖回合 11，多头 7 次、空头 4 次。当前 App 旧进取策略同口径复核全周期净收益 +145.82%、最大回撤 -24.83%、胜率 64.00%，未满足本次进取型硬约束。
 
 ## MU
 
