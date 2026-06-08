@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import date, datetime, time, timezone
 from typing import Any
@@ -32,6 +33,8 @@ _DATA_START = date(2021, 1, 1)
 _US_EASTERN = ZoneInfo("America/New_York")
 _DEFAULT_TEMPLATE_CODES_BY_SYMBOL = {
     "HK.02628": "personal_chinalife_hk_channel67_steady",
+    "HK.01398": "personal_icbc_hk_price_ema30_steady",
+    "HK.09988": "personal_alibaba_hk_price_sma30_steady",
     "US.AAOI": "personal_aaoi_sma37_53_steady",
     "US.AMD": "personal_amd_ma10_20_steady",
     "US.DELL": "personal_dell_channel19_steady",
@@ -645,6 +648,16 @@ def _entry_reason(
             index,
             benchmark_index,
         )
+    if engine == "price_ma":
+        return _price_ma_entry_reason(
+            params,
+            candles,
+            closes,
+            benchmark_candles,
+            benchmark_closes,
+            index,
+            benchmark_index,
+        )
     return None
 
 
@@ -730,6 +743,44 @@ def _channel_entry_reason(
     return None
 
 
+def _price_ma_entry_reason(
+    params: dict[str, Any],
+    candles: list[Candle],
+    closes: list[float],
+    benchmark_candles: list[Candle],
+    benchmark_closes: list[float],
+    index: int,
+    benchmark_index: int,
+) -> tuple[str, str] | None:
+    entry_ma = params["entry_ma"]
+    ma_kind = params.get("entry_ma_kind", "sma")
+    if _price_cross_above_ma(closes, index, entry_ma, ma_kind) and _passes_long_filters(
+        params,
+        candles,
+        closes,
+        benchmark_candles,
+        benchmark_closes,
+        index,
+        benchmark_index,
+    ):
+        return "long", "price_ma_cross_up_with_filters"
+    if (
+        params.get("_direction_mode") != "long_only"
+        and _price_cross_below_ma(closes, index, entry_ma, ma_kind)
+        and _passes_short_filters(
+            params,
+            candles,
+            closes,
+            benchmark_candles,
+            benchmark_closes,
+            index,
+            benchmark_index,
+        )
+    ):
+        return "short", "price_ma_cross_down_with_filters"
+    return None
+
+
 def _passes_long_filters(
     params: dict[str, Any],
     candles: list[Candle],
@@ -796,6 +847,9 @@ def _passes_long_filters(
             return False
 
     if not _passes_atr_pct_filter(params, candles, index):
+        return False
+
+    if not _passes_realized_vol_filter(params, closes, index):
         return False
 
     if not _passes_volume_filter(params, candles, index):
@@ -872,6 +926,9 @@ def _passes_short_filters(
     if not _passes_atr_pct_filter(params, candles, index):
         return False
 
+    if not _passes_realized_vol_filter(params, closes, index):
+        return False
+
     if not _passes_volume_filter(params, candles, index):
         return False
 
@@ -890,7 +947,7 @@ def _exit_reason(
 ) -> str | None:
     params = config["parameters"]
     close = candles[index].close
-    if params["engine"] == "ma_cross":
+    if params["engine"] == "ma_cross" and params.get("reverse_exit", True):
         if params.get("filtered_reverse_exit"):
             reverse_entry = _ma_cross_entry_reason(
                 params,
@@ -916,7 +973,11 @@ def _exit_reason(
         if reverse:
             return "reverse_ma_cross"
 
-    if params["engine"] == "channel" and "filtered_reverse_exit" in params:
+    if (
+        params["engine"] == "channel"
+        and params.get("reverse_exit", True)
+        and "filtered_reverse_exit" in params
+    ):
         if params.get("filtered_reverse_exit"):
             reverse_entry = _channel_entry_reason(
                 params,
@@ -943,6 +1004,29 @@ def _exit_reason(
                     return "reverse_channel_breakdown"
                 if position.side == "short" and prior_high is not None and close > prior_high:
                     return "reverse_channel_breakout"
+
+    if params["engine"] == "price_ma" and params.get("reverse_exit", True):
+        entry_ma = params["entry_ma"]
+        ma_kind = params.get("entry_ma_kind", "sma")
+        if params.get("filtered_reverse_exit"):
+            reverse_entry = _price_ma_entry_reason(
+                params,
+                candles,
+                closes,
+                benchmark_candles,
+                benchmark_closes,
+                index,
+                benchmark_index,
+            )
+            reverse = reverse_entry is not None and reverse_entry[0] != position.side
+        else:
+            reverse = (
+                _price_cross_below_ma(closes, index, entry_ma, ma_kind)
+                if position.side == "long"
+                else _price_cross_above_ma(closes, index, entry_ma, ma_kind)
+            )
+        if reverse:
+            return "reverse_price_ma"
 
     exit_channel_days = params.get("exit_channel_days")
     if exit_channel_days is not None:
@@ -1076,6 +1160,36 @@ def _cross_below(values: list[float], index: int, short_window: int, long_window
     return previous_short >= previous_long and current_short < current_long
 
 
+def _price_cross_above_ma(
+    values: list[float],
+    index: int,
+    window: int,
+    kind: str | None = "sma",
+) -> bool:
+    if index <= 0:
+        return False
+    current_ma = _ma(values, index, window, kind)
+    previous_ma = _ma(values, index - 1, window, kind)
+    if current_ma is None or previous_ma is None:
+        return False
+    return values[index - 1] <= previous_ma and values[index] > current_ma
+
+
+def _price_cross_below_ma(
+    values: list[float],
+    index: int,
+    window: int,
+    kind: str | None = "sma",
+) -> bool:
+    if index <= 0:
+        return False
+    current_ma = _ma(values, index, window, kind)
+    previous_ma = _ma(values, index - 1, window, kind)
+    if current_ma is None or previous_ma is None:
+        return False
+    return values[index - 1] >= previous_ma and values[index] < current_ma
+
+
 def _prior_high(candles: list[Candle], index: int, window: int) -> float | None:
     if window <= 0 or index < window:
         return None
@@ -1144,6 +1258,39 @@ def _passes_atr_pct_filter(
     if atr_pct_min is not None and atr_pct < atr_pct_min:
         return False
     if atr_pct_max is not None and atr_pct > atr_pct_max:
+        return False
+    return True
+
+
+def _realized_vol(values: list[float], index: int, window: int | None) -> float | None:
+    if window is None or window <= 0 or index < window:
+        return None
+    returns: list[float] = []
+    for item in range(index - window + 1, index + 1):
+        previous = values[item - 1]
+        if previous == 0:
+            return None
+        returns.append(values[item] / previous - 1)
+    mean = sum(returns) / window
+    variance = sum((item - mean) ** 2 for item in returns) / window
+    return math.sqrt(variance) * math.sqrt(252)
+
+
+def _passes_realized_vol_filter(
+    params: dict[str, Any],
+    closes: list[float],
+    index: int,
+) -> bool:
+    realized_vol_min = params.get("realized_vol_min")
+    realized_vol_max = params.get("realized_vol_max")
+    if realized_vol_min is None and realized_vol_max is None:
+        return True
+    value = _realized_vol(closes, index, params.get("realized_vol_days"))
+    if value is None:
+        return False
+    if realized_vol_min is not None and value < realized_vol_min:
+        return False
+    if realized_vol_max is not None and value > realized_vol_max:
         return False
     return True
 
@@ -1441,6 +1588,329 @@ _TEMPLATES: list[dict[str, Any]] = [
                 "max_drawdown": -0.0557,
                 "win_rate": 1.0,
                 "round_trip_count": 1,
+            },
+        ],
+    },
+    {
+        "code": "personal_icbc_hk_price_ema30_steady",
+        "symbol": "HK.01398",
+        "name": "工商银行 EMA30 价格突破稳健型",
+        "description": "工商银行港股稳健型 Top2 模板，使用收盘价上穿/下穿 EMA30，叠加工商银行自身 SMA80、恒生 EMA200、恒生 40 日动量和相对恒生强弱过滤，仅用 12% 止盈退出。",
+        "benchmark_symbol": "HK.800000",
+        "direction_mode": "long_short",
+        "risk_level": "steady",
+        "position_ratio": 1.0,
+        "parameters": {
+            "engine": "price_ma",
+            "entry_ma": 30,
+            "entry_ma_kind": "ema",
+            "trend_ma": 80,
+            "trend_ma_kind": "sma",
+            "benchmark_ma": 200,
+            "benchmark_ma_kind": "ema",
+            "benchmark_roc_days": 40,
+            "benchmark_roc_min": -0.10,
+            "relative_strength_days": 20,
+            "relative_strength_min": 0.03,
+            "take_profit": 0.12,
+            "reverse_exit": False,
+            "use_trend_ma_as_exit": False,
+        },
+        "entry_rules": [
+            "做多：工商银行收盘价上穿 EMA30，且工商银行高于 SMA80。",
+            "恒生指数高于 EMA200，恒生 40 日动量大于 -10%，且工商银行 20 日相对恒生强弱大于 3%。",
+            "做空为对称条件：收盘价下穿 EMA30，工商银行低于 SMA80，恒生低于 EMA200，且相对恒生强弱转弱。",
+        ],
+        "exit_rules": [
+            "不使用反向 EMA30 穿越退出，也不把 SMA80 入场过滤当作退出均线。",
+            "单笔达到 12% 止盈时退出；区间结束仍持仓则按最后收盘价强制平仓。",
+        ],
+        "segments": [
+            {
+                "label": "2022",
+                "start_date": date(2022, 1, 1),
+                "end_date": date(2022, 12, 31),
+                "total_return": 0.1287,
+                "max_drawdown": -0.0710,
+                "win_rate": 1.0,
+                "round_trip_count": 1,
+            },
+            {
+                "label": "2023",
+                "start_date": date(2023, 1, 1),
+                "end_date": date(2023, 12, 31),
+                "total_return": 0.1225,
+                "max_drawdown": -0.0715,
+                "win_rate": 1.0,
+                "round_trip_count": 1,
+            },
+            {
+                "label": "2024",
+                "start_date": date(2024, 1, 1),
+                "end_date": date(2024, 12, 31),
+                "total_return": 0.2745,
+                "max_drawdown": -0.0830,
+                "win_rate": 1.0,
+                "round_trip_count": 2,
+            },
+            {
+                "label": "2025",
+                "start_date": date(2025, 1, 1),
+                "end_date": date(2025, 12, 31),
+                "total_return": 0.1166,
+                "max_drawdown": -0.0570,
+                "win_rate": 1.0,
+                "round_trip_count": 2,
+            },
+            {
+                "label": "2026YTD",
+                "start_date": date(2026, 1, 1),
+                "end_date": date(2026, 6, 5),
+                "total_return": 0.1232,
+                "max_drawdown": -0.0396,
+                "win_rate": 1.0,
+                "round_trip_count": 1,
+            },
+        ],
+    },
+    {
+        "code": "personal_icbc_hk_price_ema10_aggressive",
+        "symbol": "HK.01398",
+        "name": "工商银行 EMA10 价格突破进取型",
+        "description": "工商银行港股进取型 Top2 模板，使用收盘价上穿/下穿 EMA10，叠加工商银行自身 EMA50、ROC20、相对恒生 ROC80 和 40 日年化波动率过滤，保留 18% 止盈与 95 日最长持仓。",
+        "benchmark_symbol": "HK.800000",
+        "direction_mode": "long_short",
+        "risk_level": "aggressive",
+        "position_ratio": 1.0,
+        "parameters": {
+            "engine": "price_ma",
+            "entry_ma": 10,
+            "entry_ma_kind": "ema",
+            "trend_ma": 50,
+            "trend_ma_kind": "ema",
+            "own_roc_days": 20,
+            "own_roc_min": 0.0,
+            "relative_strength_days": 80,
+            "relative_strength_min": 0.0,
+            "realized_vol_days": 40,
+            "realized_vol_max": 0.36,
+            "take_profit": 0.18,
+            "max_hold_days": 95,
+            "reverse_exit": False,
+            "use_trend_ma_as_exit": False,
+        },
+        "entry_rules": [
+            "做多：工商银行收盘价上穿 EMA10，且工商银行高于 EMA50，20 日动量大于 0。",
+            "工商银行 80 日相对恒生强弱大于 0，且 40 日年化历史波动率不高于 36%。",
+            "做空为对称条件：收盘价下穿 EMA10，工商银行低于 EMA50，20 日动量小于 0，且相对恒生强弱转弱。",
+        ],
+        "exit_rules": [
+            "不使用反向 EMA10 穿越退出，也不把 EMA50 入场过滤当作退出均线。",
+            "单笔达到 18% 止盈，或虚拟持仓满 95 个交易日时退出。",
+        ],
+        "segments": [
+            {
+                "label": "2022",
+                "start_date": date(2022, 1, 1),
+                "end_date": date(2022, 12, 31),
+                "total_return": 0.1270,
+                "max_drawdown": -0.1637,
+                "win_rate": 0.5,
+                "round_trip_count": 2,
+            },
+            {
+                "label": "2023",
+                "start_date": date(2023, 1, 1),
+                "end_date": date(2023, 12, 31),
+                "total_return": 0.1818,
+                "max_drawdown": -0.1974,
+                "win_rate": 1.0,
+                "round_trip_count": 2,
+            },
+            {
+                "label": "2024",
+                "start_date": date(2024, 1, 1),
+                "end_date": date(2024, 12, 31),
+                "total_return": 0.2560,
+                "max_drawdown": -0.1636,
+                "win_rate": 1.0,
+                "round_trip_count": 2,
+            },
+            {
+                "label": "2025",
+                "start_date": date(2025, 1, 1),
+                "end_date": date(2025, 12, 31),
+                "total_return": 0.4099,
+                "max_drawdown": -0.1337,
+                "win_rate": 0.75,
+                "round_trip_count": 4,
+            },
+            {
+                "label": "2026YTD",
+                "start_date": date(2026, 1, 1),
+                "end_date": date(2026, 6, 5),
+                "total_return": 0.1120,
+                "max_drawdown": -0.0673,
+                "win_rate": 1.0,
+                "round_trip_count": 1,
+            },
+        ],
+    },
+    {
+        "code": "personal_alibaba_hk_price_sma30_steady",
+        "symbol": "HK.09988",
+        "name": "阿里巴巴 SMA30 价格突破稳健型",
+        "description": "阿里巴巴港股稳健型专属模板，使用收盘价上穿/下穿 SMA30，叠加自身 ROC20 与 20 日价格斜率过滤，使用合格反向信号、15% 固定止损、12% 止盈和 69 日最长持仓退出。本稳健型按允许放宽到 18% 最大回撤的口径写入。",
+        "benchmark_symbol": "HK.800000",
+        "direction_mode": "long_short",
+        "risk_level": "steady",
+        "position_ratio": 1.0,
+        "parameters": {
+            "engine": "price_ma",
+            "entry_ma": 30,
+            "entry_ma_kind": "sma",
+            "own_roc_days": 20,
+            "own_roc_min": 0.02,
+            "own_slope_days": 20,
+            "own_slope_min": 0.002,
+            "fixed_stop": 0.15,
+            "take_profit": 0.12,
+            "max_hold_days": 69,
+            "filtered_reverse_exit": True,
+        },
+        "entry_rules": [
+            "做多：阿里巴巴收盘价上穿 SMA30，且阿里巴巴 20 日动量大于 2%，20 日价格斜率不低于 0.2%。",
+            "做空为对称条件：阿里巴巴收盘价下穿 SMA30，且 20 日动量小于 -2%，20 日价格斜率不高于 -0.2%。",
+            "本策略最终未使用恒生趋势/动量过滤；恒生指数仅作为港股基准和扫描配套数据。",
+        ],
+        "exit_rules": [
+            "出现合格反向 SMA30 价格穿越信号。",
+            "固定止损 15%，止盈 12%，或虚拟持仓满 69 个交易日。",
+        ],
+        "segments": [
+            {
+                "label": "2022",
+                "start_date": date(2022, 1, 1),
+                "end_date": date(2022, 12, 31),
+                "total_return": 0.1445,
+                "max_drawdown": -0.1737,
+                "win_rate": 0.6667,
+                "round_trip_count": 3,
+            },
+            {
+                "label": "2023",
+                "start_date": date(2023, 1, 1),
+                "end_date": date(2023, 12, 31),
+                "total_return": 0.2382,
+                "max_drawdown": -0.0459,
+                "win_rate": 1.0,
+                "round_trip_count": 2,
+            },
+            {
+                "label": "2024",
+                "start_date": date(2024, 1, 1),
+                "end_date": date(2024, 12, 31),
+                "total_return": 0.1173,
+                "max_drawdown": -0.1410,
+                "win_rate": 1.0,
+                "round_trip_count": 1,
+            },
+            {
+                "label": "2025",
+                "start_date": date(2025, 1, 1),
+                "end_date": date(2025, 12, 31),
+                "total_return": 0.3016,
+                "max_drawdown": -0.0749,
+                "win_rate": 1.0,
+                "round_trip_count": 3,
+            },
+            {
+                "label": "2026YTD",
+                "start_date": date(2026, 1, 1),
+                "end_date": date(2026, 6, 5),
+                "total_return": 0.1279,
+                "max_drawdown": -0.1419,
+                "win_rate": 0.6667,
+                "round_trip_count": 3,
+            },
+        ],
+    },
+    {
+        "code": "personal_alibaba_hk_price_sma30_aggressive",
+        "symbol": "HK.09988",
+        "name": "阿里巴巴 SMA30 价格突破进取型",
+        "description": "阿里巴巴港股进取型专属模板，使用收盘价上穿/下穿 SMA30，叠加自身 ROC20 与 20 日价格斜率过滤，使用合格反向信号、15% 固定止损、12% 止盈和 69 日最长持仓退出。",
+        "benchmark_symbol": "HK.800000",
+        "direction_mode": "long_short",
+        "risk_level": "aggressive",
+        "position_ratio": 1.0,
+        "parameters": {
+            "engine": "price_ma",
+            "entry_ma": 30,
+            "entry_ma_kind": "sma",
+            "own_roc_days": 20,
+            "own_roc_min": 0.02,
+            "own_slope_days": 20,
+            "own_slope_min": 0.002,
+            "fixed_stop": 0.15,
+            "take_profit": 0.12,
+            "max_hold_days": 69,
+            "filtered_reverse_exit": True,
+        },
+        "entry_rules": [
+            "做多：阿里巴巴收盘价上穿 SMA30，且阿里巴巴 20 日动量大于 2%，20 日价格斜率不低于 0.2%。",
+            "做空为对称条件：阿里巴巴收盘价下穿 SMA30，且 20 日动量小于 -2%，20 日价格斜率不高于 -0.2%。",
+            "本策略最终未使用恒生趋势/动量过滤；恒生指数仅作为港股基准和扫描配套数据。",
+        ],
+        "exit_rules": [
+            "出现合格反向 SMA30 价格穿越信号。",
+            "固定止损 15%，止盈 12%，或虚拟持仓满 69 个交易日。",
+        ],
+        "segments": [
+            {
+                "label": "2022",
+                "start_date": date(2022, 1, 1),
+                "end_date": date(2022, 12, 31),
+                "total_return": 0.1445,
+                "max_drawdown": -0.1737,
+                "win_rate": 0.6667,
+                "round_trip_count": 3,
+            },
+            {
+                "label": "2023",
+                "start_date": date(2023, 1, 1),
+                "end_date": date(2023, 12, 31),
+                "total_return": 0.2382,
+                "max_drawdown": -0.0459,
+                "win_rate": 1.0,
+                "round_trip_count": 2,
+            },
+            {
+                "label": "2024",
+                "start_date": date(2024, 1, 1),
+                "end_date": date(2024, 12, 31),
+                "total_return": 0.1173,
+                "max_drawdown": -0.1410,
+                "win_rate": 1.0,
+                "round_trip_count": 1,
+            },
+            {
+                "label": "2025",
+                "start_date": date(2025, 1, 1),
+                "end_date": date(2025, 12, 31),
+                "total_return": 0.3016,
+                "max_drawdown": -0.0749,
+                "win_rate": 1.0,
+                "round_trip_count": 3,
+            },
+            {
+                "label": "2026YTD",
+                "start_date": date(2026, 1, 1),
+                "end_date": date(2026, 6, 5),
+                "total_return": 0.1279,
+                "max_drawdown": -0.1419,
+                "win_rate": 0.6667,
+                "round_trip_count": 3,
             },
         ],
     },

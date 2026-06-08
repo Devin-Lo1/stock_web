@@ -136,6 +136,114 @@ def test_chinalife_hk_personalized_templates_include_aggressive_and_steady() -> 
     assert "max_hold_days" not in aggressive.parameters
 
 
+def test_icbc_hk_personalized_templates_use_steady_and_aggressive_top2() -> None:
+    templates = service.list_personalized_strategy_templates()
+    hk_templates = [item for item in templates if item.symbol == "HK.01398"]
+    template = service.get_personalized_strategy_template("HK.01398")
+
+    assert {item.code for item in hk_templates} >= {
+        "personal_icbc_hk_price_ema30_steady",
+        "personal_icbc_hk_price_ema10_aggressive",
+    }
+    assert template is not None
+    assert template.code == "personal_icbc_hk_price_ema30_steady"
+    assert template.benchmark_symbol == "HK.800000"
+    assert template.risk_level == "steady"
+
+    steady = service.get_personalized_strategy_template(
+        "personal_icbc_hk_price_ema30_steady"
+    )
+    aggressive = service.get_personalized_strategy_template(
+        "personal_icbc_hk_price_ema10_aggressive"
+    )
+
+    assert steady is not None
+    assert aggressive is not None
+    assert steady.symbol == "HK.01398"
+    assert aggressive.symbol == "HK.01398"
+    assert steady.benchmark_symbol == "HK.800000"
+    assert aggressive.benchmark_symbol == "HK.800000"
+
+    assert steady.parameters["engine"] == "price_ma"
+    assert steady.parameters["entry_ma"] == 30
+    assert steady.parameters["entry_ma_kind"] == "ema"
+    assert steady.parameters["trend_ma"] == 80
+    assert steady.parameters["trend_ma_kind"] == "sma"
+    assert steady.parameters["benchmark_ma"] == 200
+    assert steady.parameters["benchmark_ma_kind"] == "ema"
+    assert steady.parameters["benchmark_roc_days"] == 40
+    assert steady.parameters["benchmark_roc_min"] == -0.10
+    assert steady.parameters["relative_strength_days"] == 20
+    assert steady.parameters["relative_strength_min"] == 0.03
+    assert steady.parameters["take_profit"] == 0.12
+    assert steady.parameters["reverse_exit"] is False
+    assert steady.parameters["use_trend_ma_as_exit"] is False
+
+    assert aggressive.risk_level == "aggressive"
+    assert aggressive.parameters["engine"] == "price_ma"
+    assert aggressive.parameters["entry_ma"] == 10
+    assert aggressive.parameters["entry_ma_kind"] == "ema"
+    assert aggressive.parameters["trend_ma"] == 50
+    assert aggressive.parameters["trend_ma_kind"] == "ema"
+    assert aggressive.parameters["own_roc_days"] == 20
+    assert aggressive.parameters["own_roc_min"] == 0.0
+    assert aggressive.parameters["relative_strength_days"] == 80
+    assert aggressive.parameters["relative_strength_min"] == 0.0
+    assert aggressive.parameters["realized_vol_days"] == 40
+    assert aggressive.parameters["realized_vol_max"] == 0.36
+    assert aggressive.parameters["take_profit"] == 0.18
+    assert aggressive.parameters["max_hold_days"] == 95
+    assert aggressive.parameters["reverse_exit"] is False
+    assert aggressive.parameters["use_trend_ma_as_exit"] is False
+    assert "fixed_stop" not in aggressive.parameters
+    assert "trailing_stop" not in aggressive.parameters
+
+
+def test_alibaba_hk_personalized_templates_include_aggressive_and_steady() -> None:
+    templates = service.list_personalized_strategy_templates()
+    hk_templates = [item for item in templates if item.symbol == "HK.09988"]
+    template = service.get_personalized_strategy_template("HK.09988")
+
+    assert {item.code for item in hk_templates} >= {
+        "personal_alibaba_hk_price_sma30_steady",
+        "personal_alibaba_hk_price_sma30_aggressive",
+    }
+    assert template is not None
+    assert template.code == "personal_alibaba_hk_price_sma30_steady"
+    assert template.benchmark_symbol == "HK.800000"
+    assert template.risk_level == "steady"
+
+    steady = service.get_personalized_strategy_template(
+        "personal_alibaba_hk_price_sma30_steady"
+    )
+    aggressive = service.get_personalized_strategy_template(
+        "personal_alibaba_hk_price_sma30_aggressive"
+    )
+
+    assert steady is not None
+    assert aggressive is not None
+    assert steady.symbol == "HK.09988"
+    assert aggressive.symbol == "HK.09988"
+    assert steady.benchmark_symbol == "HK.800000"
+    assert aggressive.benchmark_symbol == "HK.800000"
+    assert steady.parameters == aggressive.parameters
+    assert steady.parameters["engine"] == "price_ma"
+    assert steady.parameters["entry_ma"] == 30
+    assert steady.parameters["entry_ma_kind"] == "sma"
+    assert steady.parameters["own_roc_days"] == 20
+    assert steady.parameters["own_roc_min"] == 0.02
+    assert steady.parameters["own_slope_days"] == 20
+    assert steady.parameters["own_slope_min"] == 0.002
+    assert steady.parameters["fixed_stop"] == 0.15
+    assert steady.parameters["take_profit"] == 0.12
+    assert steady.parameters["max_hold_days"] == 69
+    assert steady.parameters["filtered_reverse_exit"] is True
+    assert "benchmark_ma" not in steady.parameters
+    assert "benchmark_roc_days" not in steady.parameters
+    assert "atr_days" not in steady.parameters
+    assert aggressive.risk_level == "aggressive"
+
+
 def test_googl_personalized_templates_include_aggressive_and_steady() -> None:
     templates = service.list_personalized_strategy_templates()
     googl_templates = [item for item in templates if item.symbol == "US.GOOGL"]
@@ -547,6 +655,44 @@ def test_ma_cross_entry_uses_momentum_and_relative_strength_filters() -> None:
     assert allowed == ("long", "ma_cross_up_with_filters")
 
 
+def test_price_ma_entry_uses_price_cross_and_slope_filters() -> None:
+    candles = _candles("HK.09988", [10, 10, 12])
+    benchmark_candles = _candles("HK.800000", [10, 10, 11])
+    closes = [item.close for item in candles]
+    benchmark_closes = [item.close for item in benchmark_candles]
+    params = {
+        "entry_ma": 2,
+        "entry_ma_kind": "sma",
+        "own_roc_days": 1,
+        "own_roc_min": 0.10,
+        "own_slope_days": 2,
+        "own_slope_min": 0.20,
+    }
+
+    blocked = service._price_ma_entry_reason(
+        params,
+        candles,
+        closes,
+        benchmark_candles,
+        benchmark_closes,
+        2,
+        2,
+    )
+    params["own_slope_min"] = 0.01
+    allowed = service._price_ma_entry_reason(
+        params,
+        candles,
+        closes,
+        benchmark_candles,
+        benchmark_closes,
+        2,
+        2,
+    )
+
+    assert blocked is None
+    assert allowed == ("long", "price_ma_cross_up_with_filters")
+
+
 def test_long_only_channel_template_blocks_short_entry() -> None:
     candles = _candles("US.DELL", [10, 9, 8, 7])
     benchmark_candles = _candles("US.QQQ", [10, 9, 8, 7])
@@ -624,6 +770,93 @@ def test_filtered_reverse_exit_requires_reverse_filters_to_pass() -> None:
     assert unfiltered == "reverse_ma_cross"
 
 
+def test_price_ma_filtered_reverse_exit_requires_reverse_filters_to_pass() -> None:
+    candles = _candles("HK.09988", [10, 12, 9])
+    benchmark_candles = _candles("HK.800000", [10, 11, 10])
+    closes = [item.close for item in candles]
+    benchmark_closes = [item.close for item in benchmark_candles]
+    position = service._Position(
+        side="long",
+        entry_price=12,
+        entry_date=date(2026, 1, 2),
+        high_since_entry=12,
+        low_since_entry=9,
+        highest_close_since_entry=12,
+        lowest_close_since_entry=9,
+    )
+    params = {
+        "engine": "price_ma",
+        "entry_ma": 2,
+        "entry_ma_kind": "sma",
+        "own_roc_days": 1,
+        "own_roc_min": 0.50,
+        "own_slope_days": 2,
+        "own_slope_min": 0.01,
+        "filtered_reverse_exit": True,
+    }
+
+    blocked = service._exit_reason(
+        {"parameters": params},
+        candles,
+        closes,
+        benchmark_candles,
+        benchmark_closes,
+        2,
+        2,
+        position,
+    )
+    params["own_roc_min"] = 0.10
+    allowed = service._exit_reason(
+        {"parameters": params},
+        candles,
+        closes,
+        benchmark_candles,
+        benchmark_closes,
+        2,
+        2,
+        position,
+    )
+
+    assert blocked is None
+    assert allowed == "reverse_price_ma"
+
+
+def test_price_ma_reverse_exit_can_be_disabled() -> None:
+    candles = _candles("HK.01398", [10, 12, 9])
+    benchmark_candles = _candles("HK.800000", [10, 11, 10])
+    closes = [item.close for item in candles]
+    benchmark_closes = [item.close for item in benchmark_candles]
+    position = service._Position(
+        side="long",
+        entry_price=12,
+        entry_date=date(2026, 1, 2),
+        high_since_entry=12,
+        low_since_entry=9,
+        highest_close_since_entry=12,
+        lowest_close_since_entry=9,
+    )
+
+    reason = service._exit_reason(
+        {
+            "parameters": {
+                "engine": "price_ma",
+                "entry_ma": 2,
+                "entry_ma_kind": "sma",
+                "reverse_exit": False,
+            }
+        },
+        candles,
+        closes,
+        benchmark_candles,
+        benchmark_closes,
+        2,
+        2,
+        position,
+    )
+
+    assert reason is None
+
+
 def test_atr_percent_and_volume_filters_block_or_allow_entries() -> None:
     candles = _candles("US.NVDA", [100, 101, 102])
     benchmark_candles = _candles("US.QQQ", [100, 101, 102])
@@ -669,6 +902,38 @@ def test_atr_percent_and_volume_filters_block_or_allow_entries() -> None:
     assert blocked is False
     assert allowed is True
     assert volume_blocked is False
+
+
+def test_realized_volatility_filter_blocks_high_volatility_entries() -> None:
+    quiet_candles = _candles("HK.01398", [100, 101, 102, 103, 104])
+    volatile_candles = _candles("HK.01398", [100, 120, 100, 120, 100])
+    benchmark_candles = _candles("HK.800000", [100, 101, 102, 103, 104])
+    params = {
+        "realized_vol_days": 4,
+        "realized_vol_max": 0.36,
+    }
+
+    quiet_allowed = service._passes_long_filters(
+        params,
+        quiet_candles,
+        [item.close for item in quiet_candles],
+        benchmark_candles,
+        [item.close for item in benchmark_candles],
+        4,
+        4,
+    )
+    volatile_blocked = service._passes_long_filters(
+        params,
+        volatile_candles,
+        [item.close for item in volatile_candles],
+        benchmark_candles,
+        [item.close for item in benchmark_candles],
+        4,
+        4,
+    )
+
+    assert quiet_allowed is True
+    assert volatile_blocked is False
 
 
 def test_slope_filters_apply_to_symbol_and_benchmark() -> None:
