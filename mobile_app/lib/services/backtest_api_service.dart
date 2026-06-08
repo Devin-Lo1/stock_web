@@ -6,6 +6,9 @@ import 'api_client.dart';
 class BacktestApiService {
   const BacktestApiService(this._apiClient);
 
+  static const _personalizedScanTimeout = Duration(seconds: 30);
+  static const _personalizedBulkScanTimeout = Duration(seconds: 45);
+
   final ApiClient _apiClient;
 
   Future<List<StrategyDefinition>> fetchStrategies() async {
@@ -84,6 +87,7 @@ class BacktestApiService {
       '/api/v1/personalized-strategies/${symbol.trim().toUpperCase()}/scan',
       const {},
       query: {'refresh': refresh ? 'true' : 'false'},
+      timeout: _personalizedScanTimeout,
     );
     if (decoded is Map<String, dynamic>) {
       return PersonalizedStrategyScanResult.fromJson(decoded);
@@ -103,6 +107,7 @@ class BacktestApiService {
       '/api/v1/personalized-strategies/scan-all',
       const {},
       query: {'refresh': refresh ? 'true' : 'false', 'limit': '$limit'},
+      timeout: _personalizedBulkScanTimeout,
     );
     if (decoded is Map<String, dynamic>) {
       return PersonalizedStrategyBulkScanResult.fromJson(decoded);

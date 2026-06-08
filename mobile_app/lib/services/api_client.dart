@@ -25,14 +25,22 @@ class ApiClient {
   final String baseUrl;
   final String _apiAccessToken;
 
-  Future<Object?> get(String path, {Map<String, String>? query}) async {
-    return _send(() => _httpClient.get(_uri(path, query), headers: _headers()));
+  Future<Object?> get(
+    String path, {
+    Map<String, String>? query,
+    Duration? timeout,
+  }) async {
+    return _send(
+      () => _httpClient.get(_uri(path, query), headers: _headers()),
+      timeout: timeout,
+    );
   }
 
   Future<Object?> post(
     String path,
     Map<String, dynamic> body, {
     Map<String, String>? query,
+    Duration? timeout,
   }) async {
     return _send(
       () => _httpClient.post(
@@ -40,21 +48,30 @@ class ApiClient {
         headers: _headers(json: true),
         body: jsonEncode(body),
       ),
+      timeout: timeout,
     );
   }
 
-  Future<Object?> put(String path, Map<String, dynamic> body) async {
+  Future<Object?> put(
+    String path,
+    Map<String, dynamic> body, {
+    Duration? timeout,
+  }) async {
     return _send(
       () => _httpClient.put(
         _uri(path),
         headers: _headers(json: true),
         body: jsonEncode(body),
       ),
+      timeout: timeout,
     );
   }
 
-  Future<void> delete(String path) async {
-    await _send(() => _httpClient.delete(_uri(path), headers: _headers()));
+  Future<void> delete(String path, {Duration? timeout}) async {
+    await _send(
+      () => _httpClient.delete(_uri(path), headers: _headers()),
+      timeout: timeout,
+    );
   }
 
   Uri _uri(String path, [Map<String, String>? query]) {
@@ -67,9 +84,12 @@ class ApiClient {
     ).replace(queryParameters: query);
   }
 
-  Future<Object?> _send(Future<http.Response> Function() request) async {
+  Future<Object?> _send(
+    Future<http.Response> Function() request, {
+    Duration? timeout,
+  }) async {
     try {
-      final response = await request().timeout(_requestTimeout);
+      final response = await request().timeout(timeout ?? _requestTimeout);
       return _decode(response);
     } on TimeoutException catch (error) {
       throw ApiException(

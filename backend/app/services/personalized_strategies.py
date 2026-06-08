@@ -82,6 +82,9 @@ def scan_personalized_strategy(
     symbol: str,
     *,
     refresh: bool = False,
+    _candle_cache: dict[tuple[str, bool], tuple[list[Candle], str | None]] | None = None,
+    _quote_cache: dict[tuple[str, bool], tuple[QuoteSnapshot | None, str | None]]
+    | None = None,
 ) -> PersonalizedStrategyScanResult | None:
     normalized_symbol = symbol.strip().upper()
     config = _find_config(normalized_symbol)
@@ -89,16 +92,26 @@ def scan_personalized_strategy(
         return None
 
     template = _template_from_config(config)
-    candles, refresh_error = _load_day_candles(template.symbol, refresh=refresh)
-    benchmark_candles, benchmark_error = _load_day_candles(
+    candles, refresh_error = _load_day_candles_cached(
+        template.symbol,
+        refresh=refresh,
+        cache=_candle_cache,
+    )
+    benchmark_candles, benchmark_error = _load_day_candles_cached(
         template.benchmark_symbol,
         refresh=refresh,
+        cache=_candle_cache,
     )
     refresh_error = _merge_errors(refresh_error, benchmark_error)
-    quote, quote_error = _load_quote(template.symbol, refresh=refresh)
-    benchmark_quote, benchmark_quote_error = _load_quote(
+    quote, quote_error = _load_quote_cached(
+        template.symbol,
+        refresh=refresh,
+        cache=_quote_cache,
+    )
+    benchmark_quote, benchmark_quote_error = _load_quote_cached(
         template.benchmark_symbol,
         refresh=refresh,
+        cache=_quote_cache,
     )
     refresh_error = _merge_errors(
         refresh_error,
@@ -229,8 +242,15 @@ def scan_all_personalized_strategies(
     limit: int = 3,
 ) -> PersonalizedStrategyBulkScanResult:
     results: list[PersonalizedStrategyScanResult] = []
+    candle_cache: dict[tuple[str, bool], tuple[list[Candle], str | None]] = {}
+    quote_cache: dict[tuple[str, bool], tuple[QuoteSnapshot | None, str | None]] = {}
     for config in _TEMPLATES:
-        result = scan_personalized_strategy(config["code"], refresh=refresh)
+        result = scan_personalized_strategy(
+            config["code"],
+            refresh=refresh,
+            _candle_cache=candle_cache,
+            _quote_cache=quote_cache,
+        )
         if result is not None:
             results.append(result)
     recommendations = _rank_personalized_recommendations(results)[: max(1, limit)]
@@ -381,6 +401,20 @@ def _load_day_candles(
     return candles, refresh_error
 
 
+def _load_day_candles_cached(
+    symbol: str,
+    *,
+    refresh: bool,
+    cache: dict[tuple[str, bool], tuple[list[Candle], str | None]] | None,
+) -> tuple[list[Candle], str | None]:
+    if cache is None:
+        return _load_day_candles(symbol, refresh=refresh)
+    key = (symbol.strip().upper(), refresh)
+    if key not in cache:
+        cache[key] = _load_day_candles(symbol, refresh=refresh)
+    return cache[key]
+
+
 def _load_quote(
     symbol: str,
     *,
@@ -396,6 +430,20 @@ def _load_quote(
 
     quotes = get_quotes([normalized_symbol])
     return (quotes[0] if quotes else None), refresh_error
+
+
+def _load_quote_cached(
+    symbol: str,
+    *,
+    refresh: bool,
+    cache: dict[tuple[str, bool], tuple[QuoteSnapshot | None, str | None]] | None,
+) -> tuple[QuoteSnapshot | None, str | None]:
+    if cache is None:
+        return _load_quote(symbol, refresh=refresh)
+    key = (symbol.strip().upper(), refresh)
+    if key not in cache:
+        cache[key] = _load_quote(symbol, refresh=refresh)
+    return cache[key]
 
 
 def _previous_close_candles(
