@@ -31,6 +31,7 @@ from .futu_client import (
 
 _DATA_START = date(2021, 1, 1)
 _US_EASTERN = ZoneInfo("America/New_York")
+_REPLAY_CHART_CANDLE_LIMIT = 320
 _DEFAULT_TEMPLATE_CODES_BY_SYMBOL = {
     "HK.02628": "personal_chinalife_hk_channel67_steady",
     "HK.01398": "personal_icbc_hk_price_ema30_steady",
@@ -82,6 +83,7 @@ def scan_personalized_strategy(
     symbol: str,
     *,
     refresh: bool = False,
+    include_replay_detail: bool = True,
     _candle_cache: dict[tuple[str, bool], tuple[list[Candle], str | None]] | None = None,
     _quote_cache: dict[tuple[str, bool], tuple[QuoteSnapshot | None, str | None]]
     | None = None,
@@ -167,6 +169,7 @@ def scan_personalized_strategy(
             title="昨日收盘信号",
             is_realtime=False,
             is_confirmed=True,
+            include_replay_detail=include_replay_detail,
         )
 
     today_decision = None
@@ -193,6 +196,7 @@ def scan_personalized_strategy(
                 title="策略信号" if is_confirmed else "预估建议操作",
                 is_realtime=True,
                 is_confirmed=is_confirmed,
+                include_replay_detail=include_replay_detail,
                 detail={
                     "quote_time": quote.quote_time.isoformat(),
                     "benchmark_quote_time": benchmark_quote.quote_time.isoformat(),
@@ -248,6 +252,7 @@ def scan_all_personalized_strategies(
         result = scan_personalized_strategy(
             config["code"],
             refresh=refresh,
+            include_replay_detail=False,
             _candle_cache=candle_cache,
             _quote_cache=quote_cache,
         )
@@ -518,6 +523,7 @@ def _decision_from_replay(
     title: str,
     is_realtime: bool,
     is_confirmed: bool,
+    include_replay_detail: bool = True,
     detail: dict[str, Any] | None = None,
 ) -> PersonalizedStrategyDecision:
     latest = replay["latest_candle"]
@@ -541,6 +547,25 @@ def _decision_from_replay(
         signal_date = None
 
     decisions = _decision_texts(action)
+    detail_payload = {
+        **(detail or {}),
+        "template_code": template.code,
+        "event_count": len(replay["events"]),
+        "last_event": _event_to_detail(latest_event),
+        "position_entry_date": replay["position_entry_date"].isoformat()
+        if replay["position_entry_date"] is not None
+        else None,
+        "position_entry_price": replay["position_entry_price"],
+        "position_hold_days": replay["position_hold_days"],
+    }
+    if include_replay_detail:
+        detail_payload.update(
+            {
+                "events": _visible_events_to_detail(replay),
+                "candles": _visible_candles_to_detail(replay),
+            }
+        )
+
     return PersonalizedStrategyDecision(
         kind=kind,
         title=title,
@@ -556,17 +581,7 @@ def _decision_from_replay(
         short_decision=decisions["short"],
         is_realtime=is_realtime,
         is_confirmed=is_confirmed,
-        detail={
-            **(detail or {}),
-            "template_code": template.code,
-            "event_count": len(replay["events"]),
-            "last_event": _event_to_detail(latest_event),
-            "position_entry_date": replay["position_entry_date"].isoformat()
-            if replay["position_entry_date"] is not None
-            else None,
-            "position_entry_price": replay["position_entry_price"],
-            "position_hold_days": replay["position_hold_days"],
-        },
+        detail=detail_payload,
     )
 
 
@@ -658,6 +673,7 @@ def _replay_strategy(
         "events": events,
         "latest_event": events[-1] if events else None,
         "latest_candle": candles[-1],
+        "candles": candles,
         "current_position": position.side if position is not None else "flat",
         "position_entry_date": position.entry_date if position is not None else None,
         "position_entry_price": position.entry_price if position is not None else None,
@@ -1397,6 +1413,46 @@ def _event_to_detail(event: _StrategyEvent | None) -> dict[str, Any] | None:
         "action": event.action,
         "price": event.price,
         "reason": event.reason,
+    }
+
+
+def _visible_events_to_detail(replay: dict[str, Any]) -> list[dict[str, Any]]:
+    candles = _visible_replay_candles(replay)
+    if not candles:
+        return []
+    start_date = candles[0].time.date()
+    details: list[dict[str, Any]] = []
+    for event in replay["events"]:
+        if event.event_date < start_date:
+            continue
+        detail = _event_to_detail(event)
+        if detail is not None:
+            details.append(detail)
+    return details
+
+
+def _visible_candles_to_detail(replay: dict[str, Any]) -> list[dict[str, Any]]:
+    return [_candle_to_detail(candle) for candle in _visible_replay_candles(replay)]
+
+
+def _visible_replay_candles(replay: dict[str, Any]) -> list[Candle]:
+    candles = replay.get("candles") or []
+    return candles[-_REPLAY_CHART_CANDLE_LIMIT:]
+
+
+def _candle_to_detail(candle: Candle) -> dict[str, Any]:
+    market = getattr(candle.market, "value", candle.market)
+    return {
+        "code": candle.code,
+        "market": market,
+        "period": candle.period,
+        "time": candle.time.isoformat(),
+        "open": candle.open,
+        "high": candle.high,
+        "low": candle.low,
+        "close": candle.close,
+        "volume": candle.volume,
+        "turnover": candle.turnover,
     }
 
 

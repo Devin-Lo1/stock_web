@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../models/backtest_models.dart';
 import '../../models/personalized_strategy.dart';
 import '../../utils/formatters.dart';
 import '../../utils/theme_helpers.dart';
+import '../backtest/backtest_kline_trade_chart.dart';
 import 'quant_common_widgets.dart';
 
 class QuantPersonalizedStrategyPanel extends StatefulWidget {
@@ -38,6 +40,7 @@ class _QuantPersonalizedStrategyPanelState
     extends State<QuantPersonalizedStrategyPanel> {
   final TextEditingController _filterController = TextEditingController();
   String _filterText = '';
+  _PersonalizedStrategyMarket? _selectedMarket;
 
   @override
   void initState() {
@@ -55,8 +58,15 @@ class _QuantPersonalizedStrategyPanelState
 
   @override
   Widget build(BuildContext context) {
+    final marketSummaries = _marketSummaries(widget.templates);
+    final selectedMarket = _selectedMarket;
+    final selectedTemplates = selectedMarket == null
+        ? const <PersonalizedStrategyTemplate>[]
+        : widget.templates
+              .where((template) => selectedMarket.matches(template.symbol))
+              .toList();
     final groups = _groupTemplates(
-      widget.templates,
+      selectedTemplates,
     ).where((group) => _matchesFilter(group, _filterText)).toList();
     return QuantPanel(
       child: Column(
@@ -81,17 +91,10 @@ class _QuantPersonalizedStrategyPanelState
             ),
           ),
           const SizedBox(height: 12),
-          _PersonalizedStrategyToolbar(
-            controller: _filterController,
-            isScanningAll: widget.isScanningAll,
-            onClear: () => _filterController.clear(),
-            onScanAll: widget.templates.isEmpty ? null : widget.onScanAll,
-          ),
           if (widget.recommendations.isNotEmpty) ...[
-            const SizedBox(height: 12),
             _RecommendationPanel(recommendations: widget.recommendations),
+            const SizedBox(height: 12),
           ],
-          const SizedBox(height: 12),
           if (widget.isLoading)
             const LinearProgressIndicator()
           else if (widget.templates.isEmpty)
@@ -99,42 +102,124 @@ class _QuantPersonalizedStrategyPanelState
               '暂无专属策略模板',
               style: TextStyle(color: secondaryTextColor(context)),
             )
+          else if (selectedMarket == null)
+            _PersonalizedStrategyMarketLanding(
+              summaries: marketSummaries,
+              isScanningAll: widget.isScanningAll,
+              onScanAll: widget.onScanAll,
+              onSelect: (market) {
+                setState(() {
+                  _selectedMarket = market;
+                  _filterController.clear();
+                });
+              },
+            )
           else if (groups.isEmpty)
-            Text(
-              '没有匹配的股票',
-              style: TextStyle(color: secondaryTextColor(context)),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SelectedMarketHeader(
+                  market: selectedMarket,
+                  templateCount: selectedTemplates.length,
+                  onBack: () {
+                    setState(() {
+                      _selectedMarket = null;
+                      _filterController.clear();
+                    });
+                  },
+                ),
+                const SizedBox(height: 12),
+                _PersonalizedStrategyToolbar(
+                  controller: _filterController,
+                  isScanningAll: widget.isScanningAll,
+                  onClear: () => _filterController.clear(),
+                  onScanAll: widget.templates.isEmpty ? null : widget.onScanAll,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '没有匹配的股票',
+                  style: TextStyle(color: secondaryTextColor(context)),
+                ),
+              ],
             )
           else
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final groupWidth = constraints.maxWidth;
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      for (var index = 0; index < groups.length; index++) ...[
-                        SizedBox(
-                          width: groupWidth,
-                          child: _PersonalizedStrategySymbolSection(
-                            group: groups[index],
-                            scanResults: widget.scanResults,
-                            scanningTemplateCodes: widget.scanningTemplateCodes,
-                            onScan: widget.onScan,
-                          ),
-                        ),
-                        if (index != groups.length - 1)
-                          const SizedBox(width: 12),
-                      ],
-                    ],
-                  ),
-                );
-              },
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SelectedMarketHeader(
+                  market: selectedMarket,
+                  templateCount: selectedTemplates.length,
+                  onBack: () {
+                    setState(() {
+                      _selectedMarket = null;
+                      _filterController.clear();
+                    });
+                  },
+                ),
+                const SizedBox(height: 12),
+                _PersonalizedStrategyToolbar(
+                  controller: _filterController,
+                  isScanningAll: widget.isScanningAll,
+                  onClear: () => _filterController.clear(),
+                  onScanAll: widget.templates.isEmpty ? null : widget.onScanAll,
+                ),
+                const SizedBox(height: 12),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final groupWidth = constraints.maxWidth;
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (
+                            var index = 0;
+                            index < groups.length;
+                            index++
+                          ) ...[
+                            SizedBox(
+                              width: groupWidth,
+                              child: _PersonalizedStrategySymbolSection(
+                                group: groups[index],
+                                scanResults: widget.scanResults,
+                                scanningTemplateCodes:
+                                    widget.scanningTemplateCodes,
+                                onScan: widget.onScan,
+                              ),
+                            ),
+                            if (index != groups.length - 1)
+                              const SizedBox(width: 12),
+                          ],
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
         ],
       ),
     );
+  }
+
+  List<_MarketSummary> _marketSummaries(
+    List<PersonalizedStrategyTemplate> templates,
+  ) {
+    return [
+      for (final market in _PersonalizedStrategyMarket.values)
+        _MarketSummary(
+          market: market,
+          templateCount: templates
+              .where((template) => market.matches(template.symbol))
+              .length,
+          symbolCount: templates
+              .where((template) => market.matches(template.symbol))
+              .map((template) => template.symbol.toUpperCase())
+              .toSet()
+              .length,
+        ),
+    ];
   }
 
   List<_PersonalizedStrategySymbolGroup> _groupTemplates(
@@ -193,6 +278,242 @@ class _PersonalizedStrategySymbolGroup {
 
   final String symbol;
   final List<PersonalizedStrategyTemplate> templates;
+}
+
+enum _PersonalizedStrategyMarket {
+  hk,
+  us;
+
+  String get title {
+    return switch (this) {
+      _PersonalizedStrategyMarket.hk => '港股策略',
+      _PersonalizedStrategyMarket.us => '美股策略',
+    };
+  }
+
+  String get shortTitle {
+    return switch (this) {
+      _PersonalizedStrategyMarket.hk => '港股',
+      _PersonalizedStrategyMarket.us => '美股',
+    };
+  }
+
+  IconData get icon {
+    return switch (this) {
+      _PersonalizedStrategyMarket.hk => Icons.apartment_rounded,
+      _PersonalizedStrategyMarket.us => Icons.public_rounded,
+    };
+  }
+
+  bool matches(String symbol) {
+    final normalized = symbol.trim().toUpperCase();
+    return switch (this) {
+      _PersonalizedStrategyMarket.hk => normalized.startsWith('HK.'),
+      _PersonalizedStrategyMarket.us => normalized.startsWith('US.'),
+    };
+  }
+}
+
+class _MarketSummary {
+  const _MarketSummary({
+    required this.market,
+    required this.templateCount,
+    required this.symbolCount,
+  });
+
+  final _PersonalizedStrategyMarket market;
+  final int templateCount;
+  final int symbolCount;
+}
+
+class _PersonalizedStrategyMarketLanding extends StatelessWidget {
+  const _PersonalizedStrategyMarketLanding({
+    required this.summaries,
+    required this.isScanningAll,
+    required this.onScanAll,
+    required this.onSelect,
+  });
+
+  final List<_MarketSummary> summaries;
+  final bool isScanningAll;
+  final VoidCallback onScanAll;
+  final ValueChanged<_PersonalizedStrategyMarket> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        FilledButton.icon(
+          onPressed: isScanningAll ? null : onScanAll,
+          icon: isScanningAll
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.manage_search_rounded, size: 18),
+          label: Text(isScanningAll ? '扫描中' : '集体扫描'),
+        ),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final useRow = constraints.maxWidth >= 520;
+            final children = [
+              for (final summary in summaries)
+                _MarketEntryCard(
+                  summary: summary,
+                  onTap: summary.templateCount == 0
+                      ? null
+                      : () => onSelect(summary.market),
+                ),
+            ];
+            if (useRow) {
+              return Row(
+                children: [
+                  for (var index = 0; index < children.length; index++) ...[
+                    Expanded(child: children[index]),
+                    if (index != children.length - 1) const SizedBox(width: 10),
+                  ],
+                ],
+              );
+            }
+            return Column(
+              children: [
+                for (var index = 0; index < children.length; index++) ...[
+                  children[index],
+                  if (index != children.length - 1) const SizedBox(height: 10),
+                ],
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _MarketEntryCard extends StatelessWidget {
+  const _MarketEntryCard({required this.summary, required this.onTap});
+
+  final _MarketSummary summary;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    final accent = appAccentColor(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: softCardColor(context),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: enabled
+                ? accent.withValues(alpha: 0.42)
+                : borderColor(context),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: enabled ? 0.14 : 0.06),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                summary.market.icon,
+                color: enabled ? accent : mutedIconColor(context),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    summary.market.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: enabled
+                          ? primaryTextColor(context)
+                          : secondaryTextColor(context),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    '${summary.symbolCount} 只股票 · ${summary.templateCount} 个模板',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: secondaryTextColor(context),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: enabled ? accent : mutedIconColor(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectedMarketHeader extends StatelessWidget {
+  const _SelectedMarketHeader({
+    required this.market,
+    required this.templateCount,
+    required this.onBack,
+  });
+
+  final _PersonalizedStrategyMarket market;
+  final int templateCount;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        IconButton(
+          onPressed: onBack,
+          icon: const Icon(Icons.arrow_back_rounded),
+          tooltip: '返回市场',
+        ),
+        const SizedBox(width: 4),
+        Icon(market.icon, color: appAccentColor(context), size: 20),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            market.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: primaryTextColor(context),
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        _Chip(text: '$templateCount 个模板'),
+      ],
+    );
+  }
 }
 
 class _PersonalizedStrategyToolbar extends StatelessWidget {
@@ -691,8 +1012,11 @@ class _PersonalizedStrategyCard extends StatelessWidget {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () =>
-                      _showPersonalizedStrategyDetails(context, template),
+                  onPressed: () => _showPersonalizedStrategyDetails(
+                    context,
+                    template,
+                    result,
+                  ),
                   icon: const Icon(Icons.rule_folder_rounded, size: 18),
                   label: const Text('策略细节'),
                 ),
@@ -722,6 +1046,7 @@ class _PersonalizedStrategyCard extends StatelessWidget {
 void _showPersonalizedStrategyDetails(
   BuildContext context,
   PersonalizedStrategyTemplate template,
+  PersonalizedStrategyScanResult? result,
 ) {
   showModalBottomSheet<void>(
     context: context,
@@ -740,6 +1065,7 @@ void _showPersonalizedStrategyDetails(
         builder: (context, scrollController) {
           return _PersonalizedStrategyDetailSheet(
             template: template,
+            result: result,
             scrollController: scrollController,
           );
         },
@@ -751,10 +1077,12 @@ void _showPersonalizedStrategyDetails(
 class _PersonalizedStrategyDetailSheet extends StatelessWidget {
   const _PersonalizedStrategyDetailSheet({
     required this.template,
+    required this.result,
     required this.scrollController,
   });
 
   final PersonalizedStrategyTemplate template;
+  final PersonalizedStrategyScanResult? result;
   final ScrollController scrollController;
 
   @override
@@ -845,6 +1173,8 @@ class _PersonalizedStrategyDetailSheet extends StatelessWidget {
             children: [_RuleList(rules: template.exitRules)],
           ),
           const SizedBox(height: 12),
+          _PersonalizedReplaySection(template: template, result: result),
+          const SizedBox(height: 12),
           _DetailSection(
             title: '参数',
             children: [
@@ -877,6 +1207,215 @@ class _PersonalizedStrategyDetailSheet extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PersonalizedReplaySection extends StatelessWidget {
+  const _PersonalizedReplaySection({
+    required this.template,
+    required this.result,
+  });
+
+  final PersonalizedStrategyTemplate template;
+  final PersonalizedStrategyScanResult? result;
+
+  @override
+  Widget build(BuildContext context) {
+    final decision = result?.previousCloseSignal ?? result?.todaySignal;
+    final candles = decision?.replayCandles ?? const [];
+    final events = decision?.replayEvents ?? const [];
+    final trades = _replayTrades(events);
+    final shortWindow = _chartShortWindow(template);
+    final longWindow = _chartLongWindow(template);
+
+    if (result == null) {
+      return _DetailSection(
+        title: '买卖点回放',
+        children: [
+          Text(
+            '扫描一次后显示该策略最近一段回放 K 线和买卖触发点。',
+            style: TextStyle(
+              color: secondaryTextColor(context),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (candles.length < 2) {
+      return _DetailSection(
+        title: '买卖点回放',
+        children: [
+          Text(
+            '本次结果未包含可绘制的回放 K 线，请点该模板的“扫描一次”获取买卖点回放。',
+            style: TextStyle(
+              color: secondaryTextColor(context),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return _DetailSection(
+      title: '买卖点回放',
+      children: [
+        Text(
+          '${decision?.title ?? '已扫描'} · ${candles.length} 根日 K · ${events.length} 个触发点',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: secondaryTextColor(context),
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 8),
+        BacktestKlineTradeChart(
+          candles: candles,
+          trades: trades,
+          shortMaWindow: shortWindow,
+          longMaWindow: longWindow,
+        ),
+        const SizedBox(height: 8),
+        if (events.isEmpty)
+          Text(
+            '这段回放窗口内暂无买卖触发。',
+            style: TextStyle(
+              color: secondaryTextColor(context),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          )
+        else
+          _ReplayEventList(events: events),
+      ],
+    );
+  }
+}
+
+class _ReplayEventList extends StatelessWidget {
+  const _ReplayEventList({required this.events});
+
+  final List<PersonalizedStrategyEvent> events;
+
+  @override
+  Widget build(BuildContext context) {
+    final recentEvents = events.reversed.take(8).toList().reversed;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final event in recentEvents)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 28,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: _eventActionColor(
+                      event.action,
+                      context,
+                    ).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    _eventActionShortText(event.action),
+                    style: TextStyle(
+                      color: _eventActionColor(event.action, context),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '${event.date == null ? '--' : quantDateText(event.date)} · ${event.price == null ? '--' : event.price!.toStringAsFixed(2)} · ${_eventReasonText(event.reason)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: primaryTextColor(context),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+List<BacktestTrade> _replayTrades(List<PersonalizedStrategyEvent> events) {
+  return [
+    for (final event in events)
+      if (_tradeSideForEvent(event.action) != null &&
+          event.date != null &&
+          event.price != null &&
+          event.price! > 0)
+        BacktestTrade(
+          time: event.date,
+          side: _tradeSideForEvent(event.action)!,
+          price: event.price!,
+          quantity: 0,
+          fee: 0,
+          slippage: 0,
+          cashAfter: 0,
+          positionAfter: 0,
+        ),
+  ];
+}
+
+String? _tradeSideForEvent(String action) {
+  return switch (action) {
+    'long_entry' || 'short_exit' => 'buy',
+    'short_entry' || 'long_exit' => 'sell',
+    _ => null,
+  };
+}
+
+String _eventActionShortText(String action) {
+  return switch (action) {
+    'long_entry' || 'short_exit' => '买入',
+    'short_entry' || 'long_exit' => '卖出',
+    _ => '触发',
+  };
+}
+
+Color _eventActionColor(String action, BuildContext context) {
+  final side = _tradeSideForEvent(action);
+  if (side == 'buy') return const Color(0xFF12B886);
+  if (side == 'sell') return const Color(0xFFFF3B45);
+  return secondaryTextColor(context);
+}
+
+int _chartShortWindow(PersonalizedStrategyTemplate template) {
+  final params = template.parameters;
+  return _readIntParam(params, 'short_window') ??
+      _readIntParam(params, 'entry_ma') ??
+      _readIntParam(params, 'trend_ma') ??
+      _readIntParam(params, 'entry_channel_days') ??
+      5;
+}
+
+int? _chartLongWindow(PersonalizedStrategyTemplate template) {
+  final params = template.parameters;
+  return _readIntParam(params, 'long_window') ??
+      _readIntParam(params, 'exit_ma');
+}
+
+int? _readIntParam(Map<String, Object?> params, String key) {
+  final value = params[key];
+  if (value is num) return value.toInt().clamp(1, 240).toInt();
+  if (value is String) return int.tryParse(value)?.clamp(1, 240).toInt();
+  return null;
 }
 
 class _DetailSection extends StatelessWidget {

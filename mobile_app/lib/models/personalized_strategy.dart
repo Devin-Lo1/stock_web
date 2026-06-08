@@ -1,3 +1,5 @@
+import 'candle.dart';
+
 class PersonalizedStrategySegment {
   const PersonalizedStrategySegment({
     required this.label,
@@ -159,6 +161,28 @@ class PersonalizedStrategyDecision {
       return PersonalizedStrategyEvent.fromMap(value.cast<Object?, Object?>());
     }
     return null;
+  }
+
+  List<PersonalizedStrategyEvent> get replayEvents {
+    final value = detail['events'];
+    if (value is! List) return const [];
+    return [
+      for (final item in value)
+        if (item is Map)
+          PersonalizedStrategyEvent.fromMap(item.cast<Object?, Object?>()),
+    ];
+  }
+
+  List<Candle> get replayCandles {
+    final value = detail['candles'];
+    if (value is! List) return const [];
+    return [
+      for (final item in value)
+        if (item is Map)
+          Candle.fromJson(
+            Map<String, dynamic>.from(item.cast<Object?, Object?>()),
+          ),
+    ];
   }
 
   DateTime? get positionEntryDate {

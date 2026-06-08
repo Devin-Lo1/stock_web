@@ -1100,6 +1100,56 @@ def test_decision_detail_includes_replay_position_metadata() -> None:
         "price": 13,
         "reason": "channel_breakout_with_filters",
     }
+    assert decision.detail["events"] == [
+        {
+            "date": "2026-01-03",
+            "action": "long_entry",
+            "price": 13,
+            "reason": "channel_breakout_with_filters",
+        }
+    ]
+    assert len(decision.detail["candles"]) == 4
+    assert decision.detail["candles"][-1]["code"] == "US.NVDA"
+    assert decision.detail["candles"][-1]["close"] == 14
+
+
+def test_decision_detail_can_omit_replay_chart_payload() -> None:
+    candles = _candles("US.NVDA", [10, 11, 13, 14])
+    benchmark_candles = _candles("US.QQQ", [10, 11, 12, 13])
+    replay = service._replay_strategy(
+        {
+            "parameters": {
+                "engine": "channel",
+                "entry_channel_days": 2,
+                "max_hold_days": 20,
+            },
+            "direction_mode": "long_only",
+        },
+        candles,
+        benchmark_candles,
+    )
+    template = service.get_personalized_strategy_template("personal_nvda_channel35")
+    assert template is not None
+
+    decision = service._decision_from_replay(
+        template,
+        replay,
+        kind="previous_close",
+        title="previous",
+        is_realtime=False,
+        is_confirmed=True,
+        include_replay_detail=False,
+    )
+
+    assert decision.detail["event_count"] == 1
+    assert decision.detail["last_event"] == {
+        "date": "2026-01-03",
+        "action": "long_entry",
+        "price": 13,
+        "reason": "channel_breakout_with_filters",
+    }
+    assert "events" not in decision.detail
+    assert "candles" not in decision.detail
 
 
 def test_personalized_recommendations_keep_best_long_candidate_per_symbol() -> None:
