@@ -9,7 +9,7 @@ from ..services.futu_client import (
     FutuDependencyError,
     FutuOpenDError,
     get_futu_capital_flow,
-    get_futu_quote,
+    get_futu_quotes,
 )
 
 router = APIRouter(prefix="/api/v1/quotes", tags=["quotes"])
@@ -30,19 +30,18 @@ def api_refresh_quotes(codes: str = Query(default="")) -> list[QuoteSnapshot]:
     if not requested_codes:
         requested_codes = [position.code for position in list_positions()]
 
-    refreshed_quotes: list[QuoteSnapshot] = []
-    failed_codes: dict[str, str] = {}
-    for code in requested_codes:
-        try:
-            quote = get_futu_quote(code)
-        except FutuDependencyError as error:
-            raise futu_dependency_error(str(error)) from error
-        except FutuOpenDError as error:
-            failed_codes[code] = str(error)
-            continue
-        refreshed_quotes.append(upsert_quote(quote))
-    if not refreshed_quotes and failed_codes:
-        raise futu_unavailable_error(str(failed_codes))
+    try:
+        quotes = get_futu_quotes(requested_codes)
+    except FutuDependencyError as error:
+        raise futu_dependency_error(str(error)) from error
+    except FutuOpenDError as error:
+        raise futu_unavailable_error(str(error)) from error
+
+    refreshed_quotes = [upsert_quote(quote) for quote in quotes]
+    if not refreshed_quotes:
+        raise futu_unavailable_error(
+            f"No quote returned for {','.join(requested_codes)}",
+        )
     return refreshed_quotes
 
 

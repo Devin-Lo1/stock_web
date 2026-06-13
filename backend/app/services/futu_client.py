@@ -1,6 +1,8 @@
 import math
 import os
 import socket
+import threading
+from contextlib import contextmanager
 from datetime import datetime, time, timedelta, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -20,7 +22,15 @@ FUTU_PORT = int(os.getenv("FUTU_PORT", "11111").strip() or "11111")
 FUTU_CONNECT_TIMEOUT_SECONDS = float(
     os.getenv("FUTU_CONNECT_TIMEOUT_SECONDS", "2").strip() or "2"
 )
+FUTU_MAX_CONCURRENT_CONTEXTS = max(
+    1,
+    int(os.getenv("FUTU_MAX_CONCURRENT_CONTEXTS", "4").strip() or "4"),
+)
+FUTU_CONTEXT_ACQUIRE_TIMEOUT_SECONDS = float(
+    os.getenv("FUTU_CONTEXT_ACQUIRE_TIMEOUT_SECONDS", "2").strip() or "2"
+)
 US_EASTERN = ZoneInfo("America/New_York")
+_FUTU_CONTEXT_SEMAPHORE = threading.BoundedSemaphore(FUTU_MAX_CONCURRENT_CONTEXTS)
 
 
 class FutuDependencyError(RuntimeError):
@@ -36,9 +46,7 @@ def check_futu_health() -> dict[str, Any]:
     if sdk is None:
         raise FutuDependencyError("futu-api is not installed")
 
-    _ensure_futu_port_available()
-    quote_context = sdk.OpenQuoteContext(host=FUTU_HOST, port=FUTU_PORT)
-    try:
+    with _open_quote_context(sdk) as quote_context:
         ret, data = quote_context.get_global_state()
         if ret != sdk.RET_OK:
             raise FutuOpenDError(str(data))
@@ -47,53 +55,93 @@ def check_futu_health() -> dict[str, Any]:
             "port": FUTU_PORT,
             "state": _stringify_data(data),
         }
-    finally:
-        quote_context.close()
 
 
 def get_futu_quote(code: str) -> QuoteSnapshot:
+    quotes = get_futu_quotes([code])
+    normalized_code = code.strip().upper()
+    if not quotes:
+        raise FutuOpenDError(f"No quote returned for {normalized_code}")
+    return quotes[0]
+
+
+def get_futu_quotes(codes: list[str]) -> list[QuoteSnapshot]:
     sdk = get_futu_sdk()
     if sdk is None:
         raise FutuDependencyError("futu-api is not installed")
 
-    normalized_code = code.strip().upper()
-    _ensure_futu_port_available()
-    quote_context = sdk.OpenQuoteContext(host=FUTU_HOST, port=FUTU_PORT)
-    try:
-        ret, data = quote_context.get_market_snapshot([normalized_code])
+    normalized_codes = list(dict.fromkeys(code.strip().upper() for code in codes if code.strip()))
+    if not normalized_codes:
+        return []
+
+    with _open_quote_context(sdk) as quote_context:
+        ret, data = quote_context.get_market_snapshot(normalized_codes)
         if ret != sdk.RET_OK:
             raise FutuOpenDError(str(data))
         if data.empty:
-            raise FutuOpenDError(f"No quote returned for {normalized_code}")
+            raise FutuOpenDError(f"No quote returned for {','.join(normalized_codes)}")
 
-        row = data.iloc[0]
-        current_price = _read_float(row, "last_price")
-        previous_close = _read_float(row, "prev_close_price")
-        change = current_price - previous_close if previous_close else 0
-        change_rate = change / previous_close * 100 if previous_close else 0
-        extended = _extended_quote_fields(normalized_code, row)
+        quotes_by_code: dict[str, QuoteSnapshot] = {}
+        for index, (_, row) in enumerate(data.iterrows()):
+            row_code = str(row.get("code") or "").strip().upper()
+            if not row_code and index < len(normalized_codes):
+                row_code = normalized_codes[index]
+            if not row_code:
+                continue
+            quotes_by_code[row_code] = _row_to_quote_snapshot(row_code, row)
 
-        return QuoteSnapshot(
-            code=normalized_code,
-            market=_market_from_code(normalized_code),
-            currency=_currency_from_code(normalized_code),
-            current_price=current_price,
-            previous_close=previous_close,
-            open=_read_float(row, "open_price"),
-            high=_read_float(row, "high_price"),
-            low=_read_float(row, "low_price"),
-            volume=_read_float(row, "volume"),
-            turnover=_read_float(row, "turnover"),
-            turnover_rate=_read_float(row, "turnover_rate"),
-            pe_ratio=_read_float(row, "pe_ratio") or _read_float(row, "pe_ttm_ratio"),
-            lot_size=_read_float(row, "lot_size"),
-            change=change,
-            change_rate=change_rate,
-            quote_time=datetime.now(timezone.utc),
-            **extended,
+        return [
+            quotes_by_code[code]
+            for code in normalized_codes
+            if code in quotes_by_code
+        ]
+
+
+def _row_to_quote_snapshot(normalized_code: str, row: Any) -> QuoteSnapshot:
+    current_price = _read_float(row, "last_price")
+    previous_close = _read_float(row, "prev_close_price")
+    change = current_price - previous_close if previous_close else 0
+    change_rate = change / previous_close * 100 if previous_close else 0
+    extended = _extended_quote_fields(normalized_code, row)
+
+    return QuoteSnapshot(
+        code=normalized_code,
+        market=_market_from_code(normalized_code),
+        currency=_currency_from_code(normalized_code),
+        current_price=current_price,
+        previous_close=previous_close,
+        open=_read_float(row, "open_price"),
+        high=_read_float(row, "high_price"),
+        low=_read_float(row, "low_price"),
+        volume=_read_float(row, "volume"),
+        turnover=_read_float(row, "turnover"),
+        turnover_rate=_read_float(row, "turnover_rate"),
+        pe_ratio=_read_float(row, "pe_ratio") or _read_float(row, "pe_ttm_ratio"),
+        lot_size=_read_float(row, "lot_size"),
+        change=change,
+        change_rate=change_rate,
+        quote_time=datetime.now(timezone.utc),
+        **extended,
+    )
+
+
+@contextmanager
+def _open_quote_context(sdk: Any) -> Any:
+    _ensure_futu_port_available()
+    if not _FUTU_CONTEXT_SEMAPHORE.acquire(
+        timeout=FUTU_CONTEXT_ACQUIRE_TIMEOUT_SECONDS,
+    ):
+        raise FutuOpenDError(
+            "FutuOpenD is busy; too many concurrent quote requests",
         )
+    quote_context = None
+    try:
+        quote_context = sdk.OpenQuoteContext(host=FUTU_HOST, port=FUTU_PORT)
+        yield quote_context
     finally:
-        quote_context.close()
+        if quote_context is not None:
+            quote_context.close()
+        _FUTU_CONTEXT_SEMAPHORE.release()
 
 
 def get_history_kline_quota() -> dict[str, Any]:
@@ -101,15 +149,11 @@ def get_history_kline_quota() -> dict[str, Any]:
     if sdk is None:
         raise FutuDependencyError("futu-api is not installed")
 
-    _ensure_futu_port_available()
-    quote_context = sdk.OpenQuoteContext(host=FUTU_HOST, port=FUTU_PORT)
-    try:
+    with _open_quote_context(sdk) as quote_context:
         ret, data = quote_context.get_history_kl_quota(get_detail=True)
         if ret != sdk.RET_OK:
             raise FutuOpenDError(str(data))
         return _normalize_quota(data)
-    finally:
-        quote_context.close()
 
 
 def get_futu_capital_flow(code: str) -> CapitalFlowSnapshot:
@@ -118,9 +162,7 @@ def get_futu_capital_flow(code: str) -> CapitalFlowSnapshot:
         raise FutuDependencyError("futu-api is not installed")
 
     normalized_code = code.strip().upper()
-    _ensure_futu_port_available()
-    quote_context = sdk.OpenQuoteContext(host=FUTU_HOST, port=FUTU_PORT)
-    try:
+    with _open_quote_context(sdk) as quote_context:
         ret, distribution = quote_context.get_capital_distribution(normalized_code)
         if ret != sdk.RET_OK:
             raise FutuOpenDError(str(distribution))
@@ -159,8 +201,6 @@ def get_futu_capital_flow(code: str) -> CapitalFlowSnapshot:
             buckets=buckets,
             points=points,
         )
-    finally:
-        quote_context.close()
 
 
 def request_history_klines(
@@ -184,9 +224,7 @@ def request_history_klines(
         actual_end,
     )
     ktype = _futu_ktype(sdk, normalized_period)
-    _ensure_futu_port_available()
-    quote_context = sdk.OpenQuoteContext(host=FUTU_HOST, port=FUTU_PORT)
-    try:
+    with _open_quote_context(sdk) as quote_context:
         ret, data, _ = quote_context.request_history_kline(
             normalized_code,
             start=actual_start,
@@ -204,8 +242,6 @@ def request_history_klines(
             for _, row in data.iterrows()
         ]
         return candles[-requested_count:]
-    finally:
-        quote_context.close()
 
 
 def request_history_klines_all(
@@ -223,9 +259,7 @@ def request_history_klines_all(
     normalized_period = _normalize_period(period)
     bounded_count = max(1, min(max_count, 160000))
     ktype = _futu_ktype(sdk, normalized_period)
-    _ensure_futu_port_available()
-    quote_context = sdk.OpenQuoteContext(host=FUTU_HOST, port=FUTU_PORT)
-    try:
+    with _open_quote_context(sdk) as quote_context:
         candles: list[Candle] = []
         page_req_key = None
         while len(candles) < bounded_count:
@@ -251,8 +285,6 @@ def request_history_klines_all(
                 break
         candles.sort(key=lambda candle: candle.time)
         return candles[:bounded_count]
-    finally:
-        quote_context.close()
 
 
 def _read_float(row: Any, key: str) -> float:
