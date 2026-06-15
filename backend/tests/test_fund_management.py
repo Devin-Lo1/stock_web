@@ -133,6 +133,51 @@ def test_fund_position_holding_sync_replaces_bad_import_trade() -> None:
     assert records[0].note == "sync current holding"
 
 
+def test_fund_strategy_reference_ignores_holding_correction() -> None:
+    position = create_fund_position(
+        FundPositionCreate(
+            fund_code="022365",
+            name="Yongying Tech",
+            fund_type="mixed",
+            shares=10000,
+            cost_nav=1.0,
+            trade_date=date(2026, 6, 2),
+            alert_threshold_percent=5,
+        ),
+    )
+
+    synced = sync_fund_position_holding(
+        get_fund_position(position.id) or position,
+        FundPositionHoldingSync(
+            shares=9000,
+            cost_nav=1.2,
+            trade_date=date(2026, 6, 12),
+            note="correct current holding",
+        ),
+    )
+    latest = FundNavPoint(
+        fund_code="022365",
+        nav_date=date(2026, 6, 15),
+        unit_nav=1.12,
+        daily_growth_rate=0,
+        updated_at=_now(),
+    )
+    summary = _build_fund_summary(
+        synced,
+        latest,
+        trades=list_fund_trades(position_id=position.id, limit=10),
+        trade_records=list_fund_trade_records(position_id=position.id, limit=10),
+    )
+
+    assert summary.strategy_reference is not None
+    assert summary.strategy_reference.source == "system_trade_record"
+    assert summary.strategy_reference.trade_date == date(2026, 6, 2)
+    assert summary.strategy_reference.nav == 1.0
+    assert round(summary.strategy_reference.change_rate, 2) == 12
+    assert summary.grid_recommendation is not None
+    assert summary.grid_recommendation.baseline_nav == 1.0
+
+
 def test_fund_trades_can_be_listed_by_position() -> None:
     position = create_fund_position(
         FundPositionCreate(

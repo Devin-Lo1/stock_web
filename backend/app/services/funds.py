@@ -26,7 +26,6 @@ from .fund_provider import EastmoneyFundProvider, FundProviderError
 _STRATEGY_REFERENCE_RECORD_ACTIONS = {
     "buy",
     "sell",
-    "correct",
     "recurring",
     "convert",
 }
@@ -325,7 +324,11 @@ def _latest_strategy_reference_candidate(
     trade_records: list[FundTradeRecord] | None,
 ) -> _StrategyReferenceCandidate | None:
     candidates: list[_StrategyReferenceCandidate] = []
-    if last_trade is not None and last_trade.nav > 0:
+    if (
+        last_trade is not None
+        and last_trade.nav > 0
+        and not _is_correction_backfill_trade(last_trade, trade_records)
+    ):
         candidates.append(
             _StrategyReferenceCandidate(
                 nav=last_trade.nav,
@@ -358,6 +361,24 @@ def _latest_strategy_reference_candidate(
             item.created_at.isoformat() if item.created_at is not None else "",
         ),
     )
+
+
+def _is_correction_backfill_trade(
+    trade: FundTrade,
+    trade_records: list[FundTradeRecord] | None,
+) -> bool:
+    for record in trade_records or []:
+        if not record.is_system or record.action != "correct":
+            continue
+        if record.source_trade_id == trade.id:
+            return True
+        if (
+            record.trade_date == trade.trade_date
+            and abs(record.nav - trade.nav) < 1e-9
+            and abs(record.shares - trade.shares) < 1e-6
+        ):
+            return True
+    return False
 
 
 def _is_strategy_reference_record(record: FundTradeRecord) -> bool:
