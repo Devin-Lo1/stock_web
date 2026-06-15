@@ -254,6 +254,10 @@ def create_fund_trade_for_position(
 
     trade = _build_fund_trade(position, payload)
     with _connect() as connection:
+        duplicate = _find_duplicate_fund_trade(connection, trade)
+        if duplicate is not None:
+            _ensure_system_trade_record(connection, duplicate)
+            return duplicate
         _insert_fund_trade(connection, trade)
         _insert_fund_trade_record(
             connection,
@@ -280,6 +284,59 @@ def create_fund_trade_for_position(
             ),
         )
     return trade
+
+
+def _find_duplicate_fund_trade(connection, trade: FundTrade) -> FundTrade | None:
+    row = connection.execute(
+        """
+        SELECT id, fund_position_id, fund_code, name, action, shares, nav,
+               fee, trade_date, operation_date, operation_after_cutoff,
+               note, created_at, updated_at
+        FROM fund_trades
+        WHERE fund_position_id = ?
+          AND action = ?
+          AND ABS(shares - ?) < 0.000001
+          AND ABS(nav - ?) < 0.000001
+          AND ABS(fee - ?) < 0.000001
+          AND trade_date = ?
+          AND COALESCE(operation_date, '') = ?
+          AND operation_after_cutoff = ?
+          AND COALESCE(note, '') = ?
+        ORDER BY created_at ASC
+        LIMIT 1
+        """,
+        (
+            trade.fund_position_id,
+            trade.action,
+            trade.shares,
+            trade.nav,
+            trade.fee,
+            trade.trade_date.isoformat(),
+            trade.operation_date.isoformat() if trade.operation_date else "",
+            1 if trade.operation_after_cutoff else 0,
+            trade.note or "",
+        ),
+    ).fetchone()
+    if row is None:
+        return None
+    return _row_to_fund_trade(row)
+
+
+def _ensure_system_trade_record(connection, trade: FundTrade) -> None:
+    row = connection.execute(
+        """
+        SELECT id
+        FROM fund_trade_records
+        WHERE source_trade_id = ?
+        LIMIT 1
+        """,
+        (trade.id,),
+    ).fetchone()
+    if row is None:
+        _insert_fund_trade_record(
+            connection,
+            _fund_trade_to_record(trade, is_system=True),
+        )
 
 
 def materialize_pending_fund_trades(position_id: str | None = None) -> int:

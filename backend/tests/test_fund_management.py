@@ -413,6 +413,39 @@ def test_fund_position_rebuilds_from_out_of_order_trades() -> None:
     assert round(rebuilt.realized_profit, 2) == 50
 
 
+def test_fund_trade_duplicate_submission_is_idempotent() -> None:
+    position = create_fund_position(
+        FundPositionCreate(
+            fund_code="000047",
+            name="Duplicate Guard Fund",
+            fund_type="mixed",
+            shares=100,
+            cost_nav=1.0,
+            trade_date=date(2026, 5, 20),
+        ),
+    )
+    payload = FundTradeCreate(
+        action="buy",
+        amount=500,
+        nav=2.0,
+        trade_date=date(2026, 5, 27),
+        operation_date=date(2026, 5, 27),
+        note="same request",
+    )
+
+    first = create_fund_trade_for_position(position, payload)
+    second = create_fund_trade_for_position(get_fund_position(position.id) or position, payload)
+    updated = get_fund_position(position.id)
+    trades = list_fund_trades(position_id=position.id, limit=10)
+    records = list_fund_trade_records(position_id=position.id, limit=10)
+
+    assert first.id == second.id
+    assert updated is not None
+    assert updated.shares == 350
+    assert len(trades) == 2
+    assert len(records) == 2
+
+
 def test_fund_cashflow_at_current_nav_does_not_create_profit() -> None:
     position = create_fund_position(
         FundPositionCreate(
