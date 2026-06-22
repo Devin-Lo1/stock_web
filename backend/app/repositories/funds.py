@@ -400,6 +400,13 @@ def materialize_pending_fund_trades(position_id: str | None = None) -> int:
             changed_positions.add(record.fund_position_id)
             materialized_count += 1
 
+        repaired_count, repaired_positions = _repair_confirmed_auto_nav_trades(
+            connection,
+            position_id=position_id,
+        )
+        changed_positions.update(repaired_positions)
+        materialized_count += repaired_count
+
         for changed_position_id in changed_positions:
             row = connection.execute(
                 """
@@ -438,6 +445,118 @@ def materialize_pending_fund_trades(position_id: str | None = None) -> int:
                 ),
             )
     return materialized_count
+
+
+def _repair_confirmed_auto_nav_trades(
+    connection,
+    position_id: str | None = None,
+) -> tuple[int, set[str]]:
+    clauses = [
+        "record.source_trade_id IS NOT NULL",
+        "record.is_system = 1",
+        "record.action IN ('buy', 'sell')",
+        "record.operation_date IS NOT NULL",
+    ]
+    params: list[object] = []
+    if position_id:
+        clauses.append("record.fund_position_id = ?")
+        params.append(position_id)
+    rows = connection.execute(
+        f"""
+        SELECT record.id, record.fund_position_id, record.fund_code, record.name,
+               record.action, record.shares, record.nav, record.amount,
+               record.fee, record.trade_date, record.operation_date,
+               record.operation_after_cutoff, record.note,
+               record.source_trade_id, record.is_system,
+               record.created_at, record.updated_at
+        FROM fund_trade_records AS record
+        JOIN fund_trades AS trade ON trade.id = record.source_trade_id
+        WHERE {' AND '.join(clauses)}
+        ORDER BY record.trade_date ASC, record.created_at ASC
+        """,
+        tuple(params),
+    ).fetchall()
+
+    repaired_count = 0
+    changed_positions: set[str] = set()
+    for row in rows:
+        record = _row_to_fund_trade_record(row)
+        nav_point = _confirmation_nav_for_record(record)
+        if nav_point is None or nav_point.unit_nav <= 0:
+            continue
+        if (
+            record.trade_date == nav_point.nav_date
+            and abs(record.nav - nav_point.unit_nav) < 1e-6
+        ):
+            continue
+        try:
+            shares = _reprice_confirmed_record_shares(record, nav_point.unit_nav)
+        except FundTradeError:
+            continue
+        if shares <= 0:
+            continue
+        amount = _trade_record_amount(
+            action=record.action,
+            shares=shares,
+            nav=nav_point.unit_nav,
+            fee=record.fee,
+        )
+        now = _now()
+        connection.execute(
+            """
+            UPDATE fund_trades
+            SET shares = ?,
+                nav = ?,
+                trade_date = ?,
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                shares,
+                nav_point.unit_nav,
+                nav_point.nav_date.isoformat(),
+                _datetime_to_text(now),
+                record.source_trade_id,
+            ),
+        )
+        connection.execute(
+            """
+            UPDATE fund_trade_records
+            SET shares = ?,
+                nav = ?,
+                amount = ?,
+                trade_date = ?,
+                updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                shares,
+                nav_point.unit_nav,
+                amount,
+                nav_point.nav_date.isoformat(),
+                _datetime_to_text(now),
+                record.id,
+            ),
+        )
+        changed_positions.add(record.fund_position_id)
+        repaired_count += 1
+    return repaired_count, changed_positions
+
+
+def _reprice_confirmed_record_shares(
+    record: FundTradeRecord,
+    nav: float,
+) -> float:
+    if nav <= 0:
+        raise FundTradeError("fund nav is required for repricing")
+    if record.amount <= 0:
+        return record.shares
+    if record.action == "sell":
+        return (record.amount + record.fee) / nav
+    available_amount = record.amount - record.fee
+    if available_amount <= 0:
+        raise FundTradeError("fund buy amount must be greater than fee")
+    return available_amount / nav
 
 
 def list_fund_trade_records(

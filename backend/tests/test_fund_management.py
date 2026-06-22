@@ -272,6 +272,88 @@ def test_fund_opening_trade_uses_nav_trading_day_after_cutoff() -> None:
     assert trades[0].operation_after_cutoff is True
 
 
+def test_fund_opening_auto_nav_reprices_when_confirmation_arrives(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "app.repositories.funds._refresh_navs_for_code",
+        lambda fund_code: None,
+    )
+    upsert_fund_navs(
+        [
+            FundNavPoint(
+                fund_code="019018",
+                nav_date=date(2026, 6, 17),
+                unit_nav=10.055,
+                updated_at=_now(),
+            ),
+        ],
+    )
+    position = create_fund_position(
+        FundPositionCreate(
+            fund_code="019018",
+            name="E Fund Information Industry C",
+            fund_type="mixed",
+            amount=10000,
+            cost_nav=10.055,
+            auto_nav=True,
+            operation_date=date(2026, 6, 18),
+            operation_after_cutoff=False,
+            trade_date=date(2026, 6, 18),
+            alert_threshold_percent=1,
+        ),
+    )
+    trades = list_fund_trades(position_id=position.id, limit=10)
+    assert trades[0].trade_date == date(2026, 6, 18)
+    assert trades[0].nav == 10.055
+
+    upsert_fund_navs(
+        [
+            FundNavPoint(
+                fund_code="019018",
+                nav_date=date(2026, 6, 18),
+                unit_nav=10.416,
+                daily_growth_rate=3.59,
+                updated_at=_now(),
+            ),
+            FundNavPoint(
+                fund_code="019018",
+                nav_date=date(2026, 6, 22),
+                unit_nav=10.561,
+                daily_growth_rate=1.39,
+                updated_at=_now(),
+            ),
+        ],
+    )
+    assert materialize_pending_fund_trades(position.id) == 1
+    updated = get_fund_position(position.id)
+    trades = list_fund_trades(position_id=position.id, limit=10)
+    records = list_fund_trade_records(position_id=position.id, limit=10)
+    latest = FundNavPoint(
+        fund_code="019018",
+        nav_date=date(2026, 6, 22),
+        unit_nav=10.561,
+        daily_growth_rate=1.39,
+        updated_at=_now(),
+    )
+    assert updated is not None
+    assert abs(updated.shares - (10000 / 10.416)) < 0.0001
+    assert round(updated.avg_cost_nav, 4) == 10.416
+    assert trades[0].nav == 10.416
+    assert records[0].nav == 10.416
+
+    summary = _build_fund_summary(
+        updated,
+        latest,
+        trades=trades,
+        trade_records=records,
+    )
+    assert summary.strategy_reference is not None
+    assert summary.strategy_reference.trade_date == date(2026, 6, 18)
+    assert summary.strategy_reference.nav == 10.416
+    assert round(summary.strategy_reference.change_rate, 2) == 1.39
+
+
 def test_fund_trade_amount_uses_historical_nav() -> None:
     upsert_fund_navs(
         [
