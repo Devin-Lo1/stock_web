@@ -28,6 +28,7 @@ backend/uvicorn.*.log
 # IDE / OS
 .idea/
 .vscode/
+.worktrees/
 *.iml
 .DS_Store
 Thumbs.db
