@@ -13,6 +13,7 @@ from .routers import (
     klines,
     notifications,
     personalized_strategies,
+    portfolio_strategy,
     positions,
     quotes,
     signals,
@@ -65,4 +66,5 @@ app.include_router(futu.router)
 app.include_router(strategies.router)
 app.include_router(backtests.router)
 app.include_router(personalized_strategies.router)
+app.include_router(portfolio_strategy.router)
 app.include_router(funds.router)

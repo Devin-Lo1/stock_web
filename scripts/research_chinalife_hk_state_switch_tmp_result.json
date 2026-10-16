@@ -1,0 +1,4155 @@
+{
+  "meta": {
+    "target": "HK.02628",
+    "benchmark": "HK.800000",
+    "requested_range": "2021-01-04~2026-06-11",
+    "effective_range": "2021-01-04~2026-06-10",
+    "effective_end_note": "2026-06-11 仍可能是未收盘日K，已自动排除，使用 2026-06-10。",
+    "seed": 20260611,
+    "started_at": "2026-06-11T15:37:55",
+    "elapsed_seconds": 1395.09,
+    "cost_model": {
+      "initial_cash": 100000.0,
+      "slippage_single_side": 0.0005,
+      "broker_commission_rate": 0.00138,
+      "broker_min_commission": 18.0,
+      "hk_stamp_duty_rate": 0.001,
+      "hk_sfc_transaction_levy_rate": 2.7e-05,
+      "hk_afrc_transaction_levy_rate": 1.5e-06,
+      "hk_trading_fee_rate": 5.65e-05,
+      "hk_ccass_settlement_fee_rate": 4.2e-05,
+      "hk_ccass_min": 2.0,
+      "hk_ccass_max": 100.0,
+      "fee_note": "港股费用近似：佣金、印花税、交易征费、会财局交易征费、交易费、CCASS 结算费，另计单边滑点。"
+    },
+    "execution": "T 日收盘生成信号，T+1 交易日开盘按滑点成交；区间结束仍持仓按最后可用收盘价强制平仓。",
+    "selection_rule": "2026YTD 只作最终验证，不参与 2021-2025 参数搜索、排序或调参。",
+    "no_future_function": true,
+    "split_adjustment": {
+      "known_event": "No known China Life HK split adjustment was required for the requested 2021-2026 window.",
+      "large_gap_count": 0,
+      "large_gaps": [],
+      "handling": "No additional split adjustment was applied because no split-like discontinuity was detected in the cloud OHLC series."
+    }
+  },
+  "counts": {
+    "unique_tested": 802152,
+    "stage1_unique": 800000,
+    "local_refine_unique": 2152,
+    "annual_review": 3868,
+    "train_pass_2021_2025": 192,
+    "walk_forward_2024_pass": 184,
+    "walk_forward_2025_pass": 178,
+    "walk_forward_2026YTD_pass": 45,
+    "walk_forward_all_pass": 45,
+    "final_pass": 45,
+    "final_state_switch": 0,
+    "final_with_hsi_conditions": 45,
+    "final_without_hsi_conditions": 0,
+    "final_no_small_take_profit": 0,
+    "tested_by_family": {
+      "channel": 82717,
+      "ma_cross": 167227,
+      "momentum": 9350,
+      "price_ma": 13746,
+      "state_switch": 529112
+    },
+    "preliminary_pass_by_family": {
+      "channel": 10085,
+      "ma_cross": 10136,
+      "momentum": 418,
+      "price_ma": 350,
+      "state_switch": 28100
+    }
+  },
+  "current_app": [
+    {
+      "strategy": "current_app_chinalife_channel67_steady",
+      "family": "channel",
+      "direction": "long_short",
+      "formula": "Entry: 中国人寿 close breaks prior 67d high/low. Filters: 中国人寿 close above/below EMA80; 中国人寿 ROC40 > 8%; 恒生指数 EMA200 filter; 恒生指数 ROC80 > 2%; 中国人寿-恒生指数 ROC20 > 2%; ATR14% <= 3.5%. Exit: SMA100; 42d opposite channel; take profit 12%; max hold 80d.",
+      "parameters": {
+        "family": "channel",
+        "direction": "long_short",
+        "atr_days": 14,
+        "atr_pct_max": 0.035,
+        "benchmark_ma": 200,
+        "benchmark_ma_kind": "ema",
+        "benchmark_roc_days": 80,
+        "benchmark_roc_min": 0.02,
+        "entry_channel": 67,
+        "exit_channel": 42,
+        "exit_ma": 100,
+        "exit_ma_kind": "sma",
+        "max_hold": 80,
+        "own_roc_days": 40,
+        "own_roc_min": 0.08,
+        "qqq_ma": 80,
+        "qqq_ma_kind": "ema",
+        "relative_days": 20,
+        "relative_min": 0.02,
+        "reverse_exit": false,
+        "take_profit": 0.12
+      },
+      "full": {
+        "total_return": 2.1822570777589783,
+        "max_drawdown": -0.08547274088813894,
+        "win_rate": 1.0,
+        "round_trips": 10,
+        "long_count": 8,
+        "short_count": 2,
+        "total_fees": 9348.382638934361,
+        "profit_factor": 999.0,
+        "payoff_ratio": 0.0
+      },
+      "train_full": {
+        "total_return": 1.6370052283475212,
+        "max_drawdown": -0.08547274088813894,
+        "win_rate": 1.0,
+        "round_trips": 9,
+        "long_count": 7,
+        "short_count": 2,
+        "total_fees": 7773.0413750314965,
+        "profit_factor": 999.0,
+        "payoff_ratio": 0.0
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.24605685736216865,
+          "max_drawdown": -0.0479542212391697,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 0,
+          "short_count": 2,
+          "total_fees": 984.9483956298801,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2023": {
+          "total_return": 0.11668022608185513,
+          "max_drawdown": -0.04304317615343867,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 530.4819500301386,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2024": {
+          "total_return": 0.28221441462561203,
+          "max_drawdown": -0.031787526237157526,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1134.8199314672797,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2025": {
+          "total_return": 0.47803136619483033,
+          "max_drawdown": -0.08547274088813883,
+          "win_rate": 1.0,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2549.1593190089766,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2026YTD": {
+          "total_return": 0.10881321537525279,
+          "max_drawdown": -0.05566272914492709,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 528.5047335643135,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": false,
+          "total_return": 0.28221441462561203,
+          "max_drawdown": -0.031787526237157526,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1134.8199314672797,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2025": {
+          "pass": false,
+          "total_return": 0.47803136619483033,
+          "max_drawdown": -0.08547274088813883,
+          "win_rate": 1.0,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2549.1593190089766,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2026YTD": {
+          "pass": false,
+          "total_return": 0.10881321537525279,
+          "max_drawdown": -0.05566272914492709,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 528.5047335643135,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "all_pass": false
+      },
+      "trend_train": {
+        "up_segment_count": 3,
+        "trend_capture_ratio": 0.8263129564171112,
+        "trend_long_coverage": 0.2881055399314723,
+        "down_segment_count": 2,
+        "downside_avoidance": 1.0,
+        "sell_fly_count": 4,
+        "sell_fly_avg_future_gain": 0.21866158504401362,
+        "sell_fly_events": [
+          {
+            "date": "2024-05-13",
+            "price": 10.31757,
+            "window": 20,
+            "future_gain": 0.12018333774328638
+          },
+          {
+            "date": "2024-09-30",
+            "price": 14.64884,
+            "window": 20,
+            "future_gain": 0.3365454192959989
+          },
+          {
+            "date": "2025-06-25",
+            "price": 19.1469,
+            "window": 40,
+            "future_gain": 0.2952363045714972
+          },
+          {
+            "date": "2025-07-24",
+            "price": 22.08976,
+            "window": 20,
+            "future_gain": 0.122681278565272
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.5086148089810659,
+            "long_coverage": 0.2222222222222222
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 0.8117364821652601,
+            "long_coverage": 0.05555555555555555
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 0.9589645651765861,
+            "long_coverage": 0.5280898876404494
+          }
+        ]
+      },
+      "trend_full": {
+        "up_segment_count": 4,
+        "trend_capture_ratio": 0.9567038233819439,
+        "trend_long_coverage": 0.3491235896184702,
+        "down_segment_count": 2,
+        "downside_avoidance": 1.0,
+        "sell_fly_count": 5,
+        "sell_fly_avg_future_gain": 0.21315864429275616,
+        "sell_fly_events": [
+          {
+            "date": "2024-05-13",
+            "price": 10.31757,
+            "window": 20,
+            "future_gain": 0.12018333774328638
+          },
+          {
+            "date": "2024-09-30",
+            "price": 14.64884,
+            "window": 20,
+            "future_gain": 0.3365454192959989
+          },
+          {
+            "date": "2025-06-25",
+            "price": 19.1469,
+            "window": 40,
+            "future_gain": 0.2952363045714972
+          },
+          {
+            "date": "2025-07-24",
+            "price": 22.08976,
+            "window": 20,
+            "future_gain": 0.122681278565272
+          },
+          {
+            "date": "2026-01-05",
+            "price": 29.82,
+            "window": 20,
+            "future_gain": 0.1911468812877264
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.5086148089810659,
+            "long_coverage": 0.2222222222222222
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 0.8117364821652601,
+            "long_coverage": 0.05555555555555555
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 0.9589645651765861,
+            "long_coverage": 0.5280898876404494
+          },
+          {
+            "start": "2025-10-28",
+            "end": "2026-03-03",
+            "buy_hold_return": 0.19968051118210872,
+            "capture_ratio": 1.5751947552744139,
+            "long_coverage": 0.6385542168674698
+          }
+        ]
+      },
+      "sample_warning": false
+    },
+    {
+      "strategy": "current_app_chinalife_channel72_aggressive",
+      "family": "channel",
+      "direction": "long_short",
+      "formula": "Entry: 中国人寿 close breaks prior 72d high/low. Filters: 中国人寿 close above/below EMA100; 中国人寿 ROC40 > 8%; 恒生指数 ROC80 > 2%; 中国人寿-恒生指数 ROC40 > 0%; ATR20% <= 3.5%. Exit: SMA80; 54d opposite channel; fixed stop 12%; trailing stop 18%; take profit 12%.",
+      "parameters": {
+        "family": "channel",
+        "direction": "long_short",
+        "atr_days": 20,
+        "atr_pct_max": 0.035,
+        "benchmark_roc_days": 80,
+        "benchmark_roc_min": 0.02,
+        "entry_channel": 72,
+        "exit_channel": 54,
+        "exit_ma": 80,
+        "exit_ma_kind": "sma",
+        "fixed_stop": 0.12,
+        "own_roc_days": 40,
+        "own_roc_min": 0.08,
+        "qqq_ma": 100,
+        "qqq_ma_kind": "ema",
+        "relative_days": 40,
+        "relative_min": 0.0,
+        "reverse_exit": false,
+        "take_profit": 0.12,
+        "trailing_stop": 0.18
+      },
+      "full": {
+        "total_return": 2.4493377077469707,
+        "max_drawdown": -0.1608004081280311,
+        "win_rate": 0.9090909090909091,
+        "round_trips": 11,
+        "long_count": 9,
+        "short_count": 2,
+        "total_fees": 10516.359192025548,
+        "profit_factor": 13.645452668113725,
+        "payoff_ratio": 1.3645452668113724
+      },
+      "train_full": {
+        "total_return": 2.1108374791326967,
+        "max_drawdown": -0.1608004081280311,
+        "win_rate": 0.9,
+        "round_trips": 10,
+        "long_count": 8,
+        "short_count": 2,
+        "total_fees": 8872.266858954641,
+        "profit_factor": 11.897842036248308,
+        "payoff_ratio": 1.3219824484720342
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.18630874321902113,
+          "max_drawdown": -0.04477609260685522,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 0,
+          "short_count": 1,
+          "total_fees": 452.0593843012401,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2023": {
+          "total_return": 0.11668022608185513,
+          "max_drawdown": -0.04304317615343867,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 530.4819500301386,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2024": {
+          "total_return": 0.5818357988140668,
+          "max_drawdown": -0.031787526237157526,
+          "win_rate": 1.0,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 1852.714142655902,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2025": {
+          "total_return": 0.44460304286011154,
+          "max_drawdown": -0.07589515851330375,
+          "win_rate": 1.0,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 1816.7852834313405,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2026YTD": {
+          "total_return": 0.10881321537525279,
+          "max_drawdown": -0.05566272914492709,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 528.5047335643135,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": true,
+          "total_return": 0.5818357988140668,
+          "max_drawdown": -0.031787526237157526,
+          "win_rate": 1.0,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 1852.714142655902,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2025": {
+          "pass": true,
+          "total_return": 0.44460304286011154,
+          "max_drawdown": -0.07589515851330375,
+          "win_rate": 1.0,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 1816.7852834313405,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2026YTD": {
+          "pass": true,
+          "total_return": 0.10881321537525279,
+          "max_drawdown": -0.05566272914492709,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 528.5047335643135,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "all_pass": true
+      },
+      "trend_train": {
+        "up_segment_count": 3,
+        "trend_capture_ratio": 1.0747034819025145,
+        "trend_long_coverage": 0.36697188875258235,
+        "down_segment_count": 2,
+        "downside_avoidance": 1.0,
+        "sell_fly_count": 6,
+        "sell_fly_avg_future_gain": 0.2029542842997907,
+        "sell_fly_events": [
+          {
+            "date": "2023-02-28",
+            "price": 11.32436,
+            "window": 60,
+            "future_gain": 0.21193250656107732
+          },
+          {
+            "date": "2024-05-13",
+            "price": 10.31757,
+            "window": 20,
+            "future_gain": 0.12018333774328638
+          },
+          {
+            "date": "2024-09-30",
+            "price": 14.64884,
+            "window": 20,
+            "future_gain": 0.3365454192959989
+          },
+          {
+            "date": "2024-10-04",
+            "price": 17.30884,
+            "window": 20,
+            "future_gain": 0.1311468590616125
+          },
+          {
+            "date": "2025-06-25",
+            "price": 19.1469,
+            "window": 40,
+            "future_gain": 0.2952363045714972
+          },
+          {
+            "date": "2025-07-24",
+            "price": 22.08976,
+            "window": 20,
+            "future_gain": 0.122681278565272
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.2438886817844317,
+            "long_coverage": 0.6031746031746031
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 1.5363494151976,
+            "long_coverage": 0.09722222222222222
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 0.9589645651765861,
+            "long_coverage": 0.5280898876404494
+          }
+        ]
+      },
+      "trend_full": {
+        "up_segment_count": 4,
+        "trend_capture_ratio": 0.9923076748803483,
+        "trend_long_coverage": 0.33664107560111783,
+        "down_segment_count": 2,
+        "downside_avoidance": 1.0,
+        "sell_fly_count": 6,
+        "sell_fly_avg_future_gain": 0.2029542842997907,
+        "sell_fly_events": [
+          {
+            "date": "2023-02-28",
+            "price": 11.32436,
+            "window": 60,
+            "future_gain": 0.21193250656107732
+          },
+          {
+            "date": "2024-05-13",
+            "price": 10.31757,
+            "window": 20,
+            "future_gain": 0.12018333774328638
+          },
+          {
+            "date": "2024-09-30",
+            "price": 14.64884,
+            "window": 20,
+            "future_gain": 0.3365454192959989
+          },
+          {
+            "date": "2024-10-04",
+            "price": 17.30884,
+            "window": 20,
+            "future_gain": 0.1311468590616125
+          },
+          {
+            "date": "2025-06-25",
+            "price": 19.1469,
+            "window": 40,
+            "future_gain": 0.2952363045714972
+          },
+          {
+            "date": "2025-07-24",
+            "price": 22.08976,
+            "window": 20,
+            "future_gain": 0.122681278565272
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.2438886817844317,
+            "long_coverage": 0.6031746031746031
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 1.5363494151976,
+            "long_coverage": 0.09722222222222222
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 0.9589645651765861,
+            "long_coverage": 0.5280898876404494
+          },
+          {
+            "start": "2025-10-28",
+            "end": "2026-03-03",
+            "buy_hold_return": 0.19968051118210872,
+            "capture_ratio": 0.6014746307000665,
+            "long_coverage": 0.1927710843373494
+          }
+        ]
+      },
+      "sample_warning": false
+    }
+  ],
+  "top3": [
+    {
+      "strategy": "中国人寿 channel 26/52",
+      "family": "channel",
+      "direction": "long_short",
+      "formula": "Entry: 中国人寿 close breaks prior 26d high/low. Filters: 中国人寿 close above/below SMA100; 中国人寿 ROC80 > 6%; 恒生指数 ROC120 > -8%; 中国人寿-恒生指数 ROC20 > -1%; ATR20% <= 3.5%. Exit: SMA120; 52d opposite channel; trailing stop 12%; take profit 12%.",
+      "parameters": {
+        "family": "channel",
+        "direction": "long_short",
+        "atr_days": 20,
+        "atr_pct_max": 0.035,
+        "benchmark_roc_days": 120,
+        "benchmark_roc_min": -0.08,
+        "entry_channel": 26,
+        "exit_channel": 52,
+        "exit_ma": 120,
+        "exit_ma_kind": "sma",
+        "own_roc_days": 80,
+        "own_roc_min": 0.06,
+        "qqq_ma": 100,
+        "qqq_ma_kind": "sma",
+        "relative_days": 20,
+        "relative_min": -0.01,
+        "reverse_exit": false,
+        "take_profit": 0.12,
+        "trailing_stop": 0.12
+      },
+      "full": {
+        "total_return": 4.366308266305324,
+        "max_drawdown": -0.15477718276588204,
+        "win_rate": 0.7894736842105263,
+        "round_trips": 19,
+        "long_count": 14,
+        "short_count": 5,
+        "total_fees": 20335.350253021392,
+        "profit_factor": 12.434301863266445,
+        "payoff_ratio": 3.315813830204385
+      },
+      "train_full": {
+        "total_return": 3.839686424993789,
+        "max_drawdown": -0.15477718276588204,
+        "win_rate": 0.7777777777777778,
+        "round_trips": 18,
+        "long_count": 13,
+        "short_count": 5,
+        "total_fees": 17777.553068445224,
+        "profit_factor": 11.0552070458406,
+        "payoff_ratio": 3.158630584525886
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.21162741784868921,
+          "max_drawdown": -0.13048246797468632,
+          "win_rate": 0.5,
+          "round_trips": 4,
+          "long_count": 2,
+          "short_count": 2,
+          "total_fees": 1940.4568119254723,
+          "profit_factor": 2.6583562894601824,
+          "payoff_ratio": 2.6583562894601824
+        },
+        "2023": {
+          "total_return": 0.2520835203293508,
+          "max_drawdown": -0.11968747682747982,
+          "win_rate": 1.0,
+          "round_trips": 3,
+          "long_count": 2,
+          "short_count": 1,
+          "total_fees": 1748.4455423587121,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2024": {
+          "total_return": 1.0465094773854808,
+          "max_drawdown": -0.06817853649461691,
+          "win_rate": 1.0,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2913.3872379243635,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2025": {
+          "total_return": 0.6362520531231326,
+          "max_drawdown": -0.07032441687111635,
+          "win_rate": 1.0,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2606.698489155545,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2026YTD": {
+          "total_return": 0.10881321537525279,
+          "max_drawdown": -0.05566272914492709,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 528.5047335643135,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": true,
+          "total_return": 1.0465094773854808,
+          "max_drawdown": -0.06817853649461691,
+          "win_rate": 1.0,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2913.3872379243635,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2025": {
+          "pass": true,
+          "total_return": 0.6362520531231326,
+          "max_drawdown": -0.07032441687111635,
+          "win_rate": 1.0,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2606.698489155545,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2026YTD": {
+          "pass": true,
+          "total_return": 0.10881321537525279,
+          "max_drawdown": -0.05566272914492709,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 528.5047335643135,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "all_pass": true
+      },
+      "trend_train": {
+        "up_segment_count": 3,
+        "trend_capture_ratio": 1.4675584532754595,
+        "trend_long_coverage": 0.4156855593378408,
+        "down_segment_count": 2,
+        "downside_avoidance": 1.0,
+        "sell_fly_count": 5,
+        "sell_fly_avg_future_gain": 0.3306238862753788,
+        "sell_fly_events": [
+          {
+            "date": "2024-09-24",
+            "price": 12.06884,
+            "window": 20,
+            "future_gain": 0.6222636143987326
+          },
+          {
+            "date": "2024-09-30",
+            "price": 14.64884,
+            "window": 20,
+            "future_gain": 0.3365454192959989
+          },
+          {
+            "date": "2024-10-04",
+            "price": 17.30884,
+            "window": 20,
+            "future_gain": 0.1311468590616125
+          },
+          {
+            "date": "2025-06-16",
+            "price": 17.6669,
+            "window": 60,
+            "future_gain": 0.40374146001845257
+          },
+          {
+            "date": "2025-07-23",
+            "price": 21.38976,
+            "window": 20,
+            "future_gain": 0.15942207860209745
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.0,
+            "long_coverage": 0.3492063492063492
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 2.3986290616357895,
+            "long_coverage": 0.3333333333333333
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 1.156090120140245,
+            "long_coverage": 0.5168539325842697
+          }
+        ]
+      },
+      "trend_full": {
+        "up_segment_count": 4,
+        "trend_capture_ratio": 1.4439177965622028,
+        "trend_long_coverage": 0.39994837042002335,
+        "down_segment_count": 2,
+        "downside_avoidance": 1.0,
+        "sell_fly_count": 6,
+        "sell_fly_avg_future_gain": 0.32303558299118035,
+        "sell_fly_events": [
+          {
+            "date": "2024-09-24",
+            "price": 12.06884,
+            "window": 20,
+            "future_gain": 0.6222636143987326
+          },
+          {
+            "date": "2024-09-30",
+            "price": 14.64884,
+            "window": 20,
+            "future_gain": 0.3365454192959989
+          },
+          {
+            "date": "2024-10-04",
+            "price": 17.30884,
+            "window": 20,
+            "future_gain": 0.1311468590616125
+          },
+          {
+            "date": "2025-06-16",
+            "price": 17.6669,
+            "window": 60,
+            "future_gain": 0.40374146001845257
+          },
+          {
+            "date": "2025-07-23",
+            "price": 21.38976,
+            "window": 20,
+            "future_gain": 0.15942207860209745
+          },
+          {
+            "date": "2025-11-12",
+            "price": 27.64,
+            "window": 60,
+            "future_gain": 0.2850940665701882
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.0,
+            "long_coverage": 0.3492063492063492
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 2.3986290616357895,
+            "long_coverage": 0.3333333333333333
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 1.156090120140245,
+            "long_coverage": 0.5168539325842697
+          },
+          {
+            "start": "2025-10-28",
+            "end": "2026-03-03",
+            "buy_hold_return": 0.19968051118210872,
+            "capture_ratio": 1.3317816313423212,
+            "long_coverage": 0.3253012048192771
+          }
+        ]
+      },
+      "sample_warning": false
+    },
+    {
+      "strategy": "中国人寿 price SMA20",
+      "family": "price_ma",
+      "direction": "long_short",
+      "formula": "Entry: 中国人寿 close crosses SMA20. Filters: 中国人寿 close above/below EMA150; 中国人寿 close above/below EMA200; 中国人寿 ROC40 > -10%; 恒生指数 ROC20 > 0%. Exit: SMA120; fixed stop 5%; take profit 20%.",
+      "parameters": {
+        "family": "price_ma",
+        "direction": "long_short",
+        "benchmark_roc_days": 20,
+        "benchmark_roc_min": 0.0,
+        "entry_ma": 20,
+        "entry_ma_kind": "sma",
+        "exit_ma": 120,
+        "exit_ma_kind": "sma",
+        "fixed_stop": 0.05,
+        "own_roc_days": 40,
+        "own_roc_min": -0.1,
+        "qqq_ma": 150,
+        "qqq_ma2": 200,
+        "qqq_ma2_kind": "ema",
+        "qqq_ma_kind": "ema",
+        "reverse_exit": false,
+        "take_profit": 0.2
+      },
+      "full": {
+        "total_return": 1.7196194602804344,
+        "max_drawdown": -0.18806633202002854,
+        "win_rate": 0.5625,
+        "round_trips": 16,
+        "long_count": 8,
+        "short_count": 8,
+        "total_fees": 12109.386224032398,
+        "profit_factor": 4.9203606306071554,
+        "payoff_ratio": 3.8269471571388993
+      },
+      "train_full": {
+        "total_return": 1.4424208926541953,
+        "max_drawdown": -0.18806633202002854,
+        "win_rate": 0.5714285714285714,
+        "round_trips": 14,
+        "long_count": 6,
+        "short_count": 8,
+        "total_fees": 9330.160639067664,
+        "profit_factor": 8.432417104660173,
+        "payoff_ratio": 6.324312828495129
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.12819163974211167,
+          "max_drawdown": -0.1734918758043802,
+          "win_rate": 0.6666666666666666,
+          "round_trips": 3,
+          "long_count": 0,
+          "short_count": 3,
+          "total_fees": 1375.6697638931605,
+          "profit_factor": 2.446448397814702,
+          "payoff_ratio": 1.223224198907351
+        },
+        "2023": {
+          "total_return": 0.39048405950628773,
+          "max_drawdown": -0.15988506600928087,
+          "win_rate": 0.5,
+          "round_trips": 4,
+          "long_count": 3,
+          "short_count": 1,
+          "total_fees": 2233.436938589463,
+          "profit_factor": 9.065019541600536,
+          "payoff_ratio": 9.065019541600536
+        },
+        "2024": {
+          "total_return": 0.2599931411452605,
+          "max_drawdown": -0.18806633202002843,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 1,
+          "short_count": 1,
+          "total_fees": 1065.157731429778,
+          "profit_factor": 10.490973183527048,
+          "payoff_ratio": 10.490973183527048
+        },
+        "2025": {
+          "total_return": 0.20615654706087216,
+          "max_drawdown": -0.11464047567114,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1053.8996879767487,
+          "profit_factor": 456.0349320367976,
+          "payoff_ratio": 456.0349320367976
+        },
+        "2026YTD": {
+          "total_return": 0.11349336572575996,
+          "max_drawdown": -0.09514043768869285,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1137.897891933167,
+          "profit_factor": 2.1334281748161636,
+          "payoff_ratio": 2.1334281748161636
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": true,
+          "total_return": 0.2599931411452605,
+          "max_drawdown": -0.18806633202002843,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 1,
+          "short_count": 1,
+          "total_fees": 1065.157731429778,
+          "profit_factor": 10.490973183527048,
+          "payoff_ratio": 10.490973183527048
+        },
+        "2025": {
+          "pass": true,
+          "total_return": 0.20615654706087216,
+          "max_drawdown": -0.11464047567114,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1053.8996879767487,
+          "profit_factor": 456.0349320367976,
+          "payoff_ratio": 456.0349320367976
+        },
+        "2026YTD": {
+          "pass": true,
+          "total_return": 0.11349336572575996,
+          "max_drawdown": -0.09514043768869285,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1137.897891933167,
+          "profit_factor": 2.1334281748161636,
+          "payoff_ratio": 2.1334281748161636
+        },
+        "all_pass": true
+      },
+      "trend_train": {
+        "up_segment_count": 3,
+        "trend_capture_ratio": 0.21882031160383147,
+        "trend_long_coverage": 0.09499849296028126,
+        "down_segment_count": 2,
+        "downside_avoidance": 1.0,
+        "sell_fly_count": 2,
+        "sell_fly_avg_future_gain": 0.47196676844021135,
+        "sell_fly_events": [
+          {
+            "date": "2024-09-24",
+            "price": 12.06884,
+            "window": 20,
+            "future_gain": 0.6222636143987326
+          },
+          {
+            "date": "2025-03-28",
+            "price": 14.4869,
+            "window": 60,
+            "future_gain": 0.32166992248169013
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.0,
+            "long_coverage": 0.0
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 0.543860279215815,
+            "long_coverage": 0.2361111111111111
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 0.0,
+            "long_coverage": 0.0
+          }
+        ]
+      },
+      "trend_full": {
+        "up_segment_count": 4,
+        "trend_capture_ratio": 0.34442476168115216,
+        "trend_long_coverage": 0.13719519825161788,
+        "down_segment_count": 2,
+        "downside_avoidance": 1.0,
+        "sell_fly_count": 3,
+        "sell_fly_avg_future_gain": 0.4384540361029981,
+        "sell_fly_events": [
+          {
+            "date": "2024-09-24",
+            "price": 12.06884,
+            "window": 20,
+            "future_gain": 0.6222636143987326
+          },
+          {
+            "date": "2025-03-28",
+            "price": 14.4869,
+            "window": 60,
+            "future_gain": 0.32166992248169013
+          },
+          {
+            "date": "2025-11-06",
+            "price": 25.9,
+            "window": 60,
+            "future_gain": 0.37142857142857166
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.0,
+            "long_coverage": 0.0
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 0.543860279215815,
+            "long_coverage": 0.2361111111111111
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 0.0,
+            "long_coverage": 0.0
+          },
+          {
+            "start": "2025-10-28",
+            "end": "2026-03-03",
+            "buy_hold_return": 0.19968051118210872,
+            "capture_ratio": 0.9402119911587777,
+            "long_coverage": 0.3373493975903614
+          }
+        ]
+      },
+      "sample_warning": false
+    },
+    {
+      "strategy": "中国人寿 channel 22/89",
+      "family": "channel",
+      "direction": "long_short",
+      "formula": "Entry: 中国人寿 close breaks prior 22d high/low. Filters: 中国人寿 close above/below SMA150; 中国人寿 ROC40 > -2%; 恒生指数 SMA200 filter; 恒生指数 ROC120 > -4%; 中国人寿-恒生指数 ROC40 > -2%; ATR14% <= 3.5%. Exit: SMA80; 89d opposite channel; fixed stop 10%; trailing stop 12%; take profit 12%; max hold 40d.",
+      "parameters": {
+        "family": "channel",
+        "direction": "long_short",
+        "atr_days": 14,
+        "atr_pct_max": 0.035,
+        "benchmark_ma": 200,
+        "benchmark_ma_kind": "sma",
+        "benchmark_roc_days": 120,
+        "benchmark_roc_min": -0.04,
+        "entry_channel": 22,
+        "exit_channel": 89,
+        "exit_ma": 80,
+        "exit_ma_kind": "sma",
+        "fixed_stop": 0.1,
+        "max_hold": 40,
+        "own_roc_days": 40,
+        "own_roc_min": -0.02,
+        "qqq_ma": 150,
+        "qqq_ma_kind": "sma",
+        "relative_days": 40,
+        "relative_min": -0.02,
+        "reverse_exit": false,
+        "take_profit": 0.12,
+        "trailing_stop": 0.12
+      },
+      "full": {
+        "total_return": 5.739971572895257,
+        "max_drawdown": -0.15331787063428504,
+        "win_rate": 0.8947368421052632,
+        "round_trips": 19,
+        "long_count": 14,
+        "short_count": 5,
+        "total_fees": 28543.217260445985,
+        "profit_factor": 69.07511806391427,
+        "payoff_ratio": 8.126484478107562
+      },
+      "train_full": {
+        "total_return": 4.407885593498778,
+        "max_drawdown": -0.15331787063428504,
+        "win_rate": 0.8823529411764706,
+        "round_trips": 17,
+        "long_count": 12,
+        "short_count": 5,
+        "total_fees": 21775.413671056383,
+        "profit_factor": 33.56313198765025,
+        "payoff_ratio": 4.475084265020034
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.3039161778156565,
+          "max_drawdown": -0.15331787063428504,
+          "win_rate": 0.75,
+          "round_trips": 4,
+          "long_count": 0,
+          "short_count": 4,
+          "total_fees": 2069.106798432118,
+          "profit_factor": 5.054661969732835,
+          "payoff_ratio": 1.6848873232442783
+        },
+        "2023": {
+          "total_return": 0.273075844388156,
+          "max_drawdown": -0.11968747682747982,
+          "win_rate": 1.0,
+          "round_trips": 3,
+          "long_count": 2,
+          "short_count": 1,
+          "total_fees": 1764.1885197742504,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2024": {
+          "total_return": 0.7851235321860566,
+          "max_drawdown": -0.06817903223098654,
+          "win_rate": 1.0,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2633.105714692391,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2025": {
+          "total_return": 0.8249680631731633,
+          "max_drawdown": -0.08547137100104263,
+          "win_rate": 0.8333333333333334,
+          "round_trips": 6,
+          "long_count": 6,
+          "short_count": 0,
+          "total_fees": 4398.85969980363,
+          "profit_factor": 41.467256539714924,
+          "payoff_ratio": 8.293451307942984
+        },
+        "2026YTD": {
+          "total_return": 0.10727494255466352,
+          "max_drawdown": -0.05566272914492709,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1083.8072900925144,
+          "profit_factor": 70.73726709515984,
+          "payoff_ratio": 70.73726709515984
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": true,
+          "total_return": 0.7851235321860566,
+          "max_drawdown": -0.06817903223098654,
+          "win_rate": 1.0,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2633.105714692391,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2025": {
+          "pass": true,
+          "total_return": 0.8249680631731633,
+          "max_drawdown": -0.08547137100104263,
+          "win_rate": 0.8333333333333334,
+          "round_trips": 6,
+          "long_count": 6,
+          "short_count": 0,
+          "total_fees": 4398.85969980363,
+          "profit_factor": 41.467256539714924,
+          "payoff_ratio": 8.293451307942984
+        },
+        "2026YTD": {
+          "pass": true,
+          "total_return": 0.10727494255466352,
+          "max_drawdown": -0.05566272914492709,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1083.8072900925144,
+          "profit_factor": 70.73726709515984,
+          "payoff_ratio": 70.73726709515984
+        },
+        "all_pass": true
+      },
+      "trend_train": {
+        "up_segment_count": 3,
+        "trend_capture_ratio": 1.2410702842700667,
+        "trend_long_coverage": 0.4179934782388419,
+        "down_segment_count": 2,
+        "downside_avoidance": 1.0,
+        "sell_fly_count": 7,
+        "sell_fly_avg_future_gain": 0.3535145280353223,
+        "sell_fly_events": [
+          {
+            "date": "2024-05-10",
+            "price": 10.11757,
+            "window": 20,
+            "future_gain": 0.14232666539495153
+          },
+          {
+            "date": "2024-09-23",
+            "price": 11.22884,
+            "window": 20,
+            "future_gain": 0.7436208904926955
+          },
+          {
+            "date": "2024-09-26",
+            "price": 13.00884,
+            "window": 20,
+            "future_gain": 0.5050411873771989
+          },
+          {
+            "date": "2024-10-02",
+            "price": 16.16884,
+            "window": 20,
+            "future_gain": 0.21089948320349516
+          },
+          {
+            "date": "2025-06-11",
+            "price": 17.0469,
+            "window": 60,
+            "future_gain": 0.454795886642146
+          },
+          {
+            "date": "2025-06-25",
+            "price": 19.1469,
+            "window": 40,
+            "future_gain": 0.2952363045714972
+          },
+          {
+            "date": "2025-07-24",
+            "price": 22.08976,
+            "window": 20,
+            "future_gain": 0.122681278565272
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.5086148089810659,
+            "long_coverage": 0.2222222222222222
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 1.472527359763576,
+            "long_coverage": 0.3055555555555556
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 1.3015280346955609,
+            "long_coverage": 0.5955056179775281
+          }
+        ]
+      },
+      "trend_full": {
+        "up_segment_count": 4,
+        "trend_capture_ratio": 1.3941624747564374,
+        "trend_long_coverage": 0.47737380902516297,
+        "down_segment_count": 2,
+        "downside_avoidance": 1.0,
+        "sell_fly_count": 9,
+        "sell_fly_avg_future_gain": 0.3224242165902913,
+        "sell_fly_events": [
+          {
+            "date": "2024-05-10",
+            "price": 10.11757,
+            "window": 20,
+            "future_gain": 0.14232666539495153
+          },
+          {
+            "date": "2024-09-23",
+            "price": 11.22884,
+            "window": 20,
+            "future_gain": 0.7436208904926955
+          },
+          {
+            "date": "2024-09-26",
+            "price": 13.00884,
+            "window": 20,
+            "future_gain": 0.5050411873771989
+          },
+          {
+            "date": "2024-10-02",
+            "price": 16.16884,
+            "window": 20,
+            "future_gain": 0.21089948320349516
+          },
+          {
+            "date": "2025-06-11",
+            "price": 17.0469,
+            "window": 60,
+            "future_gain": 0.454795886642146
+          },
+          {
+            "date": "2025-06-25",
+            "price": 19.1469,
+            "window": 40,
+            "future_gain": 0.2952363045714972
+          },
+          {
+            "date": "2025-07-24",
+            "price": 22.08976,
+            "window": 20,
+            "future_gain": 0.122681278565272
+          },
+          {
+            "date": "2025-11-12",
+            "price": 27.64,
+            "window": 60,
+            "future_gain": 0.2850940665701882
+          },
+          {
+            "date": "2026-01-06",
+            "price": 31.1,
+            "window": 20,
+            "future_gain": 0.14212218649517694
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.5086148089810659,
+            "long_coverage": 0.2222222222222222
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 1.472527359763576,
+            "long_coverage": 0.3055555555555556
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 1.3015280346955609,
+            "long_coverage": 0.5955056179775281
+          },
+          {
+            "start": "2025-10-28",
+            "end": "2026-03-03",
+            "buy_hold_return": 0.19968051118210872,
+            "capture_ratio": 2.1203339755940878,
+            "long_coverage": 0.7590361445783133
+          }
+        ]
+      },
+      "sample_warning": false
+    }
+  ],
+  "top3_state_switch": [],
+  "top3_with_hsi": [
+    {
+      "strategy": "中国人寿 channel 26/52",
+      "family": "channel",
+      "direction": "long_short",
+      "formula": "Entry: 中国人寿 close breaks prior 26d high/low. Filters: 中国人寿 close above/below SMA100; 中国人寿 ROC80 > 6%; 恒生指数 ROC120 > -8%; 中国人寿-恒生指数 ROC20 > -1%; ATR20% <= 3.5%. Exit: SMA120; 52d opposite channel; trailing stop 12%; take profit 12%.",
+      "parameters": {
+        "family": "channel",
+        "direction": "long_short",
+        "atr_days": 20,
+        "atr_pct_max": 0.035,
+        "benchmark_roc_days": 120,
+        "benchmark_roc_min": -0.08,
+        "entry_channel": 26,
+        "exit_channel": 52,
+        "exit_ma": 120,
+        "exit_ma_kind": "sma",
+        "own_roc_days": 80,
+        "own_roc_min": 0.06,
+        "qqq_ma": 100,
+        "qqq_ma_kind": "sma",
+        "relative_days": 20,
+        "relative_min": -0.01,
+        "reverse_exit": false,
+        "take_profit": 0.12,
+        "trailing_stop": 0.12
+      },
+      "full": {
+        "total_return": 4.366308266305324,
+        "max_drawdown": -0.15477718276588204,
+        "win_rate": 0.7894736842105263,
+        "round_trips": 19,
+        "long_count": 14,
+        "short_count": 5,
+        "total_fees": 20335.350253021392,
+        "profit_factor": 12.434301863266445,
+        "payoff_ratio": 3.315813830204385
+      },
+      "train_full": {
+        "total_return": 3.839686424993789,
+        "max_drawdown": -0.15477718276588204,
+        "win_rate": 0.7777777777777778,
+        "round_trips": 18,
+        "long_count": 13,
+        "short_count": 5,
+        "total_fees": 17777.553068445224,
+        "profit_factor": 11.0552070458406,
+        "payoff_ratio": 3.158630584525886
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.21162741784868921,
+          "max_drawdown": -0.13048246797468632,
+          "win_rate": 0.5,
+          "round_trips": 4,
+          "long_count": 2,
+          "short_count": 2,
+          "total_fees": 1940.4568119254723,
+          "profit_factor": 2.6583562894601824,
+          "payoff_ratio": 2.6583562894601824
+        },
+        "2023": {
+          "total_return": 0.2520835203293508,
+          "max_drawdown": -0.11968747682747982,
+          "win_rate": 1.0,
+          "round_trips": 3,
+          "long_count": 2,
+          "short_count": 1,
+          "total_fees": 1748.4455423587121,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2024": {
+          "total_return": 1.0465094773854808,
+          "max_drawdown": -0.06817853649461691,
+          "win_rate": 1.0,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2913.3872379243635,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2025": {
+          "total_return": 0.6362520531231326,
+          "max_drawdown": -0.07032441687111635,
+          "win_rate": 1.0,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2606.698489155545,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2026YTD": {
+          "total_return": 0.10881321537525279,
+          "max_drawdown": -0.05566272914492709,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 528.5047335643135,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": true,
+          "total_return": 1.0465094773854808,
+          "max_drawdown": -0.06817853649461691,
+          "win_rate": 1.0,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2913.3872379243635,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2025": {
+          "pass": true,
+          "total_return": 0.6362520531231326,
+          "max_drawdown": -0.07032441687111635,
+          "win_rate": 1.0,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2606.698489155545,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2026YTD": {
+          "pass": true,
+          "total_return": 0.10881321537525279,
+          "max_drawdown": -0.05566272914492709,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 528.5047335643135,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "all_pass": true
+      },
+      "trend_train": {
+        "up_segment_count": 3,
+        "trend_capture_ratio": 1.4675584532754595,
+        "trend_long_coverage": 0.4156855593378408,
+        "down_segment_count": 2,
+        "downside_avoidance": 1.0,
+        "sell_fly_count": 5,
+        "sell_fly_avg_future_gain": 0.3306238862753788,
+        "sell_fly_events": [
+          {
+            "date": "2024-09-24",
+            "price": 12.06884,
+            "window": 20,
+            "future_gain": 0.6222636143987326
+          },
+          {
+            "date": "2024-09-30",
+            "price": 14.64884,
+            "window": 20,
+            "future_gain": 0.3365454192959989
+          },
+          {
+            "date": "2024-10-04",
+            "price": 17.30884,
+            "window": 20,
+            "future_gain": 0.1311468590616125
+          },
+          {
+            "date": "2025-06-16",
+            "price": 17.6669,
+            "window": 60,
+            "future_gain": 0.40374146001845257
+          },
+          {
+            "date": "2025-07-23",
+            "price": 21.38976,
+            "window": 20,
+            "future_gain": 0.15942207860209745
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.0,
+            "long_coverage": 0.3492063492063492
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 2.3986290616357895,
+            "long_coverage": 0.3333333333333333
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 1.156090120140245,
+            "long_coverage": 0.5168539325842697
+          }
+        ]
+      },
+      "trend_full": {
+        "up_segment_count": 4,
+        "trend_capture_ratio": 1.4439177965622028,
+        "trend_long_coverage": 0.39994837042002335,
+        "down_segment_count": 2,
+        "downside_avoidance": 1.0,
+        "sell_fly_count": 6,
+        "sell_fly_avg_future_gain": 0.32303558299118035,
+        "sell_fly_events": [
+          {
+            "date": "2024-09-24",
+            "price": 12.06884,
+            "window": 20,
+            "future_gain": 0.6222636143987326
+          },
+          {
+            "date": "2024-09-30",
+            "price": 14.64884,
+            "window": 20,
+            "future_gain": 0.3365454192959989
+          },
+          {
+            "date": "2024-10-04",
+            "price": 17.30884,
+            "window": 20,
+            "future_gain": 0.1311468590616125
+          },
+          {
+            "date": "2025-06-16",
+            "price": 17.6669,
+            "window": 60,
+            "future_gain": 0.40374146001845257
+          },
+          {
+            "date": "2025-07-23",
+            "price": 21.38976,
+            "window": 20,
+            "future_gain": 0.15942207860209745
+          },
+          {
+            "date": "2025-11-12",
+            "price": 27.64,
+            "window": 60,
+            "future_gain": 0.2850940665701882
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.0,
+            "long_coverage": 0.3492063492063492
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 2.3986290616357895,
+            "long_coverage": 0.3333333333333333
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 1.156090120140245,
+            "long_coverage": 0.5168539325842697
+          },
+          {
+            "start": "2025-10-28",
+            "end": "2026-03-03",
+            "buy_hold_return": 0.19968051118210872,
+            "capture_ratio": 1.3317816313423212,
+            "long_coverage": 0.3253012048192771
+          }
+        ]
+      },
+      "sample_warning": false
+    },
+    {
+      "strategy": "中国人寿 price SMA20",
+      "family": "price_ma",
+      "direction": "long_short",
+      "formula": "Entry: 中国人寿 close crosses SMA20. Filters: 中国人寿 close above/below EMA150; 中国人寿 close above/below EMA200; 中国人寿 ROC40 > -10%; 恒生指数 ROC20 > 0%. Exit: SMA120; fixed stop 5%; take profit 20%.",
+      "parameters": {
+        "family": "price_ma",
+        "direction": "long_short",
+        "benchmark_roc_days": 20,
+        "benchmark_roc_min": 0.0,
+        "entry_ma": 20,
+        "entry_ma_kind": "sma",
+        "exit_ma": 120,
+        "exit_ma_kind": "sma",
+        "fixed_stop": 0.05,
+        "own_roc_days": 40,
+        "own_roc_min": -0.1,
+        "qqq_ma": 150,
+        "qqq_ma2": 200,
+        "qqq_ma2_kind": "ema",
+        "qqq_ma_kind": "ema",
+        "reverse_exit": false,
+        "take_profit": 0.2
+      },
+      "full": {
+        "total_return": 1.7196194602804344,
+        "max_drawdown": -0.18806633202002854,
+        "win_rate": 0.5625,
+        "round_trips": 16,
+        "long_count": 8,
+        "short_count": 8,
+        "total_fees": 12109.386224032398,
+        "profit_factor": 4.9203606306071554,
+        "payoff_ratio": 3.8269471571388993
+      },
+      "train_full": {
+        "total_return": 1.4424208926541953,
+        "max_drawdown": -0.18806633202002854,
+        "win_rate": 0.5714285714285714,
+        "round_trips": 14,
+        "long_count": 6,
+        "short_count": 8,
+        "total_fees": 9330.160639067664,
+        "profit_factor": 8.432417104660173,
+        "payoff_ratio": 6.324312828495129
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.12819163974211167,
+          "max_drawdown": -0.1734918758043802,
+          "win_rate": 0.6666666666666666,
+          "round_trips": 3,
+          "long_count": 0,
+          "short_count": 3,
+          "total_fees": 1375.6697638931605,
+          "profit_factor": 2.446448397814702,
+          "payoff_ratio": 1.223224198907351
+        },
+        "2023": {
+          "total_return": 0.39048405950628773,
+          "max_drawdown": -0.15988506600928087,
+          "win_rate": 0.5,
+          "round_trips": 4,
+          "long_count": 3,
+          "short_count": 1,
+          "total_fees": 2233.436938589463,
+          "profit_factor": 9.065019541600536,
+          "payoff_ratio": 9.065019541600536
+        },
+        "2024": {
+          "total_return": 0.2599931411452605,
+          "max_drawdown": -0.18806633202002843,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 1,
+          "short_count": 1,
+          "total_fees": 1065.157731429778,
+          "profit_factor": 10.490973183527048,
+          "payoff_ratio": 10.490973183527048
+        },
+        "2025": {
+          "total_return": 0.20615654706087216,
+          "max_drawdown": -0.11464047567114,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1053.8996879767487,
+          "profit_factor": 456.0349320367976,
+          "payoff_ratio": 456.0349320367976
+        },
+        "2026YTD": {
+          "total_return": 0.11349336572575996,
+          "max_drawdown": -0.09514043768869285,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1137.897891933167,
+          "profit_factor": 2.1334281748161636,
+          "payoff_ratio": 2.1334281748161636
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": true,
+          "total_return": 0.2599931411452605,
+          "max_drawdown": -0.18806633202002843,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 1,
+          "short_count": 1,
+          "total_fees": 1065.157731429778,
+          "profit_factor": 10.490973183527048,
+          "payoff_ratio": 10.490973183527048
+        },
+        "2025": {
+          "pass": true,
+          "total_return": 0.20615654706087216,
+          "max_drawdown": -0.11464047567114,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1053.8996879767487,
+          "profit_factor": 456.0349320367976,
+          "payoff_ratio": 456.0349320367976
+        },
+        "2026YTD": {
+          "pass": true,
+          "total_return": 0.11349336572575996,
+          "max_drawdown": -0.09514043768869285,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1137.897891933167,
+          "profit_factor": 2.1334281748161636,
+          "payoff_ratio": 2.1334281748161636
+        },
+        "all_pass": true
+      },
+      "trend_train": {
+        "up_segment_count": 3,
+        "trend_capture_ratio": 0.21882031160383147,
+        "trend_long_coverage": 0.09499849296028126,
+        "down_segment_count": 2,
+        "downside_avoidance": 1.0,
+        "sell_fly_count": 2,
+        "sell_fly_avg_future_gain": 0.47196676844021135,
+        "sell_fly_events": [
+          {
+            "date": "2024-09-24",
+            "price": 12.06884,
+            "window": 20,
+            "future_gain": 0.6222636143987326
+          },
+          {
+            "date": "2025-03-28",
+            "price": 14.4869,
+            "window": 60,
+            "future_gain": 0.32166992248169013
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.0,
+            "long_coverage": 0.0
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 0.543860279215815,
+            "long_coverage": 0.2361111111111111
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 0.0,
+            "long_coverage": 0.0
+          }
+        ]
+      },
+      "trend_full": {
+        "up_segment_count": 4,
+        "trend_capture_ratio": 0.34442476168115216,
+        "trend_long_coverage": 0.13719519825161788,
+        "down_segment_count": 2,
+        "downside_avoidance": 1.0,
+        "sell_fly_count": 3,
+        "sell_fly_avg_future_gain": 0.4384540361029981,
+        "sell_fly_events": [
+          {
+            "date": "2024-09-24",
+            "price": 12.06884,
+            "window": 20,
+            "future_gain": 0.6222636143987326
+          },
+          {
+            "date": "2025-03-28",
+            "price": 14.4869,
+            "window": 60,
+            "future_gain": 0.32166992248169013
+          },
+          {
+            "date": "2025-11-06",
+            "price": 25.9,
+            "window": 60,
+            "future_gain": 0.37142857142857166
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.0,
+            "long_coverage": 0.0
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 0.543860279215815,
+            "long_coverage": 0.2361111111111111
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 0.0,
+            "long_coverage": 0.0
+          },
+          {
+            "start": "2025-10-28",
+            "end": "2026-03-03",
+            "buy_hold_return": 0.19968051118210872,
+            "capture_ratio": 0.9402119911587777,
+            "long_coverage": 0.3373493975903614
+          }
+        ]
+      },
+      "sample_warning": false
+    },
+    {
+      "strategy": "中国人寿 channel 22/89",
+      "family": "channel",
+      "direction": "long_short",
+      "formula": "Entry: 中国人寿 close breaks prior 22d high/low. Filters: 中国人寿 close above/below SMA150; 中国人寿 ROC40 > -2%; 恒生指数 SMA200 filter; 恒生指数 ROC120 > -4%; 中国人寿-恒生指数 ROC40 > -2%; ATR14% <= 3.5%. Exit: SMA80; 89d opposite channel; fixed stop 10%; trailing stop 12%; take profit 12%; max hold 40d.",
+      "parameters": {
+        "family": "channel",
+        "direction": "long_short",
+        "atr_days": 14,
+        "atr_pct_max": 0.035,
+        "benchmark_ma": 200,
+        "benchmark_ma_kind": "sma",
+        "benchmark_roc_days": 120,
+        "benchmark_roc_min": -0.04,
+        "entry_channel": 22,
+        "exit_channel": 89,
+        "exit_ma": 80,
+        "exit_ma_kind": "sma",
+        "fixed_stop": 0.1,
+        "max_hold": 40,
+        "own_roc_days": 40,
+        "own_roc_min": -0.02,
+        "qqq_ma": 150,
+        "qqq_ma_kind": "sma",
+        "relative_days": 40,
+        "relative_min": -0.02,
+        "reverse_exit": false,
+        "take_profit": 0.12,
+        "trailing_stop": 0.12
+      },
+      "full": {
+        "total_return": 5.739971572895257,
+        "max_drawdown": -0.15331787063428504,
+        "win_rate": 0.8947368421052632,
+        "round_trips": 19,
+        "long_count": 14,
+        "short_count": 5,
+        "total_fees": 28543.217260445985,
+        "profit_factor": 69.07511806391427,
+        "payoff_ratio": 8.126484478107562
+      },
+      "train_full": {
+        "total_return": 4.407885593498778,
+        "max_drawdown": -0.15331787063428504,
+        "win_rate": 0.8823529411764706,
+        "round_trips": 17,
+        "long_count": 12,
+        "short_count": 5,
+        "total_fees": 21775.413671056383,
+        "profit_factor": 33.56313198765025,
+        "payoff_ratio": 4.475084265020034
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.3039161778156565,
+          "max_drawdown": -0.15331787063428504,
+          "win_rate": 0.75,
+          "round_trips": 4,
+          "long_count": 0,
+          "short_count": 4,
+          "total_fees": 2069.106798432118,
+          "profit_factor": 5.054661969732835,
+          "payoff_ratio": 1.6848873232442783
+        },
+        "2023": {
+          "total_return": 0.273075844388156,
+          "max_drawdown": -0.11968747682747982,
+          "win_rate": 1.0,
+          "round_trips": 3,
+          "long_count": 2,
+          "short_count": 1,
+          "total_fees": 1764.1885197742504,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2024": {
+          "total_return": 0.7851235321860566,
+          "max_drawdown": -0.06817903223098654,
+          "win_rate": 1.0,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2633.105714692391,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2025": {
+          "total_return": 0.8249680631731633,
+          "max_drawdown": -0.08547137100104263,
+          "win_rate": 0.8333333333333334,
+          "round_trips": 6,
+          "long_count": 6,
+          "short_count": 0,
+          "total_fees": 4398.85969980363,
+          "profit_factor": 41.467256539714924,
+          "payoff_ratio": 8.293451307942984
+        },
+        "2026YTD": {
+          "total_return": 0.10727494255466352,
+          "max_drawdown": -0.05566272914492709,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1083.8072900925144,
+          "profit_factor": 70.73726709515984,
+          "payoff_ratio": 70.73726709515984
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": true,
+          "total_return": 0.7851235321860566,
+          "max_drawdown": -0.06817903223098654,
+          "win_rate": 1.0,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2633.105714692391,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2025": {
+          "pass": true,
+          "total_return": 0.8249680631731633,
+          "max_drawdown": -0.08547137100104263,
+          "win_rate": 0.8333333333333334,
+          "round_trips": 6,
+          "long_count": 6,
+          "short_count": 0,
+          "total_fees": 4398.85969980363,
+          "profit_factor": 41.467256539714924,
+          "payoff_ratio": 8.293451307942984
+        },
+        "2026YTD": {
+          "pass": true,
+          "total_return": 0.10727494255466352,
+          "max_drawdown": -0.05566272914492709,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1083.8072900925144,
+          "profit_factor": 70.73726709515984,
+          "payoff_ratio": 70.73726709515984
+        },
+        "all_pass": true
+      },
+      "trend_train": {
+        "up_segment_count": 3,
+        "trend_capture_ratio": 1.2410702842700667,
+        "trend_long_coverage": 0.4179934782388419,
+        "down_segment_count": 2,
+        "downside_avoidance": 1.0,
+        "sell_fly_count": 7,
+        "sell_fly_avg_future_gain": 0.3535145280353223,
+        "sell_fly_events": [
+          {
+            "date": "2024-05-10",
+            "price": 10.11757,
+            "window": 20,
+            "future_gain": 0.14232666539495153
+          },
+          {
+            "date": "2024-09-23",
+            "price": 11.22884,
+            "window": 20,
+            "future_gain": 0.7436208904926955
+          },
+          {
+            "date": "2024-09-26",
+            "price": 13.00884,
+            "window": 20,
+            "future_gain": 0.5050411873771989
+          },
+          {
+            "date": "2024-10-02",
+            "price": 16.16884,
+            "window": 20,
+            "future_gain": 0.21089948320349516
+          },
+          {
+            "date": "2025-06-11",
+            "price": 17.0469,
+            "window": 60,
+            "future_gain": 0.454795886642146
+          },
+          {
+            "date": "2025-06-25",
+            "price": 19.1469,
+            "window": 40,
+            "future_gain": 0.2952363045714972
+          },
+          {
+            "date": "2025-07-24",
+            "price": 22.08976,
+            "window": 20,
+            "future_gain": 0.122681278565272
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.5086148089810659,
+            "long_coverage": 0.2222222222222222
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 1.472527359763576,
+            "long_coverage": 0.3055555555555556
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 1.3015280346955609,
+            "long_coverage": 0.5955056179775281
+          }
+        ]
+      },
+      "trend_full": {
+        "up_segment_count": 4,
+        "trend_capture_ratio": 1.3941624747564374,
+        "trend_long_coverage": 0.47737380902516297,
+        "down_segment_count": 2,
+        "downside_avoidance": 1.0,
+        "sell_fly_count": 9,
+        "sell_fly_avg_future_gain": 0.3224242165902913,
+        "sell_fly_events": [
+          {
+            "date": "2024-05-10",
+            "price": 10.11757,
+            "window": 20,
+            "future_gain": 0.14232666539495153
+          },
+          {
+            "date": "2024-09-23",
+            "price": 11.22884,
+            "window": 20,
+            "future_gain": 0.7436208904926955
+          },
+          {
+            "date": "2024-09-26",
+            "price": 13.00884,
+            "window": 20,
+            "future_gain": 0.5050411873771989
+          },
+          {
+            "date": "2024-10-02",
+            "price": 16.16884,
+            "window": 20,
+            "future_gain": 0.21089948320349516
+          },
+          {
+            "date": "2025-06-11",
+            "price": 17.0469,
+            "window": 60,
+            "future_gain": 0.454795886642146
+          },
+          {
+            "date": "2025-06-25",
+            "price": 19.1469,
+            "window": 40,
+            "future_gain": 0.2952363045714972
+          },
+          {
+            "date": "2025-07-24",
+            "price": 22.08976,
+            "window": 20,
+            "future_gain": 0.122681278565272
+          },
+          {
+            "date": "2025-11-12",
+            "price": 27.64,
+            "window": 60,
+            "future_gain": 0.2850940665701882
+          },
+          {
+            "date": "2026-01-06",
+            "price": 31.1,
+            "window": 20,
+            "future_gain": 0.14212218649517694
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.5086148089810659,
+            "long_coverage": 0.2222222222222222
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 1.472527359763576,
+            "long_coverage": 0.3055555555555556
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 1.3015280346955609,
+            "long_coverage": 0.5955056179775281
+          },
+          {
+            "start": "2025-10-28",
+            "end": "2026-03-03",
+            "buy_hold_return": 0.19968051118210872,
+            "capture_ratio": 2.1203339755940878,
+            "long_coverage": 0.7590361445783133
+          }
+        ]
+      },
+      "sample_warning": false
+    }
+  ],
+  "top3_without_hsi": [],
+  "top3_no_small_take_profit": [],
+  "closest": [
+    {
+      "strategy": "中国人寿 channel 22/89",
+      "family": "channel",
+      "direction": "long_short",
+      "formula": "Entry: 中国人寿 close breaks prior 22d high/low. Filters: 中国人寿 close above/below SMA150; 中国人寿 ROC40 > -2%; 恒生指数 SMA200 filter; 恒生指数 ROC120 > -4%; 中国人寿-恒生指数 ROC40 > -2%; ATR14% <= 3.5%. Exit: SMA80; 89d opposite channel; fixed stop 10%; trailing stop 12%; take profit 12%; max hold 40d.",
+      "parameters": {
+        "family": "channel",
+        "direction": "long_short",
+        "atr_days": 14,
+        "atr_pct_max": 0.035,
+        "benchmark_ma": 200,
+        "benchmark_ma_kind": "sma",
+        "benchmark_roc_days": 120,
+        "benchmark_roc_min": -0.04,
+        "entry_channel": 22,
+        "exit_channel": 89,
+        "exit_ma": 80,
+        "exit_ma_kind": "sma",
+        "fixed_stop": 0.1,
+        "max_hold": 40,
+        "own_roc_days": 40,
+        "own_roc_min": -0.02,
+        "qqq_ma": 150,
+        "qqq_ma_kind": "sma",
+        "relative_days": 40,
+        "relative_min": -0.02,
+        "reverse_exit": false,
+        "take_profit": 0.12,
+        "trailing_stop": 0.12
+      },
+      "full": {
+        "total_return": 5.739971572895257,
+        "max_drawdown": -0.15331787063428504,
+        "win_rate": 0.8947368421052632,
+        "round_trips": 19,
+        "long_count": 14,
+        "short_count": 5,
+        "total_fees": 28543.217260445985,
+        "profit_factor": 69.07511806391427,
+        "payoff_ratio": 8.126484478107562
+      },
+      "train_full": {
+        "total_return": 4.407885593498778,
+        "max_drawdown": -0.15331787063428504,
+        "win_rate": 0.8823529411764706,
+        "round_trips": 17,
+        "long_count": 12,
+        "short_count": 5,
+        "total_fees": 21775.413671056383,
+        "profit_factor": 33.56313198765025,
+        "payoff_ratio": 4.475084265020034
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.3039161778156565,
+          "max_drawdown": -0.15331787063428504,
+          "win_rate": 0.75,
+          "round_trips": 4,
+          "long_count": 0,
+          "short_count": 4,
+          "total_fees": 2069.106798432118,
+          "profit_factor": 5.054661969732835,
+          "payoff_ratio": 1.6848873232442783
+        },
+        "2023": {
+          "total_return": 0.273075844388156,
+          "max_drawdown": -0.11968747682747982,
+          "win_rate": 1.0,
+          "round_trips": 3,
+          "long_count": 2,
+          "short_count": 1,
+          "total_fees": 1764.1885197742504,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2024": {
+          "total_return": 0.7851235321860566,
+          "max_drawdown": -0.06817903223098654,
+          "win_rate": 1.0,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2633.105714692391,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2025": {
+          "total_return": 0.8249680631731633,
+          "max_drawdown": -0.08547137100104263,
+          "win_rate": 0.8333333333333334,
+          "round_trips": 6,
+          "long_count": 6,
+          "short_count": 0,
+          "total_fees": 4398.85969980363,
+          "profit_factor": 41.467256539714924,
+          "payoff_ratio": 8.293451307942984
+        },
+        "2026YTD": {
+          "total_return": 0.10727494255466352,
+          "max_drawdown": -0.05566272914492709,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1083.8072900925144,
+          "profit_factor": 70.73726709515984,
+          "payoff_ratio": 70.73726709515984
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": true,
+          "total_return": 0.7851235321860566,
+          "max_drawdown": -0.06817903223098654,
+          "win_rate": 1.0,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2633.105714692391,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2025": {
+          "pass": true,
+          "total_return": 0.8249680631731633,
+          "max_drawdown": -0.08547137100104263,
+          "win_rate": 0.8333333333333334,
+          "round_trips": 6,
+          "long_count": 6,
+          "short_count": 0,
+          "total_fees": 4398.85969980363,
+          "profit_factor": 41.467256539714924,
+          "payoff_ratio": 8.293451307942984
+        },
+        "2026YTD": {
+          "pass": true,
+          "total_return": 0.10727494255466352,
+          "max_drawdown": -0.05566272914492709,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1083.8072900925144,
+          "profit_factor": 70.73726709515984,
+          "payoff_ratio": 70.73726709515984
+        },
+        "all_pass": true
+      },
+      "trend_train": {
+        "up_segment_count": 3,
+        "trend_capture_ratio": 1.2410702842700667,
+        "trend_long_coverage": 0.4179934782388419,
+        "down_segment_count": 2,
+        "downside_avoidance": 1.0,
+        "sell_fly_count": 7,
+        "sell_fly_avg_future_gain": 0.3535145280353223,
+        "sell_fly_events": [
+          {
+            "date": "2024-05-10",
+            "price": 10.11757,
+            "window": 20,
+            "future_gain": 0.14232666539495153
+          },
+          {
+            "date": "2024-09-23",
+            "price": 11.22884,
+            "window": 20,
+            "future_gain": 0.7436208904926955
+          },
+          {
+            "date": "2024-09-26",
+            "price": 13.00884,
+            "window": 20,
+            "future_gain": 0.5050411873771989
+          },
+          {
+            "date": "2024-10-02",
+            "price": 16.16884,
+            "window": 20,
+            "future_gain": 0.21089948320349516
+          },
+          {
+            "date": "2025-06-11",
+            "price": 17.0469,
+            "window": 60,
+            "future_gain": 0.454795886642146
+          },
+          {
+            "date": "2025-06-25",
+            "price": 19.1469,
+            "window": 40,
+            "future_gain": 0.2952363045714972
+          },
+          {
+            "date": "2025-07-24",
+            "price": 22.08976,
+            "window": 20,
+            "future_gain": 0.122681278565272
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.5086148089810659,
+            "long_coverage": 0.2222222222222222
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 1.472527359763576,
+            "long_coverage": 0.3055555555555556
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 1.3015280346955609,
+            "long_coverage": 0.5955056179775281
+          }
+        ]
+      },
+      "trend_full": {
+        "up_segment_count": 4,
+        "trend_capture_ratio": 1.3941624747564374,
+        "trend_long_coverage": 0.47737380902516297,
+        "down_segment_count": 2,
+        "downside_avoidance": 1.0,
+        "sell_fly_count": 9,
+        "sell_fly_avg_future_gain": 0.3224242165902913,
+        "sell_fly_events": [
+          {
+            "date": "2024-05-10",
+            "price": 10.11757,
+            "window": 20,
+            "future_gain": 0.14232666539495153
+          },
+          {
+            "date": "2024-09-23",
+            "price": 11.22884,
+            "window": 20,
+            "future_gain": 0.7436208904926955
+          },
+          {
+            "date": "2024-09-26",
+            "price": 13.00884,
+            "window": 20,
+            "future_gain": 0.5050411873771989
+          },
+          {
+            "date": "2024-10-02",
+            "price": 16.16884,
+            "window": 20,
+            "future_gain": 0.21089948320349516
+          },
+          {
+            "date": "2025-06-11",
+            "price": 17.0469,
+            "window": 60,
+            "future_gain": 0.454795886642146
+          },
+          {
+            "date": "2025-06-25",
+            "price": 19.1469,
+            "window": 40,
+            "future_gain": 0.2952363045714972
+          },
+          {
+            "date": "2025-07-24",
+            "price": 22.08976,
+            "window": 20,
+            "future_gain": 0.122681278565272
+          },
+          {
+            "date": "2025-11-12",
+            "price": 27.64,
+            "window": 60,
+            "future_gain": 0.2850940665701882
+          },
+          {
+            "date": "2026-01-06",
+            "price": 31.1,
+            "window": 20,
+            "future_gain": 0.14212218649517694
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.5086148089810659,
+            "long_coverage": 0.2222222222222222
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 1.472527359763576,
+            "long_coverage": 0.3055555555555556
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 1.3015280346955609,
+            "long_coverage": 0.5955056179775281
+          },
+          {
+            "start": "2025-10-28",
+            "end": "2026-03-03",
+            "buy_hold_return": 0.19968051118210872,
+            "capture_ratio": 2.1203339755940878,
+            "long_coverage": 0.7590361445783133
+          }
+        ]
+      },
+      "sample_warning": false
+    },
+    {
+      "strategy": "中国人寿 price SMA20",
+      "family": "price_ma",
+      "direction": "long_short",
+      "formula": "Entry: 中国人寿 close crosses SMA20. Filters: 中国人寿 close above/below EMA150; 中国人寿 close above/below EMA200; 中国人寿 ROC40 > -10%; 恒生指数 ROC20 > 0%. Exit: SMA120; fixed stop 5%; take profit 20%.",
+      "parameters": {
+        "family": "price_ma",
+        "direction": "long_short",
+        "benchmark_roc_days": 20,
+        "benchmark_roc_min": 0.0,
+        "entry_ma": 20,
+        "entry_ma_kind": "sma",
+        "exit_ma": 120,
+        "exit_ma_kind": "sma",
+        "fixed_stop": 0.05,
+        "own_roc_days": 40,
+        "own_roc_min": -0.1,
+        "qqq_ma": 150,
+        "qqq_ma2": 200,
+        "qqq_ma2_kind": "ema",
+        "qqq_ma_kind": "ema",
+        "reverse_exit": false,
+        "take_profit": 0.2
+      },
+      "full": {
+        "total_return": 1.7196194602804344,
+        "max_drawdown": -0.18806633202002854,
+        "win_rate": 0.5625,
+        "round_trips": 16,
+        "long_count": 8,
+        "short_count": 8,
+        "total_fees": 12109.386224032398,
+        "profit_factor": 4.9203606306071554,
+        "payoff_ratio": 3.8269471571388993
+      },
+      "train_full": {
+        "total_return": 1.4424208926541953,
+        "max_drawdown": -0.18806633202002854,
+        "win_rate": 0.5714285714285714,
+        "round_trips": 14,
+        "long_count": 6,
+        "short_count": 8,
+        "total_fees": 9330.160639067664,
+        "profit_factor": 8.432417104660173,
+        "payoff_ratio": 6.324312828495129
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.12819163974211167,
+          "max_drawdown": -0.1734918758043802,
+          "win_rate": 0.6666666666666666,
+          "round_trips": 3,
+          "long_count": 0,
+          "short_count": 3,
+          "total_fees": 1375.6697638931605,
+          "profit_factor": 2.446448397814702,
+          "payoff_ratio": 1.223224198907351
+        },
+        "2023": {
+          "total_return": 0.39048405950628773,
+          "max_drawdown": -0.15988506600928087,
+          "win_rate": 0.5,
+          "round_trips": 4,
+          "long_count": 3,
+          "short_count": 1,
+          "total_fees": 2233.436938589463,
+          "profit_factor": 9.065019541600536,
+          "payoff_ratio": 9.065019541600536
+        },
+        "2024": {
+          "total_return": 0.2599931411452605,
+          "max_drawdown": -0.18806633202002843,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 1,
+          "short_count": 1,
+          "total_fees": 1065.157731429778,
+          "profit_factor": 10.490973183527048,
+          "payoff_ratio": 10.490973183527048
+        },
+        "2025": {
+          "total_return": 0.20615654706087216,
+          "max_drawdown": -0.11464047567114,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1053.8996879767487,
+          "profit_factor": 456.0349320367976,
+          "payoff_ratio": 456.0349320367976
+        },
+        "2026YTD": {
+          "total_return": 0.11349336572575996,
+          "max_drawdown": -0.09514043768869285,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1137.897891933167,
+          "profit_factor": 2.1334281748161636,
+          "payoff_ratio": 2.1334281748161636
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": true,
+          "total_return": 0.2599931411452605,
+          "max_drawdown": -0.18806633202002843,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 1,
+          "short_count": 1,
+          "total_fees": 1065.157731429778,
+          "profit_factor": 10.490973183527048,
+          "payoff_ratio": 10.490973183527048
+        },
+        "2025": {
+          "pass": true,
+          "total_return": 0.20615654706087216,
+          "max_drawdown": -0.11464047567114,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1053.8996879767487,
+          "profit_factor": 456.0349320367976,
+          "payoff_ratio": 456.0349320367976
+        },
+        "2026YTD": {
+          "pass": true,
+          "total_return": 0.11349336572575996,
+          "max_drawdown": -0.09514043768869285,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1137.897891933167,
+          "profit_factor": 2.1334281748161636,
+          "payoff_ratio": 2.1334281748161636
+        },
+        "all_pass": true
+      },
+      "trend_train": {
+        "up_segment_count": 3,
+        "trend_capture_ratio": 0.21882031160383147,
+        "trend_long_coverage": 0.09499849296028126,
+        "down_segment_count": 2,
+        "downside_avoidance": 1.0,
+        "sell_fly_count": 2,
+        "sell_fly_avg_future_gain": 0.47196676844021135,
+        "sell_fly_events": [
+          {
+            "date": "2024-09-24",
+            "price": 12.06884,
+            "window": 20,
+            "future_gain": 0.6222636143987326
+          },
+          {
+            "date": "2025-03-28",
+            "price": 14.4869,
+            "window": 60,
+            "future_gain": 0.32166992248169013
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.0,
+            "long_coverage": 0.0
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 0.543860279215815,
+            "long_coverage": 0.2361111111111111
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 0.0,
+            "long_coverage": 0.0
+          }
+        ]
+      },
+      "trend_full": {
+        "up_segment_count": 4,
+        "trend_capture_ratio": 0.34442476168115216,
+        "trend_long_coverage": 0.13719519825161788,
+        "down_segment_count": 2,
+        "downside_avoidance": 1.0,
+        "sell_fly_count": 3,
+        "sell_fly_avg_future_gain": 0.4384540361029981,
+        "sell_fly_events": [
+          {
+            "date": "2024-09-24",
+            "price": 12.06884,
+            "window": 20,
+            "future_gain": 0.6222636143987326
+          },
+          {
+            "date": "2025-03-28",
+            "price": 14.4869,
+            "window": 60,
+            "future_gain": 0.32166992248169013
+          },
+          {
+            "date": "2025-11-06",
+            "price": 25.9,
+            "window": 60,
+            "future_gain": 0.37142857142857166
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.0,
+            "long_coverage": 0.0
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 0.543860279215815,
+            "long_coverage": 0.2361111111111111
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 0.0,
+            "long_coverage": 0.0
+          },
+          {
+            "start": "2025-10-28",
+            "end": "2026-03-03",
+            "buy_hold_return": 0.19968051118210872,
+            "capture_ratio": 0.9402119911587777,
+            "long_coverage": 0.3373493975903614
+          }
+        ]
+      },
+      "sample_warning": false
+    },
+    {
+      "strategy": "中国人寿 状态切换 channel / channel",
+      "family": "state_switch",
+      "direction": "long_short",
+      "formula": "状态：上涨=收盘>SMA50 且 slope80>=0.0015、ROC40>=6%、ADX30>=15; 震荡=ADX20<=20 且斜率/ROC 收敛；下跌=收盘<SMA50 且 slope/ROC 转负；基准过滤：恒生 SMA50；上涨做多入场=channel，退出=SMA30 或 ATR30移动止损2.5x/初始止损3.5x，趋势不设最长持仓，趋势无固定止盈。震荡入场=channel，止盈16%，止损6%，最长80日。下跌空仓规避。",
+      "parameters": {
+        "family": "state_switch",
+        "direction": "long_short",
+        "allow_short": false,
+        "atr_days": 30,
+        "benchmark_ma": 50,
+        "benchmark_ma_kind": "sma",
+        "down_ma": 50,
+        "down_roc_days": 60,
+        "down_slope_days": 60,
+        "hv_rv_days": 60,
+        "hv_rv_max": 0.65,
+        "range_adx_days": 20,
+        "range_adx_max": 20,
+        "range_channel": 7,
+        "range_entry": "channel",
+        "range_entry_ma": 30,
+        "range_entry_ma_kind": "sma",
+        "range_exit_ma": 20,
+        "range_exit_ma_kind": "ema",
+        "range_fixed_stop": 0.06,
+        "range_max_hold": 80,
+        "range_momentum_days": 40,
+        "range_momentum_min": 0.06,
+        "range_roc_abs_max": 0.1,
+        "range_roc_days": 20,
+        "range_slope_abs_max": 0.003,
+        "range_slope_days": 80,
+        "range_take_profit": 0.16,
+        "short_channel": 110,
+        "short_fixed_stop": 0.2,
+        "short_max_hold": 60,
+        "short_take_profit": 0.2,
+        "trend_atr_stop_mult": 3.5,
+        "trend_atr_trail_mult": 2.5,
+        "trend_entry": "channel",
+        "trend_entry_channel": 80,
+        "trend_entry_ma": 30,
+        "trend_entry_ma_kind": "sma",
+        "trend_exit_ma": 30,
+        "trend_exit_ma_kind": "sma",
+        "trend_long_window": 164,
+        "trend_momentum_days": 80,
+        "trend_momentum_min": 0.15,
+        "trend_short_window": 7,
+        "up_adx_days": 30,
+        "up_adx_min": 15,
+        "up_di_confirm": false,
+        "up_ma": 50,
+        "up_ma_kind": "sma",
+        "up_roc_days": 40,
+        "up_roc_min": 0.06,
+        "up_slope_days": 80,
+        "up_slope_min": 0.0015
+      },
+      "full": {
+        "total_return": 2.5118764423176874,
+        "max_drawdown": -0.22629970379608666,
+        "win_rate": 0.7142857142857143,
+        "round_trips": 14,
+        "long_count": 14,
+        "short_count": 0,
+        "total_fees": 11756.252918712618,
+        "profit_factor": 18.935867325523798,
+        "payoff_ratio": 7.5743469302095185
+      },
+      "train_full": {
+        "total_return": 2.184816273366643,
+        "max_drawdown": -0.22629970379608666,
+        "win_rate": 0.6923076923076923,
+        "round_trips": 13,
+        "long_count": 13,
+        "short_count": 0,
+        "total_fees": 10077.960848493447,
+        "profit_factor": 16.60051846084926,
+        "payoff_ratio": 7.378008204821894
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.17235157006245783,
+          "max_drawdown": -0.061039995014246284,
+          "win_rate": 0.6666666666666666,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 1686.2005953939313,
+          "profit_factor": 13.072228782851942,
+          "payoff_ratio": 6.536114391425971
+        },
+        "2023": {
+          "total_return": 0.13238945881163433,
+          "max_drawdown": -0.09152483335333195,
+          "win_rate": 0.6666666666666666,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 1639.5651572212323,
+          "profit_factor": 3.3963732884232294,
+          "payoff_ratio": 1.6981866442116147
+        },
+        "2024": {
+          "total_return": 0.7276003472366841,
+          "max_drawdown": -0.21903404375345326,
+          "win_rate": 1.0,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2689.387409474258,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2025": {
+          "total_return": 0.42410108708951233,
+          "max_drawdown": -0.10300181913679074,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1226.1249417844087,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2026YTD": {
+          "total_return": 0.10269357503794452,
+          "max_drawdown": -0.07202453009678889,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 526.9666838410942,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": false,
+          "total_return": 0.7276003472366841,
+          "max_drawdown": -0.21903404375345326,
+          "win_rate": 1.0,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2689.387409474258,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2025": {
+          "pass": false,
+          "total_return": 0.42410108708951233,
+          "max_drawdown": -0.10300181913679074,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1226.1249417844087,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2026YTD": {
+          "pass": false,
+          "total_return": 0.10269357503794452,
+          "max_drawdown": -0.07202453009678889,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 526.9666838410942,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "all_pass": false
+      },
+      "trend_train": {
+        "up_segment_count": 3,
+        "trend_capture_ratio": 0.38049401775353836,
+        "trend_long_coverage": 0.419159915399579,
+        "down_segment_count": 2,
+        "downside_avoidance": 0.9878126005660511,
+        "sell_fly_count": 3,
+        "sell_fly_avg_future_gain": 0.36030527156128916,
+        "sell_fly_events": [
+          {
+            "date": "2024-05-02",
+            "price": 9.37757,
+            "window": 20,
+            "future_gain": 0.23246960566543362
+          },
+          {
+            "date": "2024-09-24",
+            "price": 12.06884,
+            "window": 20,
+            "future_gain": 0.6222636143987326
+          },
+          {
+            "date": "2025-09-02",
+            "price": 23.07976,
+            "window": 60,
+            "future_gain": 0.22618259461970136
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.40900754234842956,
+            "long_coverage": 0.3492063492063492
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 0.26564106162629697,
+            "long_coverage": 0.3055555555555556
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 0.4761200000460611,
+            "long_coverage": 0.550561797752809
+          }
+        ]
+      },
+      "trend_full": {
+        "up_segment_count": 4,
+        "trend_capture_ratio": 0.5107886578746977,
+        "trend_long_coverage": 0.43008867248497734,
+        "down_segment_count": 2,
+        "downside_avoidance": 0.9878126005660511,
+        "sell_fly_count": 4,
+        "sell_fly_avg_future_gain": 0.34150247031351394,
+        "sell_fly_events": [
+          {
+            "date": "2024-05-02",
+            "price": 9.37757,
+            "window": 20,
+            "future_gain": 0.23246960566543362
+          },
+          {
+            "date": "2024-09-24",
+            "price": 12.06884,
+            "window": 20,
+            "future_gain": 0.6222636143987326
+          },
+          {
+            "date": "2025-09-02",
+            "price": 23.07976,
+            "window": 60,
+            "future_gain": 0.22618259461970136
+          },
+          {
+            "date": "2025-11-12",
+            "price": 27.64,
+            "window": 60,
+            "future_gain": 0.2850940665701882
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.40900754234842956,
+            "long_coverage": 0.3492063492063492
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 0.26564106162629697,
+            "long_coverage": 0.3055555555555556
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 0.4761200000460611,
+            "long_coverage": 0.550561797752809
+          },
+          {
+            "start": "2025-10-28",
+            "end": "2026-03-03",
+            "buy_hold_return": 0.19968051118210872,
+            "capture_ratio": 1.1288231511253983,
+            "long_coverage": 0.4819277108433735
+          }
+        ]
+      },
+      "sample_warning": false
+    }
+  ],
+  "closest_state_switch": [
+    {
+      "strategy": "中国人寿 状态切换 channel / channel",
+      "family": "state_switch",
+      "direction": "long_short",
+      "formula": "状态：上涨=收盘>SMA50 且 slope80>=0.0015、ROC40>=6%、ADX30>=15; 震荡=ADX20<=20 且斜率/ROC 收敛；下跌=收盘<SMA50 且 slope/ROC 转负；基准过滤：恒生 SMA50；上涨做多入场=channel，退出=SMA30 或 ATR30移动止损2.5x/初始止损3.5x，趋势不设最长持仓，趋势无固定止盈。震荡入场=channel，止盈16%，止损6%，最长80日。下跌空仓规避。",
+      "parameters": {
+        "family": "state_switch",
+        "direction": "long_short",
+        "allow_short": false,
+        "atr_days": 30,
+        "benchmark_ma": 50,
+        "benchmark_ma_kind": "sma",
+        "down_ma": 50,
+        "down_roc_days": 60,
+        "down_slope_days": 60,
+        "hv_rv_days": 60,
+        "hv_rv_max": 0.65,
+        "range_adx_days": 20,
+        "range_adx_max": 20,
+        "range_channel": 7,
+        "range_entry": "channel",
+        "range_entry_ma": 30,
+        "range_entry_ma_kind": "sma",
+        "range_exit_ma": 20,
+        "range_exit_ma_kind": "ema",
+        "range_fixed_stop": 0.06,
+        "range_max_hold": 80,
+        "range_momentum_days": 40,
+        "range_momentum_min": 0.06,
+        "range_roc_abs_max": 0.1,
+        "range_roc_days": 20,
+        "range_slope_abs_max": 0.003,
+        "range_slope_days": 80,
+        "range_take_profit": 0.16,
+        "short_channel": 110,
+        "short_fixed_stop": 0.2,
+        "short_max_hold": 60,
+        "short_take_profit": 0.2,
+        "trend_atr_stop_mult": 3.5,
+        "trend_atr_trail_mult": 2.5,
+        "trend_entry": "channel",
+        "trend_entry_channel": 80,
+        "trend_entry_ma": 30,
+        "trend_entry_ma_kind": "sma",
+        "trend_exit_ma": 30,
+        "trend_exit_ma_kind": "sma",
+        "trend_long_window": 164,
+        "trend_momentum_days": 80,
+        "trend_momentum_min": 0.15,
+        "trend_short_window": 7,
+        "up_adx_days": 30,
+        "up_adx_min": 15,
+        "up_di_confirm": false,
+        "up_ma": 50,
+        "up_ma_kind": "sma",
+        "up_roc_days": 40,
+        "up_roc_min": 0.06,
+        "up_slope_days": 80,
+        "up_slope_min": 0.0015
+      },
+      "full": {
+        "total_return": 2.5118764423176874,
+        "max_drawdown": -0.22629970379608666,
+        "win_rate": 0.7142857142857143,
+        "round_trips": 14,
+        "long_count": 14,
+        "short_count": 0,
+        "total_fees": 11756.252918712618,
+        "profit_factor": 18.935867325523798,
+        "payoff_ratio": 7.5743469302095185
+      },
+      "train_full": {
+        "total_return": 2.184816273366643,
+        "max_drawdown": -0.22629970379608666,
+        "win_rate": 0.6923076923076923,
+        "round_trips": 13,
+        "long_count": 13,
+        "short_count": 0,
+        "total_fees": 10077.960848493447,
+        "profit_factor": 16.60051846084926,
+        "payoff_ratio": 7.378008204821894
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.17235157006245783,
+          "max_drawdown": -0.061039995014246284,
+          "win_rate": 0.6666666666666666,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 1686.2005953939313,
+          "profit_factor": 13.072228782851942,
+          "payoff_ratio": 6.536114391425971
+        },
+        "2023": {
+          "total_return": 0.13238945881163433,
+          "max_drawdown": -0.09152483335333195,
+          "win_rate": 0.6666666666666666,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 1639.5651572212323,
+          "profit_factor": 3.3963732884232294,
+          "payoff_ratio": 1.6981866442116147
+        },
+        "2024": {
+          "total_return": 0.7276003472366841,
+          "max_drawdown": -0.21903404375345326,
+          "win_rate": 1.0,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2689.387409474258,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2025": {
+          "total_return": 0.42410108708951233,
+          "max_drawdown": -0.10300181913679074,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1226.1249417844087,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2026YTD": {
+          "total_return": 0.10269357503794452,
+          "max_drawdown": -0.07202453009678889,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 526.9666838410942,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": false,
+          "total_return": 0.7276003472366841,
+          "max_drawdown": -0.21903404375345326,
+          "win_rate": 1.0,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2689.387409474258,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2025": {
+          "pass": false,
+          "total_return": 0.42410108708951233,
+          "max_drawdown": -0.10300181913679074,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1226.1249417844087,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2026YTD": {
+          "pass": false,
+          "total_return": 0.10269357503794452,
+          "max_drawdown": -0.07202453009678889,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 526.9666838410942,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "all_pass": false
+      },
+      "trend_train": {
+        "up_segment_count": 3,
+        "trend_capture_ratio": 0.38049401775353836,
+        "trend_long_coverage": 0.419159915399579,
+        "down_segment_count": 2,
+        "downside_avoidance": 0.9878126005660511,
+        "sell_fly_count": 3,
+        "sell_fly_avg_future_gain": 0.36030527156128916,
+        "sell_fly_events": [
+          {
+            "date": "2024-05-02",
+            "price": 9.37757,
+            "window": 20,
+            "future_gain": 0.23246960566543362
+          },
+          {
+            "date": "2024-09-24",
+            "price": 12.06884,
+            "window": 20,
+            "future_gain": 0.6222636143987326
+          },
+          {
+            "date": "2025-09-02",
+            "price": 23.07976,
+            "window": 60,
+            "future_gain": 0.22618259461970136
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.40900754234842956,
+            "long_coverage": 0.3492063492063492
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 0.26564106162629697,
+            "long_coverage": 0.3055555555555556
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 0.4761200000460611,
+            "long_coverage": 0.550561797752809
+          }
+        ]
+      },
+      "trend_full": {
+        "up_segment_count": 4,
+        "trend_capture_ratio": 0.5107886578746977,
+        "trend_long_coverage": 0.43008867248497734,
+        "down_segment_count": 2,
+        "downside_avoidance": 0.9878126005660511,
+        "sell_fly_count": 4,
+        "sell_fly_avg_future_gain": 0.34150247031351394,
+        "sell_fly_events": [
+          {
+            "date": "2024-05-02",
+            "price": 9.37757,
+            "window": 20,
+            "future_gain": 0.23246960566543362
+          },
+          {
+            "date": "2024-09-24",
+            "price": 12.06884,
+            "window": 20,
+            "future_gain": 0.6222636143987326
+          },
+          {
+            "date": "2025-09-02",
+            "price": 23.07976,
+            "window": 60,
+            "future_gain": 0.22618259461970136
+          },
+          {
+            "date": "2025-11-12",
+            "price": 27.64,
+            "window": 60,
+            "future_gain": 0.2850940665701882
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.40900754234842956,
+            "long_coverage": 0.3492063492063492
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 0.26564106162629697,
+            "long_coverage": 0.3055555555555556
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 0.4761200000460611,
+            "long_coverage": 0.550561797752809
+          },
+          {
+            "start": "2025-10-28",
+            "end": "2026-03-03",
+            "buy_hold_return": 0.19968051118210872,
+            "capture_ratio": 1.1288231511253983,
+            "long_coverage": 0.4819277108433735
+          }
+        ]
+      },
+      "sample_warning": false
+    },
+    {
+      "strategy": "中国人寿 状态切换 channel / price_ma",
+      "family": "state_switch",
+      "direction": "long_short",
+      "formula": "状态：上涨=收盘>EMA50 且 slope40>=0.0、ROC60>=3%、ADX20>=20; 震荡=ADX20<=20 且斜率/ROC 收敛；下跌=收盘<SMA200 且 slope/ROC 转负；不使用恒生基准过滤；上涨做多入场=channel，退出=SMA30 或 ATR50移动止损2.5x/初始止损2.5x，趋势不设最长持仓，趋势无固定止盈。震荡入场=price_ma，止盈30%，止损6%，最长80日。下跌空仓规避。",
+      "parameters": {
+        "family": "state_switch",
+        "direction": "long_short",
+        "allow_short": false,
+        "atr_days": 50,
+        "down_ma": 200,
+        "down_roc_days": 80,
+        "down_slope_days": 60,
+        "hv_atr_days": 30,
+        "hv_atr_pct_max": 0.1,
+        "range_adx_days": 20,
+        "range_adx_max": 20,
+        "range_channel": 82,
+        "range_entry": "price_ma",
+        "range_entry_ma": 30,
+        "range_entry_ma_kind": "ema",
+        "range_exit_ma": 30,
+        "range_exit_ma_kind": "ema",
+        "range_fixed_stop": 0.06,
+        "range_max_hold": 80,
+        "range_momentum_days": 60,
+        "range_momentum_min": 0.06,
+        "range_roc_abs_max": 0.06,
+        "range_roc_days": 20,
+        "range_slope_abs_max": 0.001,
+        "range_slope_days": 80,
+        "range_take_profit": 0.3,
+        "short_channel": 50,
+        "short_fixed_stop": 0.18,
+        "short_max_hold": 80,
+        "short_take_profit": 0.16,
+        "trend_atr_stop_mult": 2.5,
+        "trend_atr_trail_mult": 2.5,
+        "trend_entry": "channel",
+        "trend_entry_channel": 94,
+        "trend_entry_ma": 40,
+        "trend_entry_ma_kind": "ema",
+        "trend_exit_ma": 30,
+        "trend_exit_ma_kind": "sma",
+        "trend_long_window": 113,
+        "trend_momentum_days": 20,
+        "trend_momentum_min": 0.03,
+        "trend_short_window": 20,
+        "up_adx_days": 20,
+        "up_adx_min": 20,
+        "up_di_confirm": true,
+        "up_ma": 50,
+        "up_ma_kind": "ema",
+        "up_roc_days": 60,
+        "up_roc_min": 0.03,
+        "up_slope_days": 40,
+        "up_slope_min": 0.0
+      },
+      "full": {
+        "total_return": 2.601240223782191,
+        "max_drawdown": -0.2190401116012466,
+        "win_rate": 0.6923076923076923,
+        "round_trips": 13,
+        "long_count": 13,
+        "short_count": 0,
+        "total_fees": 12886.16442568415,
+        "profit_factor": 18.3647055922527,
+        "payoff_ratio": 8.162091374334533
+      },
+      "train_full": {
+        "total_return": 2.2658576283608705,
+        "max_drawdown": -0.2190401116012466,
+        "win_rate": 0.6666666666666666,
+        "round_trips": 12,
+        "long_count": 12,
+        "short_count": 0,
+        "total_fees": 11165.166261369683,
+        "profit_factor": 16.125842769430044,
+        "payoff_ratio": 8.062921384715022
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.10786628720077518,
+          "max_drawdown": -0.1762396964794699,
+          "win_rate": 0.6666666666666666,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 1561.9084008356244,
+          "profit_factor": 4.791470644477546,
+          "payoff_ratio": 2.395735322238773
+        },
+        "2023": {
+          "total_return": 0.10836131756676237,
+          "max_drawdown": -0.10321286786526862,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1038.334817632059,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2024": {
+          "total_return": 1.0850821474557373,
+          "max_drawdown": -0.2190401116012467,
+          "win_rate": 0.6,
+          "round_trips": 5,
+          "long_count": 5,
+          "short_count": 0,
+          "total_fees": 3490.1625871323713,
+          "profit_factor": 12.6247709169676,
+          "payoff_ratio": 8.416513944645066
+        },
+        "2025": {
+          "total_return": 0.22505358330537395,
+          "max_drawdown": -0.08399568954785086,
+          "win_rate": 0.6666666666666666,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 1691.6496814616357,
+          "profit_factor": 299.84410295402125,
+          "payoff_ratio": 149.92205147701063
+        },
+        "2026YTD": {
+          "total_return": 0.10269357503794452,
+          "max_drawdown": -0.07202453009678889,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 526.9666838410942,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": false,
+          "total_return": 1.0850821474557373,
+          "max_drawdown": -0.2190401116012467,
+          "win_rate": 0.6,
+          "round_trips": 5,
+          "long_count": 5,
+          "short_count": 0,
+          "total_fees": 3490.1625871323713,
+          "profit_factor": 12.6247709169676,
+          "payoff_ratio": 8.416513944645066
+        },
+        "2025": {
+          "pass": false,
+          "total_return": 0.22505358330537395,
+          "max_drawdown": -0.08399568954785086,
+          "win_rate": 0.6666666666666666,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 1691.6496814616357,
+          "profit_factor": 299.84410295402125,
+          "payoff_ratio": 149.92205147701063
+        },
+        "2026YTD": {
+          "pass": false,
+          "total_return": 0.10269357503794452,
+          "max_drawdown": -0.07202453009678889,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 526.9666838410942,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "all_pass": false
+      },
+      "trend_train": {
+        "up_segment_count": 3,
+        "trend_capture_ratio": 0.8575002767071245,
+        "trend_long_coverage": 0.4900932946002631,
+        "down_segment_count": 2,
+        "downside_avoidance": 1.0,
+        "sell_fly_count": 4,
+        "sell_fly_avg_future_gain": 0.3915044501245144,
+        "sell_fly_events": [
+          {
+            "date": "2024-04-03",
+            "price": 8.01757,
+            "window": 40,
+            "future_gain": 0.44153028910255876
+          },
+          {
+            "date": "2024-09-26",
+            "price": 13.00884,
+            "window": 20,
+            "future_gain": 0.5050411873771989
+          },
+          {
+            "date": "2025-07-09",
+            "price": 17.79976,
+            "window": 40,
+            "future_gain": 0.39326372939859855
+          },
+          {
+            "date": "2025-09-02",
+            "price": 23.07976,
+            "window": 60,
+            "future_gain": 0.22618259461970136
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.9158695398170201,
+            "long_coverage": 0.5873015873015873
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 1.1595511613469272,
+            "long_coverage": 0.3611111111111111
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 0.5559965661028496,
+            "long_coverage": 0.5730337078651685
+          }
+        ]
+      },
+      "trend_full": {
+        "up_segment_count": 4,
+        "trend_capture_ratio": 0.8184708787901576,
+        "trend_long_coverage": 0.4823782714063571,
+        "down_segment_count": 2,
+        "downside_avoidance": 1.0,
+        "sell_fly_count": 5,
+        "sell_fly_avg_future_gain": 0.38497096637352124,
+        "sell_fly_events": [
+          {
+            "date": "2024-04-03",
+            "price": 8.01757,
+            "window": 40,
+            "future_gain": 0.44153028910255876
+          },
+          {
+            "date": "2024-09-26",
+            "price": 13.00884,
+            "window": 20,
+            "future_gain": 0.5050411873771989
+          },
+          {
+            "date": "2025-07-09",
+            "price": 17.79976,
+            "window": 40,
+            "future_gain": 0.39326372939859855
+          },
+          {
+            "date": "2025-09-02",
+            "price": 23.07976,
+            "window": 60,
+            "future_gain": 0.22618259461970136
+          },
+          {
+            "date": "2025-11-18",
+            "price": 26.14,
+            "window": 60,
+            "future_gain": 0.3588370313695486
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 0.9158695398170201,
+            "long_coverage": 0.5873015873015873
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 1.1595511613469272,
+            "long_coverage": 0.3611111111111111
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 0.5559965661028496,
+            "long_coverage": 0.5730337078651685
+          },
+          {
+            "start": "2025-10-28",
+            "end": "2026-03-03",
+            "buy_hold_return": 0.19968051118210872,
+            "capture_ratio": 0.6333403612104449,
+            "long_coverage": 0.4457831325301205
+          }
+        ]
+      },
+      "sample_warning": false
+    },
+    {
+      "strategy": "中国人寿 状态切换 channel / price_ma",
+      "family": "state_switch",
+      "direction": "long_short",
+      "formula": "状态：上涨=收盘>EMA50 且 slope40>=0.001、ROC40>=-10%、ADX20>=20; 震荡=ADX30<=20 且斜率/ROC 收敛；下跌=收盘<SMA150 且 slope/ROC 转负；基准过滤：恒生 SMA50; 恒生 ROC20 >= -4%；上涨做多入场=channel，退出=EMA20 或 ATR50移动止损2.5x/初始止损2.5x，趋势不设最长持仓，趋势无固定止盈。震荡入场=price_ma，止盈16%，止损6%，最长80日。下跌空仓规避。",
+      "parameters": {
+        "family": "state_switch",
+        "direction": "long_short",
+        "allow_short": false,
+        "atr_days": 50,
+        "benchmark_ma": 50,
+        "benchmark_ma_kind": "sma",
+        "benchmark_roc_days": 20,
+        "benchmark_roc_min": -0.04,
+        "down_ma": 150,
+        "down_roc_days": 60,
+        "down_slope_days": 80,
+        "range_adx_days": 30,
+        "range_adx_max": 20,
+        "range_channel": 25,
+        "range_entry": "price_ma",
+        "range_entry_ma": 50,
+        "range_entry_ma_kind": "ema",
+        "range_exit_ma": 50,
+        "range_exit_ma_kind": "ema",
+        "range_fixed_stop": 0.06,
+        "range_max_hold": 80,
+        "range_momentum_days": 60,
+        "range_momentum_min": 0.06,
+        "range_roc_abs_max": 0.15,
+        "range_roc_days": 20,
+        "range_slope_abs_max": 0.0005,
+        "range_slope_days": 80,
+        "range_take_profit": 0.16,
+        "short_channel": 24,
+        "short_fixed_stop": 0.1,
+        "short_max_hold": 20,
+        "short_take_profit": 0.08,
+        "trend_atr_stop_mult": 2.5,
+        "trend_atr_trail_mult": 2.5,
+        "trend_entry": "channel",
+        "trend_entry_channel": 44,
+        "trend_entry_ma": 10,
+        "trend_entry_ma_kind": "sma",
+        "trend_exit_ma": 20,
+        "trend_exit_ma_kind": "ema",
+        "trend_long_window": 69,
+        "trend_momentum_days": 120,
+        "trend_momentum_min": 0.15,
+        "trend_short_window": 9,
+        "up_adx_days": 20,
+        "up_adx_min": 20,
+        "up_di_confirm": false,
+        "up_ma": 50,
+        "up_ma_kind": "ema",
+        "up_roc_days": 40,
+        "up_roc_min": -0.1,
+        "up_slope_days": 40,
+        "up_slope_min": 0.001
+      },
+      "full": {
+        "total_return": 2.3514883184173807,
+        "max_drawdown": -0.2507896103379924,
+        "win_rate": 0.6666666666666666,
+        "round_trips": 15,
+        "long_count": 15,
+        "short_count": 0,
+        "total_fees": 13887.121666712219,
+        "profit_factor": 6.771355410447988,
+        "payoff_ratio": 3.385677705223994
+      },
+      "train_full": {
+        "total_return": 2.039365055067137,
+        "max_drawdown": -0.2507896103379924,
+        "win_rate": 0.6428571428571429,
+        "round_trips": 14,
+        "long_count": 14,
+        "short_count": 0,
+        "total_fees": 12285.477542660985,
+        "profit_factor": 6.005298326279487,
+        "payoff_ratio": 3.336276847933048
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.23673623369013974,
+          "max_drawdown": -0.09623899915135858,
+          "win_rate": 0.6666666666666666,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 1516.1800510659255,
+          "profit_factor": 4.620241769953867,
+          "payoff_ratio": 2.3101208849769335
+        },
+        "2023": {
+          "total_return": 0.10559786078301503,
+          "max_drawdown": -0.09152483335333195,
+          "win_rate": 0.6666666666666666,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 1639.541641317393,
+          "profit_factor": 2.106589366615824,
+          "payoff_ratio": 1.053294683307912
+        },
+        "2024": {
+          "total_return": 0.8008038761401426,
+          "max_drawdown": -0.21905048288308415,
+          "win_rate": 1.0,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2591.6355068154558,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2025": {
+          "total_return": 0.2281899266764451,
+          "max_drawdown": -0.08399568954785097,
+          "win_rate": 0.5,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2158.2100191725663,
+          "profit_factor": 3.9576053178836403,
+          "payoff_ratio": 3.9576053178836403
+        },
+        "2026YTD": {
+          "total_return": 0.10269357503794452,
+          "max_drawdown": -0.07202453009678889,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 526.9666838410942,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": false,
+          "total_return": 0.8008038761401426,
+          "max_drawdown": -0.21905048288308415,
+          "win_rate": 1.0,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2591.6355068154558,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "2025": {
+          "pass": false,
+          "total_return": 0.2281899266764451,
+          "max_drawdown": -0.08399568954785097,
+          "win_rate": 0.5,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2158.2100191725663,
+          "profit_factor": 3.9576053178836403,
+          "payoff_ratio": 3.9576053178836403
+        },
+        "2026YTD": {
+          "pass": false,
+          "total_return": 0.10269357503794452,
+          "max_drawdown": -0.07202453009678889,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 526.9666838410942,
+          "profit_factor": 999.0,
+          "payoff_ratio": 0.0
+        },
+        "all_pass": false
+      },
+      "trend_train": {
+        "up_segment_count": 3,
+        "trend_capture_ratio": 0.7730868334956957,
+        "trend_long_coverage": 0.4805691760797563,
+        "down_segment_count": 2,
+        "downside_avoidance": 1.0,
+        "sell_fly_count": 5,
+        "sell_fly_avg_future_gain": 0.40631206411897125,
+        "sell_fly_events": [
+          {
+            "date": "2024-05-02",
+            "price": 9.37757,
+            "window": 20,
+            "future_gain": 0.23246960566543362
+          },
+          {
+            "date": "2024-09-11",
+            "price": 10.10884,
+            "window": 20,
+            "future_gain": 0.9368038271453498
+          },
+          {
+            "date": "2025-03-25",
+            "price": 14.9069,
+            "window": 60,
+            "future_gain": 0.2428405637657729
+          },
+          {
+            "date": "2025-07-09",
+            "price": 17.79976,
+            "window": 40,
+            "future_gain": 0.39326372939859855
+          },
+          {
+            "date": "2025-09-02",
+            "price": 23.07976,
+            "window": 60,
+            "future_gain": 0.22618259461970136
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 1.2763157894736867,
+            "long_coverage": 0.6190476190476191
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 0.5576224715964219,
+            "long_coverage": 0.2638888888888889
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 0.7837997367848127,
+            "long_coverage": 0.6292134831460674
+          }
+        ]
+      },
+      "trend_full": {
+        "up_segment_count": 4,
+        "trend_capture_ratio": 0.7487550047553595,
+        "trend_long_coverage": 0.47451243603929266,
+        "down_segment_count": 2,
+        "downside_avoidance": 1.0,
+        "sell_fly_count": 6,
+        "sell_fly_avg_future_gain": 0.3983995586607341,
+        "sell_fly_events": [
+          {
+            "date": "2024-05-02",
+            "price": 9.37757,
+            "window": 20,
+            "future_gain": 0.23246960566543362
+          },
+          {
+            "date": "2024-09-11",
+            "price": 10.10884,
+            "window": 20,
+            "future_gain": 0.9368038271453498
+          },
+          {
+            "date": "2025-03-25",
+            "price": 14.9069,
+            "window": 60,
+            "future_gain": 0.2428405637657729
+          },
+          {
+            "date": "2025-07-09",
+            "price": 17.79976,
+            "window": 40,
+            "future_gain": 0.39326372939859855
+          },
+          {
+            "date": "2025-09-02",
+            "price": 23.07976,
+            "window": 60,
+            "future_gain": 0.22618259461970136
+          },
+          {
+            "date": "2025-11-18",
+            "price": 26.14,
+            "window": 60,
+            "future_gain": 0.3588370313695486
+          }
+        ],
+        "up_segments": [
+          {
+            "start": "2022-12-02",
+            "end": "2023-03-09",
+            "buy_hold_return": 0.15440313032030528,
+            "capture_ratio": 1.2763157894736867,
+            "long_coverage": 0.6190476190476191
+          },
+          {
+            "start": "2024-08-29",
+            "end": "2024-12-13",
+            "buy_hold_return": 0.38108524524775045,
+            "capture_ratio": 0.5576224715964219,
+            "long_coverage": 0.2638888888888889
+          },
+          {
+            "start": "2025-06-04",
+            "end": "2025-10-10",
+            "buy_hold_return": 0.4116683411297186,
+            "capture_ratio": 0.7837997367848127,
+            "long_coverage": 0.6292134831460674
+          },
+          {
+            "start": "2025-10-28",
+            "end": "2026-03-03",
+            "buy_hold_return": 0.19968051118210872,
+            "capture_ratio": 0.6333403612104449,
+            "long_coverage": 0.4457831325301205
+          }
+        ]
+      },
+      "sample_warning": false
+    }
+  ]
+}

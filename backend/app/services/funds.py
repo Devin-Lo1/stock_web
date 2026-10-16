@@ -109,6 +109,7 @@ def _build_fund_summary(
         latest=latest,
         valuation_mode=valuation_mode,
         trades=ordered_trades,
+        trade_records=trade_records,
     )
     day_profit = _day_profit(
         shares=day_profit_shares,
@@ -194,16 +195,19 @@ def _day_profit_shares(
     latest: FundNavPoint | None,
     valuation_mode: str,
     trades: list[FundTrade],
+    trade_records: list[FundTradeRecord] | None = None,
 ) -> float:
     if latest is None or not trades:
         return position.shares
     shares = 0.0
     for trade in trades:
-        if valuation_mode == "official":
-            if trade.trade_date >= latest.nav_date:
+        is_correction_backfill = _is_correction_backfill_trade(trade, trade_records)
+        if not is_correction_backfill:
+            if valuation_mode == "official":
+                if trade.trade_date >= latest.nav_date:
+                    continue
+            elif trade.trade_date > latest.nav_date:
                 continue
-        elif trade.trade_date > latest.nav_date:
-            continue
         if trade.action == "buy":
             shares += trade.shares
         else:

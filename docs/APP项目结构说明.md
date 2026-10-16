@@ -1,5 +1,59 @@
 # App 项目结构说明
 
+## 0. 2026-07-09 当前代码结构快照
+
+当前本地代码在 2026-06-06 结构基础上又新增了美股组合建议后端线。本节优先于后续历史结构描述。该功能已决定暂作为后备功能保留，当前不继续产品化。
+
+当前关键事实：
+
+- 后端测试文件当前为 14 个，移动端测试文件当前为 16 个。
+- 后端全量 pytest 当前验证为 `155 passed`。
+- Flutter analyze 当前无静态问题，Flutter test 当前验证为 `71 passed`。
+- `backend/app/main.py` 已挂载 `portfolio_strategy.router`。
+- `portfolio_strategy` 相关文件当前仍是 untracked；当前定位为后备雏形，不作为下一步主线开发目标。
+
+后备组合建议调用关系：
+
+```text
+backend/app/routers/portfolio_strategy.py
+  -> backend/app/services/us_portfolio_strategy.py
+  -> backend/app/repositories/positions.py
+  -> backend/app/repositories/market_data.py
+  -> backend/app/schemas/portfolio_strategy.py
+```
+
+接口：
+
+```text
+GET /api/v1/portfolio-strategy/us?cash=0
+```
+
+用途：按当前美股持仓和手工输入现金计算资产列表、组合权重、风险指标和人工确认建议。当前尚未确认云端已部署，也没有完整移动端入口；后续重新启用前再补产品边界和验收。
+
+## 0. 2026-06-06 代码结构快照
+
+本轮交接前已逐份读取项目代码文件，并按后端、移动端、测试、脚本四类梳理。当前仓库主要源码规模：
+
+- 后端 Python：`backend/app` 约 70 个模块，`backend/tests` 约 12 个测试文件。
+- 移动端 Dart：`mobile_app/lib` 约 100+ 个模块，`mobile_app/test` 覆盖 API service、模型和部分页面。
+- 脚本：`scripts/deploy_backend.sh`、`scripts/build_mobile_lan_debug.ps1`、Futu 安装和 PostgreSQL 备份脚本等。
+
+核心调用关系：
+
+- 后端：`main.py` -> `routers/*` -> `services/*` -> `repositories/*` -> `db/core.py`、`db/converters.py`。
+- 回测：`routers/backtests.py` -> `backtest/engine.py` 或 `backtest/volume_profile.py` -> `strategies/*`、`repositories/market_data.py`、`services/futu_client.py`。
+- 个股专属策略：`routers/personalized_strategies.py` -> `services/personalized_strategies.py` -> `repositories/market_data.py` / `services/futu_client.py`。
+- 移动端：`main.dart` -> `screens/app_shell.dart` -> 各 repository -> 各 API service -> `ApiClient` -> 后端 `/api/v1/*`。
+- 量化页：`screens/quant_screen.dart` 负责五个板块入口，具体 UI 拆到 `widgets/quant/*`。
+
+下一步如果要更新专属策略，主要改动点只应落在：
+
+- `backend/app/services/personalized_strategies.py`
+- `backend/tests/test_personalized_strategies.py`
+- `docs/us_stock_strategy_research_20260602.md`
+
+除非接口字段发生变化，否则不应改动移动端模型和页面结构。
+
 最后更新：2026-05-26
 
 最新功能基线：
@@ -309,13 +363,21 @@ GET /api/v1/stocks/search
 ```text
 GET    /api/v1/funds/search
 GET    /api/v1/funds/positions/summary
+GET    /api/v1/funds/benchmarks/hs300/navs
+GET    /api/v1/funds/{fund_code}/quote
 GET    /api/v1/funds/{fund_code}/navs
 POST   /api/v1/funds/positions
+PUT    /api/v1/funds/positions/{position_id}
+PUT    /api/v1/funds/positions/{position_id}/holding
 DELETE /api/v1/funds/positions/{position_id}
 GET    /api/v1/funds/positions/{position_id}/trades
 POST   /api/v1/funds/positions/{position_id}/trades
+GET    /api/v1/funds/positions/{position_id}/trade-records
+POST   /api/v1/funds/positions/{position_id}/trade-records
+DELETE /api/v1/funds/positions/{position_id}/trade-records/{record_id}
 GET    /api/v1/funds/alerts/scheduler/status
-PUT    /api/v1/funds/alerts/scheduler
+PUT    /api/v1/funds/alerts/scheduler/config
+POST   /api/v1/funds/alerts/scheduler/run-once
 POST   /api/v1/funds/alerts/scan
 ```
 
@@ -1912,16 +1974,32 @@ K 线接口：
 
 - `GET /api/v1/funds/search`
 - `GET /api/v1/funds/positions/summary`
+- `GET /api/v1/funds/benchmarks/hs300/navs`
+- `GET /api/v1/funds/{fund_code}/quote`
 - `GET /api/v1/funds/{fund_code}/navs`
 - `POST /api/v1/funds/positions`
+- `PUT /api/v1/funds/positions/{position_id}`
+- `PUT /api/v1/funds/positions/{position_id}/holding`
 - `DELETE /api/v1/funds/positions/{position_id}`
 - `GET /api/v1/funds/positions/{position_id}/trades`
 - `POST /api/v1/funds/positions/{position_id}/trades`
+- `GET /api/v1/funds/positions/{position_id}/trade-records`
+- `POST /api/v1/funds/positions/{position_id}/trade-records`
+- `DELETE /api/v1/funds/positions/{position_id}/trade-records/{record_id}`
 - `GET /api/v1/funds/alerts/scheduler/status`
-- `PUT /api/v1/funds/alerts/scheduler`
+- `PUT /api/v1/funds/alerts/scheduler/config`
+- `POST /api/v1/funds/alerts/scheduler/run-once`
 - `POST /api/v1/funds/alerts/scan`
 
 基金接口用于场外开放式基金管理，和 Futu 股票/交易所行情接口分开维护。
+
+### `backend/app/routers/portfolio_strategy.py`
+
+美股组合建议接口：
+
+- `GET /api/v1/portfolio-strategy/us`
+
+当前实现读取 `positions` 中数量大于 0 的美股持仓，并从 `quote_snapshots` 读取最新行情；调用方可通过 `cash` 查询参数传入当前现金。返回内容包括资产明细、核心/现金类/杠杆/半导体/成长权重、指标状态和人工确认建议。该功能当前后端测试已覆盖，但已决定暂作为后备功能，不继续移动端入口和云端部署推进。
 
 ### `backend/app/routers/strategies.py`
 
@@ -1936,6 +2014,9 @@ K 线接口：
 - `GET /api/v1/strategies/monitors/scheduler/status`
 - `POST /api/v1/strategies/monitors/scheduler/start`
 - `POST /api/v1/strategies/monitors/scheduler/stop`
+- `POST /api/v1/strategies/monitors/scheduler/run-once`
+- `GET /api/v1/strategies/monitors/scan-logs`
+- `DELETE /api/v1/strategies/monitors/scan-logs/{log_id}`
 
 后续新增策略和回测时，应继续按领域新增：
 

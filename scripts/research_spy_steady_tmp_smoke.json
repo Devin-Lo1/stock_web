@@ -1,0 +1,417 @@
+{
+  "meta": {
+    "target": "US.SPY",
+    "benchmark": "US.QQQ",
+    "auxiliary_benchmark": null,
+    "range": "2021-01-04~2026-06-03",
+    "seed": 20260608,
+    "started_at": "2026-06-08T16:18:23",
+    "elapsed_seconds": 6.77,
+    "cost_model": {
+      "initial_cash": 100000.0,
+      "slippage_single_side": 0.0005,
+      "commission_rate": 0.00138,
+      "min_commission": 18.0,
+      "sec_fee_rate": 2.0600000000000003e-05,
+      "taf_rate_per_share": 0.000195,
+      "taf_max": 9.79
+    },
+    "no_future_function": true,
+    "selection_rule": "2026YTD is used only as final validation gate; ranking uses 2021-2025 training metrics.",
+    "split_adjustment": {
+      "known_event": "No known SPY split adjustment was required for the requested 2021-2026 window.",
+      "large_gap_count": 0,
+      "large_gaps": [],
+      "handling": "No additional split adjustment was applied because no split-like discontinuity was detected in the cloud OHLC series."
+    },
+    "execution": "Signal at T close, execution at T+1 open; final close forced at interval end.",
+    "current_app_note": "No existing App personalized strategy template was found for US.SPY."
+  },
+  "counts": {
+    "unique_tested": 1386,
+    "stage1_unique": 1000,
+    "local_refine_unique": 386,
+    "annual_review": 258,
+    "train_pass_2021_2025": 0,
+    "walk_forward_2024_pass": 0,
+    "walk_forward_2025_pass": 0,
+    "walk_forward_2026YTD_pass": 0,
+    "walk_forward_all_pass": 0,
+    "final_pass_dd15": 0,
+    "final_pass_dd18": 0,
+    "relaxed_used": true
+  },
+  "current_app": null,
+  "top3": [],
+  "closest": [
+    {
+      "strategy": "SPY SMA6/90 steady",
+      "family": "ma_cross",
+      "direction": "long_short",
+      "formula": "Entry: SPY SMA6 crosses SMA90; short side symmetric. Filters: SPY close above/below SMA80; SPY ROC60 > -2%; QQQ EMA100 filter; SPY-QQQ ROC20 > -8%. Exit: raw reverse MA cross; SMA120; trailing stop 12%; take profit 15%; max hold 80d.",
+      "parameters": {
+        "family": "ma_cross",
+        "direction": "long_short",
+        "benchmark_ma": 100,
+        "benchmark_ma_kind": "ema",
+        "exit_ma": 120,
+        "exit_ma_kind": "sma",
+        "long_window": 90,
+        "max_hold": 80,
+        "own_roc_days": 60,
+        "own_roc_min": -0.02,
+        "qqq_ma": 80,
+        "qqq_ma_kind": "sma",
+        "relative_days": 20,
+        "relative_min": -0.08,
+        "reverse_exit": false,
+        "short_window": 6,
+        "take_profit": 0.15,
+        "trailing_stop": 0.12
+      },
+      "full": {
+        "total_return": 0.8726990864338271,
+        "max_drawdown": -0.11175821680197606,
+        "win_rate": 0.6666666666666666,
+        "round_trips": 12,
+        "long_count": 6,
+        "short_count": 6,
+        "total_fees": 4223.137492948982
+      },
+      "train_full": {
+        "total_return": 0.7686420227427193,
+        "max_drawdown": -0.11175821680197606,
+        "win_rate": 0.7,
+        "round_trips": 10,
+        "long_count": 5,
+        "short_count": 5,
+        "total_fees": 3229.893858876381
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.06054196232445319,
+          "max_drawdown": -0.0635431214470844,
+          "win_rate": 0.5,
+          "round_trips": 4,
+          "long_count": 1,
+          "short_count": 3,
+          "total_fees": 1128.4297138077447
+        },
+        "2023": {
+          "total_return": 0.21489098614615076,
+          "max_drawdown": -0.02596589148836237,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 628.1334233304169
+        },
+        "2024": {
+          "total_return": 0.10565405924677007,
+          "max_drawdown": -0.0413709973376265,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 292.9211443843948
+        },
+        "2025": {
+          "total_return": 0.11883251120716465,
+          "max_drawdown": -0.04024492846635275,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 0,
+          "short_count": 1,
+          "total_fees": 258.86352667664926
+        },
+        "2026YTD": {
+          "total_return": 0.05883444040854657,
+          "max_drawdown": -0.02026694301926768,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 1,
+          "short_count": 1,
+          "total_fees": 561.5854544337531
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": false,
+          "total_return": 0.10565405924677007,
+          "max_drawdown": -0.0413709973376265,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 292.9211443843948
+        },
+        "2025": {
+          "pass": false,
+          "total_return": 0.11883251120716465,
+          "max_drawdown": -0.04024492846635275,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 0,
+          "short_count": 1,
+          "total_fees": 258.86352667664926
+        },
+        "2026YTD": {
+          "pass": false,
+          "total_return": 0.05883444040854657,
+          "max_drawdown": -0.02026694301926768,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 1,
+          "short_count": 1,
+          "total_fees": 561.5854544337531
+        },
+        "all_pass": false
+      },
+      "sample_warning": false
+    },
+    {
+      "strategy": "SPY ROC60 momentum",
+      "family": "momentum",
+      "direction": "long_short",
+      "formula": "Entry: SPY ROC60 > -3%; short threshold 4%. Exit: trailing stop 6%; ATR stop 3.5x.",
+      "parameters": {
+        "family": "momentum",
+        "direction": "long_short",
+        "atr_days": 14,
+        "atr_stop_mult": 3.5,
+        "momentum_days": 60,
+        "momentum_long_min": -0.03,
+        "momentum_short_min": 0.04,
+        "qqq_slope_days": 20,
+        "qqq_slope_min": 0.0003,
+        "reverse_exit": false,
+        "sma_slope_days": 80,
+        "sma_slope_min": 0.0003,
+        "trailing_stop": 0.06
+      },
+      "full": {
+        "total_return": 0.4461822124103201,
+        "max_drawdown": -0.11557857390494852,
+        "win_rate": 0.7272727272727273,
+        "round_trips": 11,
+        "long_count": 5,
+        "short_count": 6,
+        "total_fees": 3450.7296993390087
+      },
+      "train_full": {
+        "total_return": 0.4937664684365082,
+        "max_drawdown": -0.11557857390494852,
+        "win_rate": 0.7272727272727273,
+        "round_trips": 11,
+        "long_count": 5,
+        "short_count": 6,
+        "total_fees": 3457.403697840338
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.005657706823465114,
+          "max_drawdown": -0.09645566778257886,
+          "win_rate": 0.42857142857142855,
+          "round_trips": 7,
+          "long_count": 1,
+          "short_count": 6,
+          "total_fees": 1901.7286589448963
+        },
+        "2023": {
+          "total_return": 0.15549969657354,
+          "max_drawdown": -0.06642261624933143,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 594.6155669212781
+        },
+        "2024": {
+          "total_return": 0.11891003352639218,
+          "max_drawdown": -0.11557857390494863,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 591.203572098461
+        },
+        "2025": {
+          "total_return": 0.025828014031958002,
+          "max_drawdown": -0.050713550211866076,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 547.8847099471374
+        },
+        "2026YTD": {
+          "total_return": -0.04199924433495661,
+          "max_drawdown": -0.06491648305828845,
+          "win_rate": 0.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 272.20406826796346
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": false,
+          "total_return": 0.11891003352639218,
+          "max_drawdown": -0.11557857390494863,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 591.203572098461
+        },
+        "2025": {
+          "pass": false,
+          "total_return": 0.025828014031958002,
+          "max_drawdown": -0.050713550211866076,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 547.8847099471374
+        },
+        "2026YTD": {
+          "pass": false,
+          "total_return": -0.04199924433495661,
+          "max_drawdown": -0.06491648305828845,
+          "win_rate": 0.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 272.20406826796346
+        },
+        "all_pass": false
+      },
+      "sample_warning": false
+    },
+    {
+      "strategy": "SPY price EMA80",
+      "family": "price_ma",
+      "direction": "long_short",
+      "formula": "Entry: SPY close crosses EMA80. Filters: SPY close above/below SMA50; SPY ROC120 > 2%; QQQ SMA80 filter; ATR14% <= 4.5%. Exit: EMA30; trailing stop 12%; ATR stop 4.0x.",
+      "parameters": {
+        "family": "price_ma",
+        "direction": "long_short",
+        "atr_days": 14,
+        "atr_pct_max": 0.045,
+        "atr_stop_mult": 4.0,
+        "benchmark_ma": 80,
+        "benchmark_ma_kind": "sma",
+        "entry_ma": 80,
+        "entry_ma_kind": "ema",
+        "exit_ma": 30,
+        "exit_ma_kind": "ema",
+        "own_roc_days": 120,
+        "own_roc_min": 0.02,
+        "qqq_ma": 50,
+        "qqq_ma_kind": "sma",
+        "reverse_exit": false,
+        "trailing_stop": 0.12
+      },
+      "full": {
+        "total_return": 0.2868234079310932,
+        "max_drawdown": -0.059084244912456785,
+        "win_rate": 0.75,
+        "round_trips": 4,
+        "long_count": 2,
+        "short_count": 2,
+        "total_fees": 1184.028538824391
+      },
+      "train_full": {
+        "total_return": 0.2868234079310932,
+        "max_drawdown": -0.059084244912456785,
+        "win_rate": 0.75,
+        "round_trips": 4,
+        "long_count": 2,
+        "short_count": 2,
+        "total_fees": 1184.028538824391
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.09219468047321788,
+          "max_drawdown": -0.05331426527916627,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 0,
+          "short_count": 2,
+          "total_fees": 551.6014373688341
+        },
+        "2023": {
+          "total_return": 0.08321482298304184,
+          "max_drawdown": -0.013857296792553098,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 565.7202300335587
+        },
+        "2024": {
+          "total_return": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0,
+          "round_trips": 0,
+          "long_count": 0,
+          "short_count": 0,
+          "total_fees": 0.0
+        },
+        "2025": {
+          "total_return": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0,
+          "round_trips": 0,
+          "long_count": 0,
+          "short_count": 0,
+          "total_fees": 0.0
+        },
+        "2026YTD": {
+          "total_return": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0,
+          "round_trips": 0,
+          "long_count": 0,
+          "short_count": 0,
+          "total_fees": 0.0
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": false,
+          "total_return": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0,
+          "round_trips": 0,
+          "long_count": 0,
+          "short_count": 0,
+          "total_fees": 0.0
+        },
+        "2025": {
+          "pass": false,
+          "total_return": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0,
+          "round_trips": 0,
+          "long_count": 0,
+          "short_count": 0,
+          "total_fees": 0.0
+        },
+        "2026YTD": {
+          "pass": false,
+          "total_return": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0,
+          "round_trips": 0,
+          "long_count": 0,
+          "short_count": 0,
+          "total_fees": 0.0
+        },
+        "all_pass": false
+      },
+      "sample_warning": true
+    }
+  ]
+}

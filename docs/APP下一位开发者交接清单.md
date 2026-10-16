@@ -2,6 +2,56 @@
 
 # APP 下一位开发者交接清单
 
+## 0. 2026-07-09 当前交接清单
+
+当前本地代码和文档已经重新核对。下一位开发者接手时，先按本节处理；后续 2026-06-06 和 2026-05 的内容保留为历史背景。
+
+当前本地代码基线：
+
+```text
+fbc5ad1 fix: reprice fund trades when confirmed nav arrives
+```
+
+当前验证结果：
+
+```text
+Backend pytest: 155 passed
+Flutter analyze: No issues found
+Flutter test: 71 passed
+```
+
+当前工作区状态：
+
+- tracked 修改包含 `backend/app/main.py`、`backend/app/routers/__init__.py`、`backend/app/schemas/__init__.py` 和多份 `docs/*.md`。
+- untracked 业务候选文件包含 `backend/app/routers/portfolio_strategy.py`、`backend/app/schemas/portfolio_strategy.py`、`backend/app/services/us_portfolio_strategy.py`、`backend/tests/test_us_portfolio_strategy.py`；该功能已决定暂作为后备保留。
+- untracked 临时/研究产物包含 `debug.log`、`scripts/research_*_tmp.*`、`scripts/__pycache__/` 等；其中 `__pycache__` 可清理，研究脚本和结果需先确认是否用于策略追溯。
+
+当前后备本地能力：
+
+- 后端已接入 `GET /api/v1/portfolio-strategy/us?cash=...`。
+- 该接口根据当前美股持仓、行情缓存和现金输入计算组合权重、风险指标和人工确认建议。
+- 当前不作为主线开发目标，尚未确认已经部署到云端，也不继续形成移动端完整入口。
+
+接手后先做：
+
+1. 确认本地 dirty worktree 的每一类改动是否纳入主线。
+2. 登录云服务器确认真实部署基线，不能只看本地 HEAD。
+3. `portfolio_strategy` 暂作后备；后续用户重新启用前，不继续移动端入口、部署和产品化工作。
+4. 继续专属策略重测；策略写入 App 前仍必须同步后端模板、测试和研究文档。
+
+## 0. 2026-06-06 最新交接清单
+
+当前已完成代码全量结构阅读和文档更新。下一位开发者接手时请先确认：
+
+- 代码基线：`82527d6 feat: update qqq personalized strategies` 已部署到云端后端。
+- API 基线：App 仍使用 `http://119.91.47.141`，不要擅自切 `devinstock.cloud`。
+- 数据基线：云端 PostgreSQL 是事实数据源；本地数据库不是主库。
+- Futu 基线：FutuOpenD 在云服务器本机运行，端口 `11111`、`22222` 禁止公网暴露。
+- 专属策略基线：`GOOGL`、`QQQ`、`NVDA`、`AMD`、`MU`、`DELL`、`MSFT`、`AAOI` 均已有稳健/进取模板，记录在 `docs/us_stock_strategy_research_20260602.md`。
+- 下一步任务：重新按统一研究口径重测 App 原有专属策略，再更新策略文档和后端模板。
+
+交接时必须提醒下一位开发者：策略研究结果不要直接等同交易建议；模板只作为 App 内参考信号。任何新策略写入 App 前，必须同步测试和文档。
+
 这份文档是新的开发者接手时的第一张作战图。先读 `docs/README.md`、`docs/APP开发强约束规范.md`、`docs/APP新开发者接手指南.md`，再按本文检查环境。
 
 ## 1. 当前一句话状态

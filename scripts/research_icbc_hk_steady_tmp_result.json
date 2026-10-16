@@ -1,0 +1,782 @@
+{
+  "meta": {
+    "target": "HK.01398",
+    "benchmark": "HK.800000",
+    "auxiliary_benchmark": null,
+    "range": "2021-01-04~2026-06-05",
+    "seed": 20260606,
+    "started_at": "2026-06-08T11:16:32",
+    "elapsed_seconds": 674.12,
+    "cost_model": {
+      "initial_cash": 100000.0,
+      "slippage_single_side": 0.0005,
+      "broker_commission_rate": 0.00138,
+      "broker_min_commission": 18.0,
+      "hk_stamp_duty_rate": 0.001,
+      "hk_sfc_transaction_levy_rate": 2.7e-05,
+      "hk_afrc_transaction_levy_rate": 1.5e-06,
+      "hk_trading_fee_rate": 5.65e-05,
+      "hk_ccass_settlement_fee_rate": 4.2e-05,
+      "hk_ccass_min": 2.0,
+      "hk_ccass_max": 100.0,
+      "fee_note": "Hong Kong stock approximation: broker commission plus HK stamp duty, SFC/AFRC levies, trading fee, and CCASS settlement fee; US SEC fee and TAF are not applied."
+    },
+    "no_future_function": true,
+    "selection_rule": "2026YTD is used only as final validation gate; ranking uses 2021-2025 training metrics.",
+    "split_adjustment": {
+      "known_event": "No known ICBC HK split adjustment was required for the requested 2021-2026 window; the cloud OHLC series is still checked for split-like discontinuities before backtesting.",
+      "large_gap_count": 0,
+      "large_gaps": [],
+      "handling": "No additional split adjustment was applied because no split-like discontinuity was detected in the cloud OHLC series."
+    },
+    "execution": "Signal at T close, execution at T+1 open; final close forced at interval end.",
+    "current_app_note": "No existing App personalized strategy template was found for HK.01398."
+  },
+  "counts": {
+    "unique_tested": 801369,
+    "stage1_unique": 800000,
+    "local_refine_unique": 1369,
+    "annual_review": 6587,
+    "train_pass_2021_2025": 36,
+    "walk_forward_2024_pass": 31,
+    "walk_forward_2025_pass": 30,
+    "walk_forward_2026YTD_pass": 4,
+    "walk_forward_all_pass": 4,
+    "final_pass_dd15": 3,
+    "final_pass_dd18": 4,
+    "relaxed_used": false
+  },
+  "current_app": null,
+  "top3": [
+    {
+      "strategy": "工商银行 SMA33/62 steady",
+      "family": "ma_cross",
+      "direction": "long_only",
+      "formula": "Entry: 工商银行 SMA33 crosses SMA62; short side symmetric. Filters: 工商银行 close above/below SMA150. Exit: qualified reverse signal; SMA120; take profit 12%.",
+      "parameters": {
+        "family": "ma_cross",
+        "direction": "long_only",
+        "exit_ma": 120,
+        "exit_ma_kind": "sma",
+        "long_window": 62,
+        "qqq_ma": 150,
+        "qqq_ma_kind": "sma",
+        "qqq_slope_days": 20,
+        "qqq_slope_min": 0.0003,
+        "reverse_exit": true,
+        "short_window": 33,
+        "take_profit": 0.12
+      },
+      "full": {
+        "total_return": 1.0450026370004224,
+        "max_drawdown": -0.07372114205027769,
+        "win_rate": 1.0,
+        "round_trips": 6,
+        "long_count": 6,
+        "short_count": 0,
+        "total_fees": 4428.760628059659
+      },
+      "train_full": {
+        "total_return": 0.8174877910192591,
+        "max_drawdown": -0.07372114205027769,
+        "win_rate": 0.8333333333333334,
+        "round_trips": 6,
+        "long_count": 6,
+        "short_count": 0,
+        "total_fees": 4371.579302589227
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.11439628335278562,
+          "max_drawdown": -0.01646177508706481,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 529.9079265109983
+        },
+        "2023": {
+          "total_return": 0.15040251664531867,
+          "max_drawdown": -0.05386071541546067,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 538.9573761677258
+        },
+        "2024": {
+          "total_return": 0.13796628380451592,
+          "max_drawdown": -0.0737211420502778,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1101.9643661484379
+        },
+        "2025": {
+          "total_return": 0.10912388897103353,
+          "max_drawdown": -0.07127559477535772,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1088.1686460099593
+        },
+        "2026YTD": {
+          "total_return": 0.11884342344826604,
+          "max_drawdown": -0.05487040979995672,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 531.0256266070761
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": true,
+          "total_return": 0.13796628380451592,
+          "max_drawdown": -0.0737211420502778,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1101.9643661484379
+        },
+        "2025": {
+          "pass": true,
+          "total_return": 0.10912388897103353,
+          "max_drawdown": -0.07127559477535772,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1088.1686460099593
+        },
+        "2026YTD": {
+          "pass": true,
+          "total_return": 0.11884342344826604,
+          "max_drawdown": -0.05487040979995672,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 531.0256266070761
+        },
+        "all_pass": true
+      },
+      "sample_warning": true
+    },
+    {
+      "strategy": "工商银行 price EMA30",
+      "family": "price_ma",
+      "direction": "long_short",
+      "formula": "Entry: 工商银行 close crosses EMA30. Filters: 工商银行 close above/below SMA80; 恒生指数 EMA200 filter; 恒生指数 ROC40 > -10%; 工商银行-恒生指数 ROC20 > 3%. Exit: take profit 12%.",
+      "parameters": {
+        "family": "price_ma",
+        "direction": "long_short",
+        "benchmark_ma": 200,
+        "benchmark_ma_kind": "ema",
+        "benchmark_roc_days": 40,
+        "benchmark_roc_min": -0.1,
+        "entry_ma": 30,
+        "entry_ma_kind": "ema",
+        "qqq_ma": 80,
+        "qqq_ma_kind": "sma",
+        "relative_days": 20,
+        "relative_min": 0.03,
+        "reverse_exit": false,
+        "take_profit": 0.12
+      },
+      "full": {
+        "total_return": 1.0276629082977502,
+        "max_drawdown": -0.08301422186472351,
+        "win_rate": 1.0,
+        "round_trips": 6,
+        "long_count": 4,
+        "short_count": 2,
+        "total_fees": 4252.921329085446
+      },
+      "train_full": {
+        "total_return": 0.8020764578447364,
+        "max_drawdown": -0.08301422186472351,
+        "win_rate": 1.0,
+        "round_trips": 6,
+        "long_count": 4,
+        "short_count": 2,
+        "total_fees": 4196.224667426095
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.12873127237960613,
+          "max_drawdown": -0.07098765094292103,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 0,
+          "short_count": 1,
+          "total_fees": 466.4579590138768
+        },
+        "2023": {
+          "total_return": 0.12246700410520361,
+          "max_drawdown": -0.07146244728302509,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 0,
+          "short_count": 1,
+          "total_fees": 468.0244837926492
+        },
+        "2024": {
+          "total_return": 0.27454807412377247,
+          "max_drawdown": -0.08301422186472363,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1138.931403744802
+        },
+        "2025": {
+          "total_return": 0.11657503925272006,
+          "max_drawdown": -0.05701647234904972,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1089.7160092918962
+        },
+        "2026YTD": {
+          "total_return": 0.12321288904737648,
+          "max_drawdown": -0.03963658150177518,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 532.123804765416
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": true,
+          "total_return": 0.27454807412377247,
+          "max_drawdown": -0.08301422186472363,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1138.931403744802
+        },
+        "2025": {
+          "pass": true,
+          "total_return": 0.11657503925272006,
+          "max_drawdown": -0.05701647234904972,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1089.7160092918962
+        },
+        "2026YTD": {
+          "pass": true,
+          "total_return": 0.12321288904737648,
+          "max_drawdown": -0.03963658150177518,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 532.123804765416
+        },
+        "all_pass": true
+      },
+      "sample_warning": true
+    },
+    {
+      "strategy": "工商银行 ROC20 momentum",
+      "family": "momentum",
+      "direction": "long_short",
+      "formula": "Entry: 工商银行 ROC20 > -6%; short threshold 10%. Filters: 工商银行 close above/below SMA100; ATR50% <= 3.0%. Exit: qualified reverse signal; trailing stop 15%; take profit 10%; max hold 89d.",
+      "parameters": {
+        "family": "momentum",
+        "direction": "long_short",
+        "atr_days": 50,
+        "atr_pct_max": 0.03,
+        "benchmark_slope_days": 80,
+        "benchmark_slope_min": 0.0005,
+        "max_hold": 89,
+        "momentum_days": 20,
+        "momentum_long_min": -0.06,
+        "momentum_short_min": 0.1,
+        "qqq_ma": 100,
+        "qqq_ma_kind": "sma",
+        "qqq_slope_days": 40,
+        "qqq_slope_min": 0.0,
+        "reverse_exit": true,
+        "take_profit": 0.1,
+        "trailing_stop": 0.15
+      },
+      "full": {
+        "total_return": 1.1136553211037707,
+        "max_drawdown": -0.13367039897556388,
+        "win_rate": 1.0,
+        "round_trips": 8,
+        "long_count": 7,
+        "short_count": 1,
+        "total_fees": 6386.9909296159185
+      },
+      "train_full": {
+        "total_return": 1.0751693771717146,
+        "max_drawdown": -0.13367039897556388,
+        "win_rate": 0.875,
+        "round_trips": 8,
+        "long_count": 7,
+        "short_count": 1,
+        "total_fees": 6377.31825407457
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.12317496823573926,
+          "max_drawdown": -0.08887212986659299,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 0,
+          "short_count": 1,
+          "total_fees": 467.8474410313265
+        },
+        "2023": {
+          "total_return": 0.15040251664531867,
+          "max_drawdown": -0.12878626415208394,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 538.9573761677258
+        },
+        "2024": {
+          "total_return": 0.3514385346658606,
+          "max_drawdown": -0.11764138024633264,
+          "win_rate": 1.0,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 1777.6566681693425
+        },
+        "2025": {
+          "total_return": 0.296248900876398,
+          "max_drawdown": -0.13367039897556388,
+          "win_rate": 0.75,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2402.413261871606
+        },
+        "2026YTD": {
+          "total_return": 0.10994726653996834,
+          "max_drawdown": -0.04421787884891937,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 528.7897547393936
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": true,
+          "total_return": 0.3514385346658606,
+          "max_drawdown": -0.11764138024633264,
+          "win_rate": 1.0,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 1777.6566681693425
+        },
+        "2025": {
+          "pass": true,
+          "total_return": 0.296248900876398,
+          "max_drawdown": -0.13367039897556388,
+          "win_rate": 0.75,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2402.413261871606
+        },
+        "2026YTD": {
+          "pass": true,
+          "total_return": 0.10994726653996834,
+          "max_drawdown": -0.04421787884891937,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 528.7897547393936
+        },
+        "all_pass": true
+      },
+      "sample_warning": true
+    }
+  ],
+  "closest": [
+    {
+      "strategy": "工商银行 ROC20 momentum",
+      "family": "momentum",
+      "direction": "long_short",
+      "formula": "Entry: 工商银行 ROC20 > -6%; short threshold 10%. Filters: 工商银行 close above/below SMA100; ATR50% <= 3.0%. Exit: qualified reverse signal; trailing stop 15%; take profit 10%; max hold 89d.",
+      "parameters": {
+        "family": "momentum",
+        "direction": "long_short",
+        "atr_days": 50,
+        "atr_pct_max": 0.03,
+        "benchmark_slope_days": 80,
+        "benchmark_slope_min": 0.0005,
+        "max_hold": 89,
+        "momentum_days": 20,
+        "momentum_long_min": -0.06,
+        "momentum_short_min": 0.1,
+        "qqq_ma": 100,
+        "qqq_ma_kind": "sma",
+        "qqq_slope_days": 40,
+        "qqq_slope_min": 0.0,
+        "reverse_exit": true,
+        "take_profit": 0.1,
+        "trailing_stop": 0.15
+      },
+      "full": {
+        "total_return": 1.1136553211037707,
+        "max_drawdown": -0.13367039897556388,
+        "win_rate": 1.0,
+        "round_trips": 8,
+        "long_count": 7,
+        "short_count": 1,
+        "total_fees": 6386.9909296159185
+      },
+      "train_full": {
+        "total_return": 1.0751693771717146,
+        "max_drawdown": -0.13367039897556388,
+        "win_rate": 0.875,
+        "round_trips": 8,
+        "long_count": 7,
+        "short_count": 1,
+        "total_fees": 6377.31825407457
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.12317496823573926,
+          "max_drawdown": -0.08887212986659299,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 0,
+          "short_count": 1,
+          "total_fees": 467.8474410313265
+        },
+        "2023": {
+          "total_return": 0.15040251664531867,
+          "max_drawdown": -0.12878626415208394,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 538.9573761677258
+        },
+        "2024": {
+          "total_return": 0.3514385346658606,
+          "max_drawdown": -0.11764138024633264,
+          "win_rate": 1.0,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 1777.6566681693425
+        },
+        "2025": {
+          "total_return": 0.296248900876398,
+          "max_drawdown": -0.13367039897556388,
+          "win_rate": 0.75,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2402.413261871606
+        },
+        "2026YTD": {
+          "total_return": 0.10994726653996834,
+          "max_drawdown": -0.04421787884891937,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 528.7897547393936
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": true,
+          "total_return": 0.3514385346658606,
+          "max_drawdown": -0.11764138024633264,
+          "win_rate": 1.0,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 1777.6566681693425
+        },
+        "2025": {
+          "pass": true,
+          "total_return": 0.296248900876398,
+          "max_drawdown": -0.13367039897556388,
+          "win_rate": 0.75,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2402.413261871606
+        },
+        "2026YTD": {
+          "pass": true,
+          "total_return": 0.10994726653996834,
+          "max_drawdown": -0.04421787884891937,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 528.7897547393936
+        },
+        "all_pass": true
+      },
+      "sample_warning": true
+    },
+    {
+      "strategy": "工商银行 price EMA30",
+      "family": "price_ma",
+      "direction": "long_short",
+      "formula": "Entry: 工商银行 close crosses EMA30. Filters: 工商银行 close above/below SMA80; 恒生指数 EMA200 filter; 恒生指数 ROC40 > -10%; 工商银行-恒生指数 ROC20 > 3%. Exit: take profit 12%.",
+      "parameters": {
+        "family": "price_ma",
+        "direction": "long_short",
+        "benchmark_ma": 200,
+        "benchmark_ma_kind": "ema",
+        "benchmark_roc_days": 40,
+        "benchmark_roc_min": -0.1,
+        "entry_ma": 30,
+        "entry_ma_kind": "ema",
+        "qqq_ma": 80,
+        "qqq_ma_kind": "sma",
+        "relative_days": 20,
+        "relative_min": 0.03,
+        "reverse_exit": false,
+        "take_profit": 0.12
+      },
+      "full": {
+        "total_return": 1.0276629082977502,
+        "max_drawdown": -0.08301422186472351,
+        "win_rate": 1.0,
+        "round_trips": 6,
+        "long_count": 4,
+        "short_count": 2,
+        "total_fees": 4252.921329085446
+      },
+      "train_full": {
+        "total_return": 0.8020764578447364,
+        "max_drawdown": -0.08301422186472351,
+        "win_rate": 1.0,
+        "round_trips": 6,
+        "long_count": 4,
+        "short_count": 2,
+        "total_fees": 4196.224667426095
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.12873127237960613,
+          "max_drawdown": -0.07098765094292103,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 0,
+          "short_count": 1,
+          "total_fees": 466.4579590138768
+        },
+        "2023": {
+          "total_return": 0.12246700410520361,
+          "max_drawdown": -0.07146244728302509,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 0,
+          "short_count": 1,
+          "total_fees": 468.0244837926492
+        },
+        "2024": {
+          "total_return": 0.27454807412377247,
+          "max_drawdown": -0.08301422186472363,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1138.931403744802
+        },
+        "2025": {
+          "total_return": 0.11657503925272006,
+          "max_drawdown": -0.05701647234904972,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1089.7160092918962
+        },
+        "2026YTD": {
+          "total_return": 0.12321288904737648,
+          "max_drawdown": -0.03963658150177518,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 532.123804765416
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": true,
+          "total_return": 0.27454807412377247,
+          "max_drawdown": -0.08301422186472363,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1138.931403744802
+        },
+        "2025": {
+          "pass": true,
+          "total_return": 0.11657503925272006,
+          "max_drawdown": -0.05701647234904972,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1089.7160092918962
+        },
+        "2026YTD": {
+          "pass": true,
+          "total_return": 0.12321288904737648,
+          "max_drawdown": -0.03963658150177518,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 532.123804765416
+        },
+        "all_pass": true
+      },
+      "sample_warning": true
+    },
+    {
+      "strategy": "工商银行 SMA33/62 steady",
+      "family": "ma_cross",
+      "direction": "long_only",
+      "formula": "Entry: 工商银行 SMA33 crosses SMA62; short side symmetric. Filters: 工商银行 close above/below SMA150. Exit: qualified reverse signal; SMA120; take profit 12%.",
+      "parameters": {
+        "family": "ma_cross",
+        "direction": "long_only",
+        "exit_ma": 120,
+        "exit_ma_kind": "sma",
+        "long_window": 62,
+        "qqq_ma": 150,
+        "qqq_ma_kind": "sma",
+        "qqq_slope_days": 20,
+        "qqq_slope_min": 0.0003,
+        "reverse_exit": true,
+        "short_window": 33,
+        "take_profit": 0.12
+      },
+      "full": {
+        "total_return": 1.0450026370004224,
+        "max_drawdown": -0.07372114205027769,
+        "win_rate": 1.0,
+        "round_trips": 6,
+        "long_count": 6,
+        "short_count": 0,
+        "total_fees": 4428.760628059659
+      },
+      "train_full": {
+        "total_return": 0.8174877910192591,
+        "max_drawdown": -0.07372114205027769,
+        "win_rate": 0.8333333333333334,
+        "round_trips": 6,
+        "long_count": 6,
+        "short_count": 0,
+        "total_fees": 4371.579302589227
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.11439628335278562,
+          "max_drawdown": -0.01646177508706481,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 529.9079265109983
+        },
+        "2023": {
+          "total_return": 0.15040251664531867,
+          "max_drawdown": -0.05386071541546067,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 538.9573761677258
+        },
+        "2024": {
+          "total_return": 0.13796628380451592,
+          "max_drawdown": -0.0737211420502778,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1101.9643661484379
+        },
+        "2025": {
+          "total_return": 0.10912388897103353,
+          "max_drawdown": -0.07127559477535772,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1088.1686460099593
+        },
+        "2026YTD": {
+          "total_return": 0.11884342344826604,
+          "max_drawdown": -0.05487040979995672,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 531.0256266070761
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": true,
+          "total_return": 0.13796628380451592,
+          "max_drawdown": -0.0737211420502778,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1101.9643661484379
+        },
+        "2025": {
+          "pass": true,
+          "total_return": 0.10912388897103353,
+          "max_drawdown": -0.07127559477535772,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1088.1686460099593
+        },
+        "2026YTD": {
+          "pass": true,
+          "total_return": 0.11884342344826604,
+          "max_drawdown": -0.05487040979995672,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 531.0256266070761
+        },
+        "all_pass": true
+      },
+      "sample_warning": true
+    }
+  ]
+}

@@ -1,5 +1,36 @@
 # App 马上解决任务顺序
 
+## 0. 2026-07-09 当前马上任务
+
+当前第一优先级不是直接继续写新功能，而是把本地代码、文档和临时产物整理成可接手基线。
+
+1. 先确认当前 dirty worktree：tracked 修改包含后端入口/导出和多份文档；untracked 包含 `portfolio_strategy` 后端模块、测试、研究脚本和缓存产物。
+2. `GET /api/v1/portfolio-strategy/us?cash=...` 暂作为后备功能保留，当前不继续做主线产品化、移动端入口或部署推进；后续重新启用时再补对应 router、schema、service、test 的主线归档和验收。
+3. 清理明确无价值的缓存，例如 `scripts/__pycache__/`；`scripts/research_*_tmp.*` 属于策略研究追溯材料，未确认前不要直接删除。
+4. 更新文档后，至少运行文档编码检查；如涉及后端接入点，回归后端 pytest。
+5. 完成基线整理后，再继续专属策略研究重测和模板校准。
+
+当前验证基线：
+
+```text
+Backend pytest: 155 passed
+Flutter analyze: No issues found
+Flutter test: 71 passed
+```
+
+## 0. 2026-06-06 当前马上任务（交接后）
+
+当前 App 功能框架已经基本稳定，下一步优先级改为“专属策略研究重测和模板校准”，暂时不要大改页面结构。
+
+1. 先复核 `docs/us_stock_strategy_research_20260602.md` 中当前 App 已写入的每个专属策略模板。
+2. 对每只股票重新执行研究回测：先用 2021-2025 寻找候选，再用 2026YTD 做验证；最终输出 2022、2023、2024、2025、2026YTD 年度分段和全周期指标。
+3. 回测必须计入滑点和手续费，禁止未来函数；信号按第 T 日收盘生成，第 T+1 个交易日开盘成交。
+4. 每个候选输出净收益、最大回撤、胜率、买卖回合、多/空次数，以及是否满足用户设定的年度收益和回撤约束。
+5. 先只写研究结果，等用户确认后再更新 `backend/app/services/personalized_strategies.py`。
+6. 如果写入 App，必须同步更新 `backend/tests/test_personalized_strategies.py` 和 `docs/us_stock_strategy_research_20260602.md`，然后部署云端。
+
+当前不要做的事：不要切域名 API，不要把本地旧库当主库，不要把 token 写进文档，不要在终端直接输出中文文档正文。
+
 最后更新：2026-05-26
 
 本文档用于交接“下一位开发者马上应该做什么”。它不是长期规划文档，而是当前版本之后最优先的执行清单。

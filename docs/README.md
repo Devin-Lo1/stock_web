@@ -1,5 +1,50 @@
 # Docs
 
+## 2026-07-09 当前接手说明
+
+本轮已按当前仓库重新核对代码、测试、部署脚本和文档。当前文档仍按“强约束 -> 接手指南 -> 交接清单 -> 马上任务 -> 部署说明 -> 结构说明”的顺序阅读；若下方历史段落与本节冲突，以本节为准。
+
+当前本地代码基线：
+
+```text
+fbc5ad1 fix: reprice fund trades when confirmed nav arrives
+```
+
+当前验证结果：
+
+```text
+Backend pytest: 155 passed
+Flutter analyze: No issues found
+Flutter test: 71 passed
+```
+
+当前工作区不是干净基线：已有文档和后端入口文件修改；另有未跟踪的 `portfolio_strategy` 后端路由、schema、service、测试，以及多份 `scripts/research_*_tmp.*` 研究脚本/结果。`portfolio_strategy` 已决定暂作为后备功能保留，当前不作为下一步主线开发；研究脚本和结果则需按追溯价值决定保留或清理。
+
+当前本地代码已经接入 `GET /api/v1/portfolio-strategy/us?cash=...`，用于根据现有美股持仓和现金计算核心、现金类、杠杆、半导体等权重，并生成只需人工确认的组合建议。该功能目前只作为后备雏形，不继续接移动端、不作为当前部署目标；后续重新启用前需再补产品边界、测试和部署验证。
+
+部署边界不变：App 仍使用公网 API `http://119.91.47.141`；域名 `devinstock.cloud` / `www.devinstock.cloud` 不应在真机 HTTPS 验证完成前切换；云端 PostgreSQL 是事实数据源；FutuOpenD 只允许后端本机访问，`11111` 和 `22222` 不得暴露公网。
+
+## 2026-06-06 最新接手说明
+
+本轮交接前已重新通读项目代码结构、后端/移动端调用链和 `docs/` 下现有文档。当前文档仍按“先约束、再接手、再任务、再部署”的顺序阅读；历史内容保留，优先看每份文档顶部的 `2026-06-06` 最新快照。
+
+建议下一位开发者按下面顺序阅读：
+
+1. `APP开发强约束规范.md`
+2. `APP新开发者接手指南.md`
+3. `APP下一位开发者交接清单.md`
+4. `APP马上解决任务顺序.md`
+5. `APP服务器部署与Futu交接说明.md`
+6. `APP项目结构说明.md`
+7. `APP架构审计与优化路线.md`
+8. `APP后续开发方案.md`
+9. `APP总体开发规划.md`
+10. `us_stock_strategy_research_20260602.md`
+
+当前已部署代码基线为 `82527d6 feat: update qqq personalized strategies`。App 仍使用公网 API `http://119.91.47.141`，不要在真机 HTTPS 验证完成前切到域名。云端 PostgreSQL 是事实数据源；FutuOpenD 只允许在云服务器本机访问，`11111` 和 `22222` 不得暴露公网。
+
+下一步主任务是把 App 现有个股专属策略重新按研究口径回测一遍，再由用户确认是否替换。回测方法和当前模板记录见 `us_stock_strategy_research_20260602.md`。
+
 项目文档入口。
 
 最后更新：2026-05-26

@@ -1,5 +1,36 @@
 # App 总体开发规划
 
+## 0. 2026-07-09 当前阶段定位
+
+项目当前处于“云端数据源 + 真机 App + 策略研究”的阶段。相较 2026-06-06，当前本地代码新增了美股组合建议后端接口，但该功能已决定暂作为后备保留，不进入当前主线开发。
+
+当前本地验证：
+
+```text
+Backend pytest: 155 passed
+Flutter analyze: No issues found
+Flutter test: 71 passed
+```
+
+当前阶段重点：
+
+1. 整理本地 dirty worktree，确认未跟踪业务代码和研究产物处理方式。
+2. 将组合建议功能保持为后备；后续用户重新启用时，再将 `portfolio_strategy` 纳入主线并完成文档、部署和产品边界说明。
+3. 继续专属策略研究流程标准化，策略模板变更必须同步后端、测试和研究文档。
+4. 域名 HTTPS、登录态、限流、告警和备份恢复演练仍是云端稳定性后续任务。
+
+## 0. 2026-06-06 当前阶段定位
+
+项目当前已从 MVP 进入“云端数据源 + 真机 App + 策略研究工具”的阶段。现有主能力包括：
+
+- 股票持仓：港股、美股、A 股入口、行情刷新、扩展时段展示、交易记录和费用默认规则。
+- 基金管理：基金持仓、加减仓同步、确认净值/交易日口径、收益曲线、策略提醒和单次扫描。
+- 量化工具：单策略回测、批量回测、历史回测详情页、价值区回归、K 线交易标记。
+- 个股专属策略：每只股票稳健/进取双模板、单次扫描、集体扫描和策略说明。
+- 后端能力：FastAPI、PostgreSQL、FutuOpenD、本地/云端部署脚本、推送接口。
+
+当前规划重点不再是新增大模块，而是把专属策略研究流程标准化：先重测现有模板，再决定是否替换 App 内模板，并同步测试和文档。
+
 最后更新：2026-05-26
 
 当前最新状态：
@@ -170,13 +201,21 @@ POST   /api/v1/notifications/push-records/{record_id}/retry
 DELETE /api/v1/notifications/push-records/{record_id}
 GET    /api/v1/funds/search
 GET    /api/v1/funds/positions/summary
+GET    /api/v1/funds/benchmarks/hs300/navs
+GET    /api/v1/funds/{fund_code}/quote
 GET    /api/v1/funds/{fund_code}/navs
 POST   /api/v1/funds/positions
+PUT    /api/v1/funds/positions/{position_id}
+PUT    /api/v1/funds/positions/{position_id}/holding
 DELETE /api/v1/funds/positions/{position_id}
 GET    /api/v1/funds/positions/{position_id}/trades
 POST   /api/v1/funds/positions/{position_id}/trades
+GET    /api/v1/funds/positions/{position_id}/trade-records
+POST   /api/v1/funds/positions/{position_id}/trade-records
+DELETE /api/v1/funds/positions/{position_id}/trade-records/{record_id}
 GET    /api/v1/funds/alerts/scheduler/status
-PUT    /api/v1/funds/alerts/scheduler
+PUT    /api/v1/funds/alerts/scheduler/config
+POST   /api/v1/funds/alerts/scheduler/run-once
 POST   /api/v1/funds/alerts/scan
 ```
 

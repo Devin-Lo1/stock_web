@@ -1,5 +1,59 @@
 # App 服务器部署与 Futu 交接说明
 
+## 0. 2026-07-09 本地与云端基线说明
+
+当前本地代码基线为：
+
+```text
+fbc5ad1 fix: reprice fund trades when confirmed nav arrives
+```
+
+当前本地验证结果：
+
+```text
+Backend pytest: 155 passed
+Flutter analyze: No issues found
+Flutter test: 71 passed
+```
+
+注意：本地代码基线不等于云端已部署基线。云端真实部署状态必须登录服务器后执行：
+
+```bash
+cd /home/ubuntu/stock_web
+git rev-parse --short HEAD
+git status --short
+systemctl status stock-web-backend --no-pager
+```
+
+本地当前存在后备的新后端能力：`GET /api/v1/portfolio-strategy/us?cash=...`。该功能暂不作为当前部署目标；若未来重新启用，部署前必须确认对应文件已纳入 Git、router 挂载是有意发布，并在服务器完成 `git pull --ff-only` 后运行后端测试或至少完成接口烟测。
+
+部署边界继续不变：
+
+- App 当前仍使用 `http://119.91.47.141`。
+- 域名 HTTPS 只表示服务器侧已准备，App 切换前仍要做真机验证。
+- `API_ACCESS_TOKEN`、数据库密码、Futu 账号配置只允许保存在安全环境中，不得写入 Git、文档或聊天。
+- FutuOpenD 只允许 `127.0.0.1` 访问，`11111` 和 `22222` 不得暴露公网。
+
+## 0. 2026-06-06 最新部署状态
+
+当前云端后端已部署到 `82527d6 feat: update qqq personalized strategies`，服务健康检查通过。App 仍指向公网 API：
+
+```text
+http://119.91.47.141
+```
+
+域名 `devinstock.cloud` / `www.devinstock.cloud` 已解析并配置服务器侧 HTTPS，但 App 端必须先做真机 HTTPS 验证，确认稳定后才能切换 API_BASE_URL。
+
+部署边界：
+
+- 云端 PostgreSQL 是事实数据源。
+- FutuOpenD 在云服务器本机运行，只允许后端本机访问。
+- `11111` 和 `22222` 禁止暴露公网。
+- API token 不写入 Git、文档或聊天。
+- 后端发布优先使用 `scripts/deploy_backend.sh`，发布后至少验证 `/health` 和关键业务接口。
+
+最近一次云端变更内容：更新 QQQ 个股专属策略稳健/进取模板，并同步后端测试和策略记录文档。
+
 最后更新：2026-05-26
 
 本文记录最近一次从局域网调试切到云服务器后的交接状态。若本文与早期“局域网真机调试”说明冲突，以本文为准。

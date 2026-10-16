@@ -1,0 +1,667 @@
+{
+  "meta": {
+    "target": "HK.02628",
+    "benchmark": "HK.800000",
+    "auxiliary_benchmark": null,
+    "range": "2021-01-04~2026-06-03",
+    "seed": 20260606,
+    "started_at": "2026-06-08T01:00:13",
+    "elapsed_seconds": 690.42,
+    "cost_model": {
+      "initial_cash": 100000.0,
+      "slippage_single_side": 0.0005,
+      "broker_commission_rate": 0.00138,
+      "broker_min_commission": 18.0,
+      "hk_stamp_duty_rate": 0.001,
+      "hk_sfc_transaction_levy_rate": 2.7e-05,
+      "hk_afrc_transaction_levy_rate": 1.5e-06,
+      "hk_trading_fee_rate": 5.65e-05,
+      "hk_ccass_settlement_fee_rate": 4.2e-05,
+      "hk_ccass_min": 2.0,
+      "hk_ccass_max": 100.0,
+      "fee_note": "Hong Kong stock approximation: broker commission plus HK stamp duty, SFC/AFRC levies, trading fee, and CCASS settlement fee; US SEC fee and TAF are not applied."
+    },
+    "no_future_function": true,
+    "selection_rule": "2026YTD is used only as final validation gate; ranking uses 2021-2025 training metrics.",
+    "split_adjustment": {
+      "known_event": "No known China Life HK split adjustment was required for the requested 2021-2026 window.",
+      "large_gap_count": 0,
+      "large_gaps": [],
+      "handling": "No additional split adjustment was applied because no split-like discontinuity was detected in the cloud OHLC series."
+    },
+    "execution": "Signal at T close, execution at T+1 open; final close forced at interval end.",
+    "current_app_note": "No existing App personalized strategy template was found for HK.02628."
+  },
+  "counts": {
+    "unique_tested": 801482,
+    "stage1_unique": 800000,
+    "local_refine_unique": 1482,
+    "annual_review": 21743,
+    "train_pass_2021_2025": 135,
+    "walk_forward_2024_pass": 77,
+    "walk_forward_2025_pass": 76,
+    "walk_forward_2026YTD_pass": 6,
+    "walk_forward_all_pass": 6,
+    "final_pass_dd15": 2,
+    "final_pass_dd18": 6,
+    "relaxed_used": false
+  },
+  "current_app": null,
+  "top3": [
+    {
+      "strategy": "中国人寿 channel 67/42",
+      "family": "channel",
+      "direction": "long_short",
+      "formula": "Entry: 中国人寿 close breaks prior 67d high/low. Filters: 中国人寿 close above/below EMA80; 中国人寿 ROC40 > 8%; 恒生指数 EMA200 filter; 恒生指数 ROC80 > 2%; 中国人寿-恒生指数 ROC20 > 2%; ATR14% <= 3.5%. Exit: SMA100; 42d opposite channel; take profit 12%; max hold 80d.",
+      "parameters": {
+        "family": "channel",
+        "direction": "long_short",
+        "atr_days": 14,
+        "atr_pct_max": 0.035,
+        "benchmark_ma": 200,
+        "benchmark_ma_kind": "ema",
+        "benchmark_roc_days": 80,
+        "benchmark_roc_min": 0.02,
+        "entry_channel": 67,
+        "exit_channel": 42,
+        "exit_ma": 100,
+        "exit_ma_kind": "sma",
+        "max_hold": 80,
+        "own_roc_days": 40,
+        "own_roc_min": 0.08,
+        "qqq_ma": 80,
+        "qqq_ma_kind": "ema",
+        "relative_days": 20,
+        "relative_min": 0.02,
+        "reverse_exit": false,
+        "take_profit": 0.12
+      },
+      "full": {
+        "total_return": 2.1975228862201557,
+        "max_drawdown": -0.08547274088813883,
+        "win_rate": 1.0,
+        "round_trips": 10,
+        "long_count": 8,
+        "short_count": 2,
+        "total_fees": 9374.431069924925
+      },
+      "train_full": {
+        "total_return": 1.6470075523203418,
+        "max_drawdown": -0.08547274088813883,
+        "win_rate": 1.0,
+        "round_trips": 9,
+        "long_count": 7,
+        "short_count": 2,
+        "total_fees": 7791.589439856324
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.24703719489168163,
+          "max_drawdown": -0.04756623906009372,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 0,
+          "short_count": 2,
+          "total_fees": 984.9264940440007
+        },
+        "2023": {
+          "total_return": 0.11723859961895289,
+          "max_drawdown": -0.04304317615343867,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 530.6222860984121
+        },
+        "2024": {
+          "total_return": 0.28349703418758265,
+          "max_drawdown": -0.031303389844712926,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1135.4236770068176
+        },
+        "2025": {
+          "total_return": 0.4802496666533338,
+          "max_drawdown": -0.08547274088813883,
+          "win_rate": 1.0,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2551.727121375386
+        },
+        "2026YTD": {
+          "total_return": 0.10936765343926047,
+          "max_drawdown": -0.05566272914492709,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 528.6440805298026
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": true,
+          "total_return": 0.28349703418758265,
+          "max_drawdown": -0.031303389844712926,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1135.4236770068176
+        },
+        "2025": {
+          "pass": true,
+          "total_return": 0.4802496666533338,
+          "max_drawdown": -0.08547274088813883,
+          "win_rate": 1.0,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2551.727121375386
+        },
+        "2026YTD": {
+          "pass": true,
+          "total_return": 0.10936765343926047,
+          "max_drawdown": -0.05566272914492709,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 528.6440805298026
+        },
+        "all_pass": true
+      },
+      "sample_warning": false
+    },
+    {
+      "strategy": "中国人寿 channel 99/86",
+      "family": "channel",
+      "direction": "long_short",
+      "formula": "Entry: 中国人寿 close breaks prior 99d high/low. Filters: 中国人寿 ROC20 > 4%; 恒生指数 SMA50 filter; ATR10% <= 3.5%. Exit: qualified reverse signal; 86d opposite channel; trailing stop 12%; take profit 12%.",
+      "parameters": {
+        "family": "channel",
+        "direction": "long_short",
+        "atr_days": 10,
+        "atr_pct_max": 0.035,
+        "benchmark_ma": 50,
+        "benchmark_ma_kind": "sma",
+        "entry_channel": 99,
+        "exit_channel": 86,
+        "own_roc_days": 20,
+        "own_roc_min": 0.04,
+        "qqq_slope_days": 80,
+        "qqq_slope_min": 0.0,
+        "reverse_exit": true,
+        "take_profit": 0.12,
+        "trailing_stop": 0.12
+      },
+      "full": {
+        "total_return": 1.3612891054098855,
+        "max_drawdown": -0.12927265914591157,
+        "win_rate": 0.8888888888888888,
+        "round_trips": 9,
+        "long_count": 7,
+        "short_count": 2,
+        "total_fees": 7446.747049467882
+      },
+      "train_full": {
+        "total_return": 0.9526057725029751,
+        "max_drawdown": -0.12927265914591157,
+        "win_rate": 0.875,
+        "round_trips": 8,
+        "long_count": 6,
+        "short_count": 2,
+        "total_fees": 6278.48819815845
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.19031539721517343,
+          "max_drawdown": -0.04872277668257863,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 1,
+          "short_count": 1,
+          "total_fees": 1047.6020720468237
+        },
+        "2023": {
+          "total_return": 0.11723859961895289,
+          "max_drawdown": -0.04304317615343867,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 530.6222860984121
+        },
+        "2024": {
+          "total_return": 0.1424782651247587,
+          "max_drawdown": -0.025091868503752335,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 536.9657733632907
+        },
+        "2025": {
+          "total_return": 0.17509702807912264,
+          "max_drawdown": -0.12927265914591157,
+          "win_rate": 0.75,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2300.5165679310676
+        },
+        "2026YTD": {
+          "total_return": 0.11058329881075779,
+          "max_drawdown": -0.037559028163523744,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 528.9496087837698
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": true,
+          "total_return": 0.1424782651247587,
+          "max_drawdown": -0.025091868503752335,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 536.9657733632907
+        },
+        "2025": {
+          "pass": true,
+          "total_return": 0.17509702807912264,
+          "max_drawdown": -0.12927265914591157,
+          "win_rate": 0.75,
+          "round_trips": 4,
+          "long_count": 4,
+          "short_count": 0,
+          "total_fees": 2300.5165679310676
+        },
+        "2026YTD": {
+          "pass": true,
+          "total_return": 0.11058329881075779,
+          "max_drawdown": -0.037559028163523744,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 528.9496087837698
+        },
+        "all_pass": true
+      },
+      "sample_warning": true
+    }
+  ],
+  "closest": [
+    {
+      "strategy": "中国人寿 channel 77/92",
+      "family": "channel",
+      "direction": "long_short",
+      "formula": "Entry: 中国人寿 close breaks prior 77d high/low. Filters: 中国人寿 close above/below SMA120; ATR10% <= 3.5%. Exit: qualified reverse signal; 92d opposite channel; take profit 12%; ATR stop 3.5x.",
+      "parameters": {
+        "family": "channel",
+        "direction": "long_short",
+        "atr_days": 10,
+        "atr_pct_max": 0.035,
+        "atr_stop_mult": 3.5,
+        "benchmark_slope_days": 20,
+        "benchmark_slope_min": 0.0003,
+        "entry_channel": 77,
+        "exit_channel": 92,
+        "qqq_ma": 120,
+        "qqq_ma_kind": "sma",
+        "reverse_exit": true,
+        "take_profit": 0.12
+      },
+      "full": {
+        "total_return": 1.636479114108678,
+        "max_drawdown": -0.15443508353921043,
+        "win_rate": 0.9,
+        "round_trips": 10,
+        "long_count": 7,
+        "short_count": 3,
+        "total_fees": 7591.470097593427
+      },
+      "train_full": {
+        "total_return": 1.1801668950649384,
+        "max_drawdown": -0.15443508353921043,
+        "win_rate": 0.8888888888888888,
+        "round_trips": 9,
+        "long_count": 6,
+        "short_count": 3,
+        "total_fees": 6287.059699775895
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.1717769210220348,
+          "max_drawdown": -0.142513057875859,
+          "win_rate": 0.75,
+          "round_trips": 4,
+          "long_count": 2,
+          "short_count": 2,
+          "total_fees": 1875.4944945336952
+        },
+        "2023": {
+          "total_return": 0.11723859961895289,
+          "max_drawdown": -0.04304317615343867,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 530.6222860984121
+        },
+        "2024": {
+          "total_return": 0.1424782651247587,
+          "max_drawdown": -0.025091868503752335,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 536.9657733632907
+        },
+        "2025": {
+          "total_return": 0.33280315212099865,
+          "max_drawdown": -0.08547384278571202,
+          "win_rate": 1.0,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 1780.5694510379403
+        },
+        "2026YTD": {
+          "total_return": 0.11058329881075779,
+          "max_drawdown": -0.037559028163523744,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 528.9496087837698
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": true,
+          "total_return": 0.1424782651247587,
+          "max_drawdown": -0.025091868503752335,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 536.9657733632907
+        },
+        "2025": {
+          "pass": true,
+          "total_return": 0.33280315212099865,
+          "max_drawdown": -0.08547384278571202,
+          "win_rate": 1.0,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 1780.5694510379403
+        },
+        "2026YTD": {
+          "pass": true,
+          "total_return": 0.11058329881075779,
+          "max_drawdown": -0.037559028163523744,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 528.9496087837698
+        },
+        "all_pass": true
+      },
+      "sample_warning": false
+    },
+    {
+      "strategy": "中国人寿 SMA15/102 steady",
+      "family": "ma_cross",
+      "direction": "long_short",
+      "formula": "Entry: 中国人寿 SMA15 crosses SMA102; short side symmetric. Filters: 中国人寿 ROC40 > -6%; 恒生指数 SMA200 filter. Exit: qualified reverse signal; 79d opposite channel; fixed stop 8%; take profit 12%.",
+      "parameters": {
+        "family": "ma_cross",
+        "direction": "long_short",
+        "benchmark_ma": 200,
+        "benchmark_ma_kind": "sma",
+        "benchmark_slope_days": 60,
+        "benchmark_slope_min": 0.0,
+        "exit_channel": 79,
+        "fixed_stop": 0.08,
+        "long_window": 102,
+        "own_roc_days": 40,
+        "own_roc_min": -0.06,
+        "reverse_exit": true,
+        "short_window": 15,
+        "take_profit": 0.12
+      },
+      "full": {
+        "total_return": 0.6335664292536984,
+        "max_drawdown": -0.1693997554142398,
+        "win_rate": 0.8333333333333334,
+        "round_trips": 6,
+        "long_count": 2,
+        "short_count": 4,
+        "total_fees": 3363.3077396794756
+      },
+      "train_full": {
+        "total_return": 0.4384475624747959,
+        "max_drawdown": -0.1693997554142398,
+        "win_rate": 0.8,
+        "round_trips": 5,
+        "long_count": 2,
+        "short_count": 3,
+        "total_fees": 2694.819572690898
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.10120503194478991,
+          "max_drawdown": -0.044873227049087916,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 0,
+          "short_count": 1,
+          "total_fees": 473.3415303774767
+        },
+        "2023": {
+          "total_return": 0.11961122232119492,
+          "max_drawdown": -0.05843766805152162,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 0,
+          "short_count": 1,
+          "total_fees": 468.7386379015492
+        },
+        "2024": {
+          "total_return": 0.14603075585499137,
+          "max_drawdown": -0.030667652888461627,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 537.8586211587833
+        },
+        "2025": {
+          "total_return": 0.12790143770588558,
+          "max_drawdown": -0.032692651457805644,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 533.3021780960441
+        },
+        "2026YTD": {
+          "total_return": 0.13564544990657024,
+          "max_drawdown": -0.0437256546732292,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 0,
+          "short_count": 1,
+          "total_fees": 464.72890943516086
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": false,
+          "total_return": 0.14603075585499137,
+          "max_drawdown": -0.030667652888461627,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 537.8586211587833
+        },
+        "2025": {
+          "pass": false,
+          "total_return": 0.12790143770588558,
+          "max_drawdown": -0.032692651457805644,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 533.3021780960441
+        },
+        "2026YTD": {
+          "pass": false,
+          "total_return": 0.13564544990657024,
+          "max_drawdown": -0.0437256546732292,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 0,
+          "short_count": 1,
+          "total_fees": 464.72890943516086
+        },
+        "all_pass": false
+      },
+      "sample_warning": true
+    },
+    {
+      "strategy": "中国人寿 price EMA150",
+      "family": "price_ma",
+      "direction": "long_only",
+      "formula": "Entry: 中国人寿 close crosses EMA150. Filters: 中国人寿 close above/below EMA150; 恒生指数 EMA50 filter. Exit: qualified reverse signal; fixed stop 10%; take profit 8%; ATR stop 3.0x.",
+      "parameters": {
+        "family": "price_ma",
+        "direction": "long_only",
+        "atr_days": 50,
+        "atr_stop_mult": 3.0,
+        "benchmark_ma": 50,
+        "benchmark_ma_kind": "ema",
+        "benchmark_slope_days": 20,
+        "benchmark_slope_min": 0.0003,
+        "entry_ma": 150,
+        "entry_ma_kind": "ema",
+        "fixed_stop": 0.1,
+        "qqq_ma": 150,
+        "qqq_ma_kind": "ema",
+        "reverse_exit": true,
+        "take_profit": 0.08
+      },
+      "full": {
+        "total_return": 0.4619043406951251,
+        "max_drawdown": -0.21849726519341683,
+        "win_rate": 0.75,
+        "round_trips": 8,
+        "long_count": 8,
+        "short_count": 0,
+        "total_fees": 4189.01030791211
+      },
+      "train_full": {
+        "total_return": 0.32207732102199316,
+        "max_drawdown": -0.21849726519341683,
+        "win_rate": 0.7142857142857143,
+        "round_trips": 7,
+        "long_count": 7,
+        "short_count": 0,
+        "total_fees": 3491.299665283205
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.07451143230784996,
+          "max_drawdown": -0.17922372552540922,
+          "win_rate": 0.6666666666666666,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 1450.6016874514883
+        },
+        "2023": {
+          "total_return": 0.11019645335223771,
+          "max_drawdown": 0.0,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 528.8523828819831
+        },
+        "2024": {
+          "total_return": 0.10013310704383627,
+          "max_drawdown": -0.013184146923311935,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 526.3231612037195
+        },
+        "2025": {
+          "total_return": 0.11707115171163163,
+          "max_drawdown": -0.02551414298131638,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 530.5802014017121
+        },
+        "2026YTD": {
+          "total_return": 0.10576311797334426,
+          "max_drawdown": -0.04335717472970879,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 527.7381523264918
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": false,
+          "total_return": 0.10013310704383627,
+          "max_drawdown": -0.013184146923311935,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 526.3231612037195
+        },
+        "2025": {
+          "pass": false,
+          "total_return": 0.11707115171163163,
+          "max_drawdown": -0.02551414298131638,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 530.5802014017121
+        },
+        "2026YTD": {
+          "pass": false,
+          "total_return": 0.10576311797334426,
+          "max_drawdown": -0.04335717472970879,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 527.7381523264918
+        },
+        "all_pass": false
+      },
+      "sample_warning": true
+    }
+  ]
+}

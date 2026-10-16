@@ -1,0 +1,419 @@
+{
+  "meta": {
+    "target": "US.BRK.B",
+    "benchmark": "US.QQQ",
+    "auxiliary_benchmark": null,
+    "range": "2021-01-04~2026-06-03",
+    "seed": 20260607,
+    "started_at": "2026-06-07T23:33:13",
+    "elapsed_seconds": 7.3,
+    "cost_model": {
+      "initial_cash": 100000.0,
+      "slippage_single_side": 0.0005,
+      "commission_rate": 0.00138,
+      "min_commission": 18.0,
+      "sec_fee_rate": 2.0600000000000003e-05,
+      "taf_rate_per_share": 0.000195,
+      "taf_max": 9.79
+    },
+    "no_future_function": true,
+    "selection_rule": "2026YTD is used only as final validation gate; ranking uses 2021-2025 training metrics.",
+    "split_adjustment": {
+      "known_event": "No known BRK.B split adjustment was required for the requested 2021-2026 window.",
+      "large_gap_count": 0,
+      "large_gaps": [],
+      "handling": "No additional split adjustment was applied because no split-like discontinuity was detected in the cloud OHLC series."
+    },
+    "execution": "Signal at T close, execution at T+1 open; final close forced at interval end.",
+    "current_app_note": "No existing App personalized strategy template was found for US.BRK.B."
+  },
+  "counts": {
+    "unique_tested": 2649,
+    "stage1_unique": 2000,
+    "local_refine_unique": 649,
+    "annual_review": 413,
+    "train_pass_2021_2025": 0,
+    "walk_forward_2024_pass": 0,
+    "walk_forward_2025_pass": 0,
+    "walk_forward_2026YTD_pass": 0,
+    "walk_forward_all_pass": 0,
+    "final_pass_dd15": 0,
+    "final_pass_dd18": 0,
+    "relaxed_used": true
+  },
+  "current_app": null,
+  "top3": [],
+  "closest": [
+    {
+      "strategy": "BRK.B channel 32/42",
+      "family": "channel",
+      "direction": "long_short",
+      "formula": "Entry: BRK.B close breaks prior 32d high/low. Filters: BRK.B close above/below EMA120; BRK.B close above/below EMA150; QQQ ROC120 > 6%; BRK.B-QQQ ROC120 > -8%. Exit: 42d opposite channel; fixed stop 15%; take profit 12%.",
+      "parameters": {
+        "family": "channel",
+        "direction": "long_short",
+        "benchmark_roc_days": 120,
+        "benchmark_roc_min": 0.06,
+        "benchmark_slope_days": 60,
+        "benchmark_slope_min": 0.0003,
+        "entry_channel": 32,
+        "exit_channel": 42,
+        "fixed_stop": 0.15,
+        "qqq_ma": 120,
+        "qqq_ma2": 150,
+        "qqq_ma2_kind": "ema",
+        "qqq_ma_kind": "ema",
+        "qqq_slope_days": 20,
+        "qqq_slope_min": 0.001,
+        "relative_days": 120,
+        "relative_min": -0.08,
+        "reverse_exit": false,
+        "take_profit": 0.12
+      },
+      "full": {
+        "total_return": 0.5640783658656174,
+        "max_drawdown": -0.10588790913196311,
+        "win_rate": 0.625,
+        "round_trips": 8,
+        "long_count": 7,
+        "short_count": 1,
+        "total_fees": 2906.65079242166
+      },
+      "train_full": {
+        "total_return": 0.5858536798474892,
+        "max_drawdown": -0.10588790913196311,
+        "win_rate": 0.7142857142857143,
+        "round_trips": 7,
+        "long_count": 7,
+        "short_count": 0,
+        "total_fees": 2467.1598684800542
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.12905477074597727,
+          "max_drawdown": -0.06293771017801486,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 296.22992832271007
+        },
+        "2023": {
+          "total_return": 0.12340511763803974,
+          "max_drawdown": -0.034413874511940445,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 295.4357489191632
+        },
+        "2024": {
+          "total_return": 0.1933865089236637,
+          "max_drawdown": -0.07553614308189127,
+          "win_rate": 0.6666666666666666,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 971.0199744614018
+        },
+        "2025": {
+          "total_return": 0.12148068708391158,
+          "max_drawdown": -0.03543973687795576,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 295.14584038521616
+        },
+        "2026YTD": {
+          "total_return": -0.01373097295077419,
+          "max_drawdown": -0.04832916121018249,
+          "win_rate": 0.0,
+          "round_trips": 1,
+          "long_count": 0,
+          "short_count": 1,
+          "total_fees": 277.1320768911488
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": false,
+          "total_return": 0.1933865089236637,
+          "max_drawdown": -0.07553614308189127,
+          "win_rate": 0.6666666666666666,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 971.0199744614018
+        },
+        "2025": {
+          "pass": false,
+          "total_return": 0.12148068708391158,
+          "max_drawdown": -0.03543973687795576,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 295.14584038521616
+        },
+        "2026YTD": {
+          "pass": false,
+          "total_return": -0.01373097295077419,
+          "max_drawdown": -0.04832916121018249,
+          "win_rate": 0.0,
+          "round_trips": 1,
+          "long_count": 0,
+          "short_count": 1,
+          "total_fees": 277.1320768911488
+        },
+        "all_pass": false
+      },
+      "sample_warning": true
+    },
+    {
+      "strategy": "BRK.B price SMA50",
+      "family": "price_ma",
+      "direction": "long_only",
+      "formula": "Entry: BRK.B close crosses SMA50. Filters: BRK.B close above/below EMA100. Exit: qualified reverse signal; 60d opposite channel; take profit 15%; ATR stop 4.0x; max hold 48d.",
+      "parameters": {
+        "family": "price_ma",
+        "direction": "long_only",
+        "atr_days": 20,
+        "atr_stop_mult": 4.0,
+        "benchmark_slope_days": 80,
+        "benchmark_slope_min": 0.0005,
+        "entry_ma": 50,
+        "entry_ma_kind": "sma",
+        "exit_channel": 60,
+        "max_hold": 48,
+        "qqq_ma": 100,
+        "qqq_ma_kind": "ema",
+        "reverse_exit": true,
+        "take_profit": 0.15
+      },
+      "full": {
+        "total_return": 0.3663454682593854,
+        "max_drawdown": -0.09128736967396911,
+        "win_rate": 0.6,
+        "round_trips": 10,
+        "long_count": 10,
+        "short_count": 0,
+        "total_fees": 3325.134122827576
+      },
+      "train_full": {
+        "total_return": 0.4512381755630239,
+        "max_drawdown": -0.08997606662988322,
+        "win_rate": 0.7,
+        "round_trips": 10,
+        "long_count": 10,
+        "short_count": 0,
+        "total_fees": 3337.040872005422
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0,
+          "round_trips": 0,
+          "long_count": 0,
+          "short_count": 0,
+          "total_fees": 0.0
+        },
+        "2023": {
+          "total_return": 0.023275285930684397,
+          "max_drawdown": -0.07401331356279783,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 544.8576992141438
+        },
+        "2024": {
+          "total_return": 0.11265741467426338,
+          "max_drawdown": -0.07553614308189127,
+          "win_rate": 0.3333333333333333,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 881.1653646643829
+        },
+        "2025": {
+          "total_return": 0.15991490508621697,
+          "max_drawdown": -0.0455032015725656,
+          "win_rate": 1.0,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 942.2709777742501
+        },
+        "2026YTD": {
+          "total_return": -0.007207850660256421,
+          "max_drawdown": -0.05495089452656021,
+          "win_rate": 0.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 277.09455059874875
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": false,
+          "total_return": 0.11265741467426338,
+          "max_drawdown": -0.07553614308189127,
+          "win_rate": 0.3333333333333333,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 881.1653646643829
+        },
+        "2025": {
+          "pass": false,
+          "total_return": 0.15991490508621697,
+          "max_drawdown": -0.0455032015725656,
+          "win_rate": 1.0,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 942.2709777742501
+        },
+        "2026YTD": {
+          "pass": false,
+          "total_return": -0.007207850660256421,
+          "max_drawdown": -0.05495089452656021,
+          "win_rate": 0.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 277.09455059874875
+        },
+        "all_pass": false
+      },
+      "sample_warning": false
+    },
+    {
+      "strategy": "BRK.B SMA10/106 steady",
+      "family": "ma_cross",
+      "direction": "long_short",
+      "formula": "Entry: BRK.B SMA10 crosses SMA106; short side symmetric. Filters: BRK.B close above/below SMA120; BRK.B ROC120 > 6%; QQQ EMA100 filter; BRK.B-QQQ ROC80 > -10%. Exit: qualified reverse signal; SMA100; trailing stop 18%; take profit 12%.",
+      "parameters": {
+        "family": "ma_cross",
+        "direction": "long_short",
+        "benchmark_ma": 100,
+        "benchmark_ma_kind": "ema",
+        "exit_ma": 100,
+        "exit_ma_kind": "sma",
+        "long_window": 106,
+        "own_roc_days": 120,
+        "own_roc_min": 0.06,
+        "qqq_ma": 120,
+        "qqq_ma_kind": "sma",
+        "relative_days": 80,
+        "relative_min": -0.1,
+        "reverse_exit": true,
+        "short_window": 10,
+        "take_profit": 0.12,
+        "trailing_stop": 0.18
+      },
+      "full": {
+        "total_return": 0.4078222011692676,
+        "max_drawdown": -0.06293771017801486,
+        "win_rate": 0.75,
+        "round_trips": 4,
+        "long_count": 4,
+        "short_count": 0,
+        "total_fees": 1354.52392876989
+      },
+      "train_full": {
+        "total_return": 0.4078222011692676,
+        "max_drawdown": -0.06293771017801486,
+        "win_rate": 0.75,
+        "round_trips": 4,
+        "long_count": 4,
+        "short_count": 0,
+        "total_fees": 1354.52392876989
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0,
+          "round_trips": 0,
+          "long_count": 0,
+          "short_count": 0,
+          "total_fees": 0.0
+        },
+        "2023": {
+          "total_return": 0.11178540180634644,
+          "max_drawdown": -0.034413874511940334,
+          "win_rate": 0.5,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 609.1362361738193
+        },
+        "2024": {
+          "total_return": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0,
+          "round_trips": 0,
+          "long_count": 0,
+          "short_count": 0,
+          "total_fees": 0.0
+        },
+        "2025": {
+          "total_return": 0.12148068708391158,
+          "max_drawdown": -0.03543973687795576,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 295.14584038521616
+        },
+        "2026YTD": {
+          "total_return": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0,
+          "round_trips": 0,
+          "long_count": 0,
+          "short_count": 0,
+          "total_fees": 0.0
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": false,
+          "total_return": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0,
+          "round_trips": 0,
+          "long_count": 0,
+          "short_count": 0,
+          "total_fees": 0.0
+        },
+        "2025": {
+          "pass": false,
+          "total_return": 0.12148068708391158,
+          "max_drawdown": -0.03543973687795576,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 295.14584038521616
+        },
+        "2026YTD": {
+          "pass": false,
+          "total_return": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0,
+          "round_trips": 0,
+          "long_count": 0,
+          "short_count": 0,
+          "total_fees": 0.0
+        },
+        "all_pass": false
+      },
+      "sample_warning": true
+    }
+  ]
+}

@@ -206,7 +206,7 @@ def sync_fund_position_holding(
             "shares": trade.shares,
             "avg_cost_nav": (trade.shares * trade.nav + trade.fee) / trade.shares,
             "invested_amount": trade.shares * trade.nav + trade.fee,
-            "realized_profit": 0,
+            "realized_profit": position.realized_profit,
             "updated_at": _now(),
         },
     )
@@ -1160,18 +1160,36 @@ def _recalculate_position_from_trades(connection, position: FundPosition) -> Fun
         """,
         (position.id,),
     ).fetchall()
+    correction_trade_ids = _correction_backfill_trade_ids(connection, position.id)
     updated = position.model_copy(
         update={
             "shares": 0,
             "avg_cost_nav": 0,
             "invested_amount": 0,
-            "realized_profit": 0,
+            "realized_profit": position.realized_profit
+            if any(row["id"] in correction_trade_ids for row in rows)
+            else 0,
             "updated_at": _now(),
         },
     )
     for row in rows:
         updated = _position_after_trade(updated, _row_to_fund_trade(row))
     return updated.model_copy(update={"updated_at": _now()})
+
+
+def _correction_backfill_trade_ids(connection, position_id: str) -> set[str]:
+    rows = connection.execute(
+        """
+        SELECT source_trade_id
+        FROM fund_trade_records
+        WHERE fund_position_id = ?
+          AND action = 'correct'
+          AND is_system = 1
+          AND source_trade_id IS NOT NULL
+        """,
+        (position_id,),
+    ).fetchall()
+    return {row["source_trade_id"] for row in rows}
 
 
 def _position_after_trade(position: FundPosition, trade: FundTrade) -> FundPosition:

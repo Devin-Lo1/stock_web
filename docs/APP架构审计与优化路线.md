@@ -1,5 +1,46 @@
 # App 架构审计与优化路线
 
+## 0. 2026-07-09 架构审计结论
+
+当前代码整体仍可继续迭代，但新增了一个后备功能风险点：本地已经接入 `portfolio_strategy`，相关 router、schema、service、test 仍是未跟踪文件。该功能已决定暂作为后备保留，当前不进入主线开发。
+
+当前验证状态：
+
+```text
+Backend pytest: 155 passed
+Flutter analyze: No issues found
+Flutter test: 71 passed
+```
+
+当前架构风险：
+
+1. 本地 HEAD、文档记录的云端部署基线、服务器真实部署基线可能不同，部署前必须分别确认。
+2. `portfolio_strategy` 只在后端形成接口和测试，当前作为后备雏形，不推进移动端入口和部署。
+3. `backend/app/services/personalized_strategies.py`、`mobile_app/lib/screens/quant_screen.dart`、`mobile_app/lib/widgets/quant/quant_personalized_strategy_panel.dart` 仍是后续体量治理重点。
+4. `backend/app/db/seed.py` 的 `KNOWN_STOCK_NAMES` 仍残留 `????`，属于已知编码/历史数据修复风险。
+5. 通用回测引擎目前按信号 K 线收盘附近成交；专属策略研究文档要求 T 日收盘信号、T+1 开盘成交。比较结果前必须先统一口径。
+
+短期优化顺序：
+
+1. 先整理 dirty worktree 和未跟踪产物。
+2. 将组合建议接口保持为后备，不继续产品化。
+3. 继续专属策略研究重测、模板校准和配置治理。
+
+## 0. 2026-06-06 架构审计结论
+
+当前代码结构整体可继续开发，没有必要在交接节点做大规模重构。真正需要控制的风险是：
+
+1. 个股专属策略数量增多后，模板参数、回测文档和测试容易不同步。
+2. 策略研究容易过拟合，必须明确训练区间和验证区间，不能只看全周期最优。
+3. 后端 Futu、云端 PostgreSQL、App API 地址三者边界必须保持清楚，不能把本地环境误当生产。
+4. 中文文档和中文 UI 字符串必须继续按 UTF-8 处理，避免再次出现乱码。
+
+建议后续优化路线：
+
+- 短期不重构主框架，只补强专属策略模板的配置化和测试。
+- 中期可以把 `services/personalized_strategies.py` 中的模板配置拆成独立配置文件或数据表，但必须先建立测试保护。
+- 长期再考虑 AI/大模型辅助筛选因子，但大模型只能负责生成候选和解释，真实回测必须由后端确定性代码完成。
+
 最后更新：2026-05-26
 
 当前 Git 基线：

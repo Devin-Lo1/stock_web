@@ -1,0 +1,432 @@
+{
+  "meta": {
+    "target": "HK.09988",
+    "benchmark": "HK.800000",
+    "auxiliary_benchmark": null,
+    "range": "2021-01-04~2026-06-05",
+    "seed": 20260606,
+    "started_at": "2026-06-08T08:02:32",
+    "elapsed_seconds": 7.38,
+    "cost_model": {
+      "initial_cash": 100000.0,
+      "slippage_single_side": 0.0005,
+      "broker_commission_rate": 0.00138,
+      "broker_min_commission": 18.0,
+      "hk_stamp_duty_rate": 0.001,
+      "hk_sfc_transaction_levy_rate": 2.7e-05,
+      "hk_afrc_transaction_levy_rate": 1.5e-06,
+      "hk_trading_fee_rate": 5.65e-05,
+      "hk_ccass_settlement_fee_rate": 4.2e-05,
+      "hk_ccass_min": 2.0,
+      "hk_ccass_max": 100.0,
+      "fee_note": "Hong Kong stock approximation: broker commission plus HK stamp duty, SFC/AFRC levies, trading fee, and CCASS settlement fee; US SEC fee and TAF are not applied."
+    },
+    "no_future_function": true,
+    "selection_rule": "2026YTD is used only as final validation gate; ranking uses 2021-2025 training metrics.",
+    "split_adjustment": {
+      "known_event": "No known Alibaba HK split adjustment was required for the requested 2021-2026 window; the cloud OHLC series is still checked for split-like discontinuities before backtesting.",
+      "large_gap_count": 0,
+      "large_gaps": [],
+      "handling": "No additional split adjustment was applied because no split-like discontinuity was detected in the cloud OHLC series."
+    },
+    "execution": "Signal at T close, execution at T+1 open; final close forced at interval end.",
+    "current_app_note": "No existing App personalized strategy template was found for HK.09988."
+  },
+  "counts": {
+    "unique_tested": 2522,
+    "stage1_unique": 2000,
+    "local_refine_unique": 522,
+    "annual_review": 382,
+    "train_pass_2021_2025": 3,
+    "walk_forward_2024_pass": 3,
+    "walk_forward_2025_pass": 3,
+    "walk_forward_2026YTD_pass": 0,
+    "walk_forward_all_pass": 0,
+    "final_pass_dd15": 0,
+    "final_pass_dd18": 0,
+    "relaxed_used": true
+  },
+  "current_app": null,
+  "top3": [],
+  "closest": [
+    {
+      "strategy": "阿里巴巴 SMA12/97 steady",
+      "family": "ma_cross",
+      "direction": "long_short",
+      "formula": "Entry: 阿里巴巴 SMA12 crosses SMA97; short side symmetric. Filters: 阿里巴巴 close above/below SMA150; 阿里巴巴 ROC120 > 2%; 恒生指数 SMA120 filter; 阿里巴巴-恒生指数 ROC60 > -8%. Exit: qualified reverse signal; SMA100; trailing stop 15%; take profit 18%; max hold 50d.",
+      "parameters": {
+        "family": "ma_cross",
+        "direction": "long_short",
+        "benchmark_ma": 120,
+        "benchmark_ma_kind": "sma",
+        "exit_ma": 100,
+        "exit_ma_kind": "sma",
+        "long_window": 97,
+        "max_hold": 50,
+        "own_roc_days": 120,
+        "own_roc_min": 0.02,
+        "qqq_ma": 150,
+        "qqq_ma_kind": "sma",
+        "relative_days": 60,
+        "relative_min": -0.08,
+        "reverse_exit": true,
+        "short_window": 12,
+        "take_profit": 0.18,
+        "trailing_stop": 0.15
+      },
+      "full": {
+        "total_return": 0.93701587864537,
+        "max_drawdown": -0.10658027731292397,
+        "win_rate": 1.0,
+        "round_trips": 5,
+        "long_count": 3,
+        "short_count": 2,
+        "total_fees": 3569.93375894329
+      },
+      "train_full": {
+        "total_return": 0.9330740597945044,
+        "max_drawdown": -0.10510863917420543,
+        "win_rate": 1.0,
+        "round_trips": 4,
+        "long_count": 2,
+        "short_count": 2,
+        "total_fees": 2600.1700466517345
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.13354853383068788,
+          "max_drawdown": -0.10510863917420543,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 0,
+          "short_count": 1,
+          "total_fees": 465.2532916691241
+        },
+        "2023": {
+          "total_return": 0.14622665555818015,
+          "max_drawdown": -0.09160301728446418,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 0,
+          "short_count": 1,
+          "total_fees": 462.08283488719405
+        },
+        "2024": {
+          "total_return": 0.2296358954371973,
+          "max_drawdown": -0.06143560037292395,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 558.8711079564441
+        },
+        "2025": {
+          "total_return": 0.2099330422814616,
+          "max_drawdown": -0.005791574998248783,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 553.9191882074905
+        },
+        "2026YTD": {
+          "total_return": 0.002039145283075694,
+          "max_drawdown": -0.10658027731292397,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 501.66919750329976
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": true,
+          "total_return": 0.2296358954371973,
+          "max_drawdown": -0.06143560037292395,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 558.8711079564441
+        },
+        "2025": {
+          "pass": true,
+          "total_return": 0.2099330422814616,
+          "max_drawdown": -0.005791574998248783,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 553.9191882074905
+        },
+        "2026YTD": {
+          "pass": false,
+          "total_return": 0.002039145283075694,
+          "max_drawdown": -0.10658027731292397,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 501.66919750329976
+        },
+        "all_pass": false
+      },
+      "sample_warning": true
+    },
+    {
+      "strategy": "阿里巴巴 channel 53/31",
+      "family": "channel",
+      "direction": "long_short",
+      "formula": "Entry: 阿里巴巴 close breaks prior 53d high/low. Filters: 阿里巴巴 close above/below EMA100; 阿里巴巴 ROC60 > 8%; 恒生指数 ROC40 > 0%; 阿里巴巴-恒生指数 ROC60 > 4%; ATR50% <= 2.6%. Exit: SMA120; 31d opposite channel; trailing stop 6%; take profit 10%; max hold 30d.",
+      "parameters": {
+        "family": "channel",
+        "direction": "long_short",
+        "atr_days": 50,
+        "atr_pct_max": 0.026,
+        "benchmark_roc_days": 40,
+        "benchmark_roc_min": 0.0,
+        "entry_channel": 53,
+        "exit_channel": 31,
+        "exit_ma": 120,
+        "exit_ma_kind": "sma",
+        "max_hold": 30,
+        "own_roc_days": 60,
+        "own_roc_min": 0.08,
+        "qqq_ma": 100,
+        "qqq_ma_kind": "ema",
+        "relative_days": 60,
+        "relative_min": 0.04,
+        "reverse_exit": false,
+        "take_profit": 0.1,
+        "trailing_stop": 0.06,
+        "volume_ratio_min": 2.0,
+        "volume_window": 60
+      },
+      "full": {
+        "total_return": 0.5465538557192899,
+        "max_drawdown": -0.08225069446794231,
+        "win_rate": 0.8,
+        "round_trips": 5,
+        "long_count": 5,
+        "short_count": 0,
+        "total_fees": 3203.8309911852143
+      },
+      "train_full": {
+        "total_return": 0.5465538557192899,
+        "max_drawdown": -0.08225069446794231,
+        "win_rate": 0.8,
+        "round_trips": 5,
+        "long_count": 5,
+        "short_count": 0,
+        "total_fees": 3203.8309911852143
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0,
+          "round_trips": 0,
+          "long_count": 0,
+          "short_count": 0,
+          "total_fees": 0.0
+        },
+        "2023": {
+          "total_return": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0,
+          "round_trips": 0,
+          "long_count": 0,
+          "short_count": 0,
+          "total_fees": 0.0
+        },
+        "2024": {
+          "total_return": 0.26432362406836796,
+          "max_drawdown": -0.052680604914460694,
+          "win_rate": 0.6666666666666666,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 1815.6299917896977
+        },
+        "2025": {
+          "total_return": 0.2232262581179616,
+          "max_drawdown": -0.043406399808904816,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1097.9791668596158
+        },
+        "2026YTD": {
+          "total_return": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0,
+          "round_trips": 0,
+          "long_count": 0,
+          "short_count": 0,
+          "total_fees": 0.0
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": false,
+          "total_return": 0.26432362406836796,
+          "max_drawdown": -0.052680604914460694,
+          "win_rate": 0.6666666666666666,
+          "round_trips": 3,
+          "long_count": 3,
+          "short_count": 0,
+          "total_fees": 1815.6299917896977
+        },
+        "2025": {
+          "pass": false,
+          "total_return": 0.2232262581179616,
+          "max_drawdown": -0.043406399808904816,
+          "win_rate": 1.0,
+          "round_trips": 2,
+          "long_count": 2,
+          "short_count": 0,
+          "total_fees": 1097.9791668596158
+        },
+        "2026YTD": {
+          "pass": false,
+          "total_return": 0.0,
+          "max_drawdown": 0.0,
+          "win_rate": 0.0,
+          "round_trips": 0,
+          "long_count": 0,
+          "short_count": 0,
+          "total_fees": 0.0
+        },
+        "all_pass": false
+      },
+      "sample_warning": true
+    },
+    {
+      "strategy": "阿里巴巴 SMA12/99 steady",
+      "family": "ma_cross",
+      "direction": "long_short",
+      "formula": "Entry: 阿里巴巴 SMA12 crosses SMA99; short side symmetric. Filters: 阿里巴巴 close above/below SMA150; 阿里巴巴 ROC120 > 2%; 恒生指数 SMA120 filter; 阿里巴巴-恒生指数 ROC60 > -8%. Exit: qualified reverse signal; SMA100; trailing stop 15%; take profit 18%; max hold 50d.",
+      "parameters": {
+        "family": "ma_cross",
+        "direction": "long_short",
+        "benchmark_ma": 120,
+        "benchmark_ma_kind": "sma",
+        "exit_ma": 100,
+        "exit_ma_kind": "sma",
+        "long_window": 99,
+        "max_hold": 50,
+        "own_roc_days": 120,
+        "own_roc_min": 0.02,
+        "qqq_ma": 150,
+        "qqq_ma_kind": "sma",
+        "relative_days": 60,
+        "relative_min": -0.08,
+        "reverse_exit": true,
+        "short_window": 12,
+        "take_profit": 0.18,
+        "trailing_stop": 0.15
+      },
+      "full": {
+        "total_return": 0.9188425458205982,
+        "max_drawdown": -0.10657982302061586,
+        "win_rate": 0.8,
+        "round_trips": 5,
+        "long_count": 3,
+        "short_count": 2,
+        "total_fees": 3565.366253668395
+      },
+      "train_full": {
+        "total_return": 0.9330740597945044,
+        "max_drawdown": -0.10510863917420543,
+        "win_rate": 1.0,
+        "round_trips": 4,
+        "long_count": 2,
+        "short_count": 2,
+        "total_fees": 2600.1700466517345
+      },
+      "years": {
+        "2022": {
+          "total_return": 0.13354853383068788,
+          "max_drawdown": -0.10510863917420543,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 0,
+          "short_count": 1,
+          "total_fees": 465.2532916691241
+        },
+        "2023": {
+          "total_return": 0.14622665555818015,
+          "max_drawdown": -0.09160301728446418,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 0,
+          "short_count": 1,
+          "total_fees": 462.08283488719405
+        },
+        "2024": {
+          "total_return": 0.2296358954371973,
+          "max_drawdown": -0.06143560037292395,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 558.8711079564441
+        },
+        "2025": {
+          "total_return": 0.2099330422814616,
+          "max_drawdown": -0.005791574998248783,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 553.9191882074905
+        },
+        "2026YTD": {
+          "total_return": -0.007362115228745414,
+          "max_drawdown": -0.10657982302061586,
+          "win_rate": 0.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 499.30637790425135
+        }
+      },
+      "walk_forward": {
+        "2024": {
+          "pass": true,
+          "total_return": 0.2296358954371973,
+          "max_drawdown": -0.06143560037292395,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 558.8711079564441
+        },
+        "2025": {
+          "pass": true,
+          "total_return": 0.2099330422814616,
+          "max_drawdown": -0.005791574998248783,
+          "win_rate": 1.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 553.9191882074905
+        },
+        "2026YTD": {
+          "pass": false,
+          "total_return": -0.007362115228745414,
+          "max_drawdown": -0.10657982302061586,
+          "win_rate": 0.0,
+          "round_trips": 1,
+          "long_count": 1,
+          "short_count": 0,
+          "total_fees": 499.30637790425135
+        },
+        "all_pass": false
+      },
+      "sample_warning": true
+    }
+  ]
+}

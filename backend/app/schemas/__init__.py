@@ -79,6 +79,15 @@ from .personalized_strategies import (
     PersonalizedStrategySegment,
     PersonalizedStrategyTemplate,
 )
+from .portfolio_strategy import (
+    PortfolioStrategyAction,
+    PortfolioStrategyAsset,
+    PortfolioStrategyMetric,
+    PortfolioStrategyPriority,
+    PortfolioStrategyResult,
+    PortfolioStrategyStatus,
+    PortfolioStrategySuggestion,
+)
 from .strategies import (
     SignalScanConfig,
     SignalScanConfigCreate,
@@ -161,6 +170,13 @@ __all__ = [
     "PersonalizedStrategyScanResult",
     "PersonalizedStrategySegment",
     "PersonalizedStrategyTemplate",
+    "PortfolioStrategyAction",
+    "PortfolioStrategyAsset",
+    "PortfolioStrategyMetric",
+    "PortfolioStrategyPriority",
+    "PortfolioStrategyResult",
+    "PortfolioStrategyStatus",
+    "PortfolioStrategySuggestion",
     "SignalEvent",
     "SignalEventCreate",
     "SignalReadStatus",

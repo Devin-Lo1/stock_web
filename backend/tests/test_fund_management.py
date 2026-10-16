@@ -178,6 +178,98 @@ def test_fund_strategy_reference_ignores_holding_correction() -> None:
     assert summary.grid_recommendation.baseline_nav == 1.0
 
 
+def test_fund_holding_correction_keeps_day_profit_shares_on_latest_nav_date() -> None:
+    position = create_fund_position(
+        FundPositionCreate(
+            fund_code="022366",
+            name="Yongying Tech Mirror",
+            fund_type="mixed",
+            shares=1000,
+            cost_nav=1.0,
+            trade_date=date(2026, 6, 2),
+            alert_threshold_percent=5,
+        ),
+    )
+
+    synced = sync_fund_position_holding(
+        get_fund_position(position.id) or position,
+        FundPositionHoldingSync(
+            shares=900,
+            cost_nav=1.0,
+            trade_date=date(2026, 6, 12),
+            note="correct current holding",
+        ),
+    )
+    latest = FundNavPoint(
+        fund_code="022366",
+        nav_date=date(2026, 6, 12),
+        unit_nav=1.1,
+        daily_growth_rate=10,
+        updated_at=_now(),
+    )
+    summary = _build_fund_summary(
+        synced,
+        latest,
+        trades=list_fund_trades(position_id=position.id, limit=10),
+        trade_records=list_fund_trade_records(position_id=position.id, limit=10),
+    )
+
+    assert round(summary.day_profit, 2) == 90
+    assert summary.strategy_reference is not None
+    assert summary.strategy_reference.source == "system_trade_record"
+    assert summary.strategy_reference.trade_date == date(2026, 6, 2)
+
+
+def test_fund_holding_correction_preserves_realized_profit() -> None:
+    position = create_fund_position(
+        FundPositionCreate(
+            fund_code="022367",
+            name="Realized Profit Fund",
+            fund_type="mixed",
+            shares=1000,
+            cost_nav=1.0,
+            trade_date=date(2026, 6, 2),
+        ),
+    )
+    create_fund_trade_for_position(
+        position,
+        FundTradeCreate(
+            action="sell",
+            shares=200,
+            nav=1.5,
+            trade_date=date(2026, 6, 8),
+        ),
+    )
+    before_sync = get_fund_position(position.id)
+    assert before_sync is not None
+    assert round(before_sync.realized_profit, 2) == 100
+
+    synced = sync_fund_position_holding(
+        before_sync,
+        FundPositionHoldingSync(
+            shares=700,
+            cost_nav=1.1,
+            trade_date=date(2026, 6, 12),
+            note="correct current holding",
+        ),
+    )
+
+    assert round(synced.realized_profit, 2) == 100
+
+    create_fund_trade_for_position(
+        synced,
+        FundTradeCreate(
+            action="sell",
+            shares=100,
+            nav=1.3,
+            trade_date=date(2026, 6, 15),
+        ),
+    )
+    after_trade = get_fund_position(position.id)
+    assert after_trade is not None
+    assert round(after_trade.realized_profit, 2) == 120
+
+
 def test_fund_trades_can_be_listed_by_position() -> None:
     position = create_fund_position(
         FundPositionCreate(

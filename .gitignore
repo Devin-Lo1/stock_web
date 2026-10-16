@@ -48,3 +48,6 @@ ppt_preview/
 # Local push provider config
 mobile_app/android/app/google-services.json
 mobile_app/android/app/agconnect-services.json
+
+# Runtime logs
+*.log

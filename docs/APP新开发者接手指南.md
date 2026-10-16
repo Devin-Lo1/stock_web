@@ -1,5 +1,58 @@
 # App 新开发者接手指南
 
+## 0. 2026-07-09 当前接手快照
+
+当前本地仓库已完成一轮代码、文档和测试核对。本节优先于后续历史交接段落。
+
+当前本地代码基线：
+
+```text
+fbc5ad1 fix: reprice fund trades when confirmed nav arrives
+```
+
+当前验证结果：
+
+```text
+Backend pytest: 155 passed
+Flutter analyze: No issues found
+Flutter test: 71 passed
+```
+
+当前必须先处理的接手事项：
+
+1. 先运行 `git status --short --branch`，确认当前工作区仍有未提交修改和未跟踪文件。
+2. `backend/app/routers/portfolio_strategy.py`、`backend/app/schemas/portfolio_strategy.py`、`backend/app/services/us_portfolio_strategy.py`、`backend/tests/test_us_portfolio_strategy.py` 已决定暂作为后备功能保留；当前不要继续做移动端入口或部署推进。
+3. 确认 `scripts/research_*_tmp.*` 研究脚本和结果哪些需要保留用于策略研究追溯，哪些只是临时产物。
+4. 不要把本地 HEAD 直接等同云端部署基线；云端仍需单独登录服务器确认 `git rev-parse --short HEAD`。
+
+当前后端入口 `backend/app/main.py` 已挂载：
+
+```text
+health, positions, quotes, klines, notifications, signals, stocks, futu,
+strategies, backtests, personalized_strategies, portfolio_strategy, funds
+```
+
+其中 `portfolio_strategy` 是本地新增的美股组合建议接口：`GET /api/v1/portfolio-strategy/us?cash=...`。它根据现有美股持仓和手工输入现金计算组合权重、风险指标和人工确认建议；当前作为后备雏形，不接移动端完整入口。
+
+下一步开发顺序：
+
+1. 先把文档、未跟踪代码和研究临时产物整理成可接手基线。
+2. 将组合建议功能保持为后备，不继续完善；后续用户重新启用时再补齐移动端入口和部署验证。
+3. 继续 `docs/us_stock_strategy_research_20260602.md` 所述的专属策略重测和模板校准。
+
+## 0. 2026-06-06 最新交接快照
+
+当前项目已经完成后端、移动端和文档的交接前全量梳理。代码层面重点如下：
+
+- 后端入口是 `backend/app/main.py`，FastAPI 挂载 `health`、`positions`、`quotes`、`klines`、`notifications`、`signals`、`stocks`、`futu`、`strategies`、`backtests`、`personalized_strategies`、`funds` 等路由。
+- 后端结构是 router 编排请求、service 放业务、repository/db 负责持久化，schema 统一前后端 JSON 合约。
+- 移动端入口是 `mobile_app/lib/main.dart` 和 `mobile_app/lib/screens/app_shell.dart`。`AppShell` 组装各 repository/service，再分发到首页、持仓、量化、信号、设置、基金等页面。
+- 量化页已经拆成五个入口：个股专属策略、策略及参数设置、历史回测、批量回测、价值区回归。
+- 个股专属策略在后端 `backend/app/services/personalized_strategies.py` 维护模板和扫描逻辑，在移动端 `mobile_app/lib/widgets/quant/quant_personalized_strategy_panel.dart` 展示稳健/进取双模板、筛选和集体扫描。
+- 当前已部署代码基线是 `82527d6 feat: update qqq personalized strategies`。若本交接文档后续另有提交，以新的提交为文档基线。
+
+下一位开发者接手后第一件事不是改 App，而是重测并校准当前 App 已有个股专属策略。参考 `docs/us_stock_strategy_research_20260602.md` 的现有模板记录和回测口径，先做研究输出，再由用户决定是否写入 App。
+
 最后更新：2026-05-26
 
 当前代码功能基线：
